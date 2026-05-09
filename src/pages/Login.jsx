@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import appLogo from '../assets/images/app-logo.png';
+import logo from '../assets/images/app-logo.png';
 import { showToast } from '../lib/toast';
 
 export default function Login() {
@@ -19,7 +19,7 @@ export default function Login() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-      <img src={appLogo} alt="VratiMe" className="w-32 h-32 mb-6" />
+      <img src={logo} alt="VratiMe" className="w-32 h-32 mb-6" />
       <h1 className="text-3xl font-bold mb-2">VratiMe</h1>
       <p className="text-gray-600 mb-8 text-center">Обменивайся тарой. Спасай природу Черногории.</p>
 
