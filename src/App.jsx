@@ -22,8 +22,8 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
 
   async function checkProfile(userId) {
-    const { data } = await supabase.from('profiles').select('full_name, phone').eq('id', userId).single();
-    if (data?.full_name && data?.phone) setIsProfileComplete(true);
+    const { data } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+    if (data?.id) setIsProfileComplete(true);
     setLoading(false);
   }
 

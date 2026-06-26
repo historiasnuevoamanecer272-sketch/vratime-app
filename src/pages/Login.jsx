@@ -7,6 +7,7 @@ import Icon from '../components/Icon';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -17,7 +18,7 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: redirectTo,
         },
       });
       if (error) throw error;
@@ -29,6 +30,24 @@ export default function Login() {
           : error.error_description || error.message;
       showToast(message, 'error');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOAuthLogin = async (provider) => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+        },
+      });
+      if (error) throw error;
+    } catch (error) {
+      showToast(error.error_description || error.message, 'error');
       setIsLoading(false);
     }
   };
@@ -54,17 +73,17 @@ export default function Login() {
           <form onSubmit={handleLogin} className="mt-6 flex flex-col gap-4">
             <label className="space-y-2">
               <span className="text-sm font-bold text-gray-700">Email для входа</span>
-              <div className="relative">
-                <Icon name="mail" size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="field pl-12"
-                  required
-                />
-              </div>
+              <input
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="field"
+                required
+              />
             </label>
 
             <button type="submit" disabled={isLoading} className="btn-primary w-full">
@@ -72,8 +91,27 @@ export default function Login() {
               {isLoading ? 'Отправляем ссылку...' : 'Войти по Magic Link'}
             </button>
 
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleOAuthLogin('google')}
+                className="btn-ghost w-full text-sm"
+              >
+                Google
+              </button>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => handleOAuthLogin('facebook')}
+                className="btn-ghost w-full text-sm"
+              >
+                Facebook
+              </button>
+            </div>
+
             <p className="px-2 text-center text-xs font-medium leading-5 text-gray-500">
-              Мы пришлём безопасную ссылку на почту. Пароль не нужен.
+              Если письмо не пришло, проверь папку «Спам» или войди через соцсеть.
             </p>
           </form>
         </section>
