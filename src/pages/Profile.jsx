@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { showToast } from '../lib/toast';
+import Icon from '../components/Icon';
 
 const getBadgeUrl = (name) => new URL(`../assets/icons/${name}`, import.meta.url).href;
 
@@ -139,7 +140,7 @@ export default function Profile() {
         phone: editForm.phone.trim(),
       }));
       setIsEditing(false);
-      showToast('Профиль обновлен', 'success');
+      showToast('Профиль обновлён', 'success');
     } catch (e) {
       console.error('Ошибка обновления профиля:', e);
       showToast('Не удалось сохранить профиль: ' + e.message, 'error');
@@ -172,8 +173,27 @@ export default function Profile() {
     }
   }
 
-  if (loading) return <div className="flex h-screen items-center justify-center">Загрузка...</div>;
-  if (!profile) return <div className="flex h-screen items-center justify-center">Ошибка загрузки профиля</div>;
+  if (loading) {
+    return (
+      <div className="app-screen flex min-h-screen items-center justify-center px-5 pb-28">
+        <div className="card w-full max-w-sm p-6 text-center">
+          <Icon name="user" size={42} className="mx-auto text-emerald-600" />
+          <p className="mt-4 text-lg font-black text-gray-950">Загружаем профиль...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="app-screen flex min-h-screen items-center justify-center px-5 pb-28">
+        <div className="card w-full max-w-sm p-6 text-center">
+          <Icon name="close" size={42} className="mx-auto text-red-500" />
+          <p className="mt-4 text-lg font-black text-gray-950">Ошибка загрузки профиля</p>
+        </div>
+      </div>
+    );
+  }
 
   const displayRating = profile.rating ?? 5.0;
   const displayEcoPoints = profile.eco_points ?? 0;
@@ -205,278 +225,254 @@ export default function Profile() {
   const levelProgress = Math.min(((displayEcoPoints - currentLevel.threshold) / 100) * 100, 100);
 
   const achievements = [
-    { icon: getBadgeUrl('badge-first.png'), label: 'Первая сделка', unlocked: false },
-    { icon: getBadgeUrl('badge-glass-king.png'), label: 'Стекло', unlocked: false },
+    { icon: getBadgeUrl('badge-first.png'), label: 'Первая сделка', unlocked: completedDealsCount > 0 },
+    { icon: getBadgeUrl('badge-glass-king.png'), label: 'Стекло', unlocked: glassDealsCount > 0 },
     { icon: getBadgeUrl('badge-egg-master.png'), label: 'Ячейки', unlocked: false },
-    { icon: getBadgeUrl('badge-cloth-pro.png'), label: 'Текстиль', unlocked: false },
-    { icon: getBadgeUrl('badge-fast.png'), label: 'Пунктуальность', unlocked: false },
-    { icon: getBadgeUrl('badge-star.png'), label: 'Рейтинг', unlocked: false },
+    { icon: getBadgeUrl('badge-cloth-pro.png'), label: 'Текстиль', unlocked: clothDealsCount > 0 },
+    { icon: getBadgeUrl('badge-fast.png'), label: 'Пунктуальность', unlocked: completedDealsCount >= 3 },
+    { icon: getBadgeUrl('badge-star.png'), label: 'Рейтинг', unlocked: ratingValue >= 5 && completedDealsCount > 0 },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-gray-50 pb-24">
-      <div className="p-4 pt-6">
-        <div className="mx-auto max-w-md rounded-3xl border border-emerald-100 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)]">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-2xl font-bold text-white">
-                {initials}
+    <div className="app-screen min-h-screen pb-28">
+      <main className="app-container px-4 py-5">
+        <section className="card overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-sky-500 p-5 text-white">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-white/20 text-2xl font-black ring-1 ring-white/30">
+                  {initials}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/75">Профиль</p>
+                  {!isEditing ? (
+                    <>
+                      <h1 className="mt-1 truncate text-3xl font-black tracking-tight">{profile.full_name}</h1>
+                      <p className="mt-1 truncate text-sm font-semibold text-white/80">
+                        {messengerLabels[profile.messenger_type] || 'Мессенджер не указан'}
+                        {profile.phone ? ` / ${profile.phone}` : ''}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-2xl font-black">Редактирование</p>
+                  )}
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-emerald-600">Профиль</p>
-                {!isEditing ? (
-                  <>
-                    <h1 className="truncate text-3xl font-bold text-gray-900">{profile.full_name}</h1>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {messengerLabels[profile.messenger_type] || 'Мессенджер не указан'}
-                      {profile.phone ? ` • ${profile.phone}` : ''}
-                    </p>
-                  </>
-                ) : (
-                  <div className="mt-3 space-y-3">
-                    <input
-                      type="text"
-                      value={editForm.full_name}
-                      onChange={(e) => setEditForm((current) => ({ ...current, full_name: e.target.value }))}
-                      placeholder="Имя"
-                      className="w-full rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-emerald-500"
-                    />
-                    <select
-                      value={editForm.messenger_type}
-                      onChange={(e) => setEditForm((current) => ({ ...current, messenger_type: e.target.value }))}
-                      className="w-full rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-emerald-500"
-                    >
-                      <option value="wa">WhatsApp</option>
-                      <option value="viber">Viber</option>
-                      <option value="tg">Telegram</option>
-                    </select>
-                    <input
-                      type="tel"
-                      value={editForm.phone}
-                      onChange={(e) => setEditForm((current) => ({ ...current, phone: e.target.value }))}
-                      placeholder="Телефон"
-                      className="w-full rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-gray-900 outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {!isEditing ? (
-              <button
-                type="button"
-                onClick={startEditing}
-                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"
-              >
-                <span>✏️</span>
-                <span>Редактировать</span>
-              </button>
-            ) : null}
+              {!isEditing ? (
+                <button
+                  type="button"
+                  onClick={startEditing}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-white ring-1 ring-white/25"
+                  aria-label="Редактировать"
+                >
+                  <Icon name="edit" size={20} />
+                </button>
+              ) : null}
+            </div>
           </div>
 
-          {isEditing ? (
-            <div className="mt-4 flex gap-3">
-              <button
-                type="button"
-                onClick={handleSaveProfile}
-                disabled={savingProfile}
-                className="flex-1 rounded-2xl bg-emerald-600 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {savingProfile ? 'Сохраняем...' : 'Сохранить'}
-              </button>
-              <button
-                type="button"
-                onClick={cancelEditing}
-                disabled={savingProfile}
-                className="flex-1 rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-              >
-                Отмена
-              </button>
-            </div>
-          ) : (
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Рейтинг</p>
-                <p className="mt-2 text-3xl font-bold text-yellow-500">{ratingValue.toFixed(1)}</p>
-              </div>
-              <div className="rounded-2xl bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Эко-баллы</p>
-                <p className="mt-2 text-3xl font-bold text-emerald-600">{displayEcoPoints}</p>
-              </div>
-            </div>
-          )}
-
-          {!isEditing ? (
-            <>
-              <div className="mt-6">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-bold uppercase tracking-wide text-gray-600">Эко-статус</h2>
-                  <span className="text-sm font-semibold text-emerald-700">{displayEcoPoints} баллов</span>
+          <div className="p-5">
+            {isEditing ? (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm((current) => ({ ...current, full_name: e.target.value }))}
+                  placeholder="Имя"
+                  className="field"
+                />
+                <select
+                  value={editForm.messenger_type}
+                  onChange={(e) => setEditForm((current) => ({ ...current, messenger_type: e.target.value }))}
+                  className="field"
+                >
+                  <option value="wa">WhatsApp</option>
+                  <option value="viber">Viber</option>
+                  <option value="tg">Telegram</option>
+                </select>
+                <input
+                  type="tel"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((current) => ({ ...current, phone: e.target.value }))}
+                  placeholder="Телефон"
+                  className="field"
+                />
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <button type="button" onClick={handleSaveProfile} disabled={savingProfile} className="btn-primary">
+                    {savingProfile ? 'Сохраняем...' : 'Сохранить'}
+                  </button>
+                  <button type="button" onClick={cancelEditing} disabled={savingProfile} className="btn-ghost">
+                    Отмена
+                  </button>
                 </div>
-                <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all duration-500"
-                    style={{ width: `${ecoProgress}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-gray-500">
-                  {Math.max(maxEcoPoints - displayEcoPoints, 0)} баллов до следующего уровня
-                </p>
               </div>
-
-              <div className="mt-6 rounded-2xl bg-emerald-50 p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Текущий уровень</p>
-                    <h3 className="mt-1 text-xl font-bold text-gray-900">{currentLevel.name}</h3>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-[20px] bg-amber-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-amber-700">Рейтинг</p>
+                    <p className="mt-2 flex items-center gap-2 text-3xl font-black text-amber-500">
+                      <Icon name="star" size={27} filled />
+                      {ratingValue.toFixed(1)}
+                    </p>
                   </div>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700 shadow-sm">
-                    {displayEcoPoints} XP
-                  </span>
-                </div>
-                <div className="mt-4">
-                  <div className="mb-2 flex items-center justify-between text-xs text-gray-600">
-                    <span>Прогресс к следующему уровню</span>
-                    <span>{nextLevel.name}</span>
+                  <div className="rounded-[20px] bg-emerald-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Эко-баллы</p>
+                    <p className="mt-2 text-3xl font-black text-emerald-700">{displayEcoPoints}</p>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-emerald-100">
+                </div>
+
+                <div className="mt-5 rounded-[22px] bg-gray-50 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="section-title">Текущий уровень</p>
+                      <h2 className="mt-1 text-xl font-black text-gray-950">{currentLevel.name}</h2>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-emerald-700 shadow-sm">
+                      {displayEcoPoints} XP
+                    </span>
+                  </div>
+                  <div className="h-3 overflow-hidden rounded-full bg-gray-200">
                     <div
-                      className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-green-500 transition-all duration-500"
                       style={{ width: `${levelProgress}%` }}
                     />
                   </div>
+                  <p className="mt-2 text-xs font-semibold text-gray-500">
+                    Следующий уровень: {nextLevel.name}
+                  </p>
                 </div>
-              </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Завершено сделок</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900">{completedDealsCount}</p>
-                </div>
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Категорий</p>
-                  <p className="mt-2 text-3xl font-bold text-gray-900">{uniqueCategories}</p>
-                </div>
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Стекло</p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">{glassDealsCount}</p>
-                </div>
-                <div className="rounded-2xl bg-gray-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Текстиль</p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">{clothDealsCount}</p>
-                </div>
-              </div>
-            </>
-          ) : null}
-
-          {!isEditing ? (
-            <button
-              onClick={handleSignOut}
-              className="mt-6 w-full rounded-2xl bg-red-600 py-4 text-lg font-bold text-white transition hover:bg-red-700"
-            >
-              Выйти
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="m-4 rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="mb-2 text-sm font-bold text-gray-600">ДОСТИЖЕНИЯ</h2>
-        <p className="mb-4 text-xs text-gray-500">Серые бейджи еще не открыты. Выполняй условия, чтобы они загорелись цветом.</p>
-        <div className="grid grid-cols-3 gap-4">
-          {achievements.map((achievement, idx) => (
-            <div key={idx} className="flex flex-col items-center rounded-2xl bg-gray-50 p-4 transition hover:bg-emerald-50">
-              <img
-                src={achievement.icon}
-                alt={achievement.label}
-                className={`mb-2 h-12 w-12 object-contain ${achievement.unlocked === false ? 'grayscale opacity-50' : ''}`}
-              />
-              <span className="text-center text-xs font-medium text-gray-700">{achievement.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="m-4 rounded-2xl bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-gray-600">МОИ ОБЪЯВЛЕНИЯ</h2>
-          <span className="text-xs font-medium text-gray-400">{myListings.length} шт.</span>
-        </div>
-
-        {myListingsLoading ? (
-          <p className="text-sm text-gray-500">Загружаем ваши объявления...</p>
-        ) : myListings.length === 0 ? (
-          <p className="text-sm text-gray-500">Вы еще ничего не отдавали. Начните спасать планету!</p>
-        ) : (
-          <div className="space-y-3">
-            {myListings.map((listing) => (
-              <div key={listing.id} className="rounded-2xl bg-gray-50 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    {listing.image_url ? (
-                      <img src={listing.image_url} alt="Фото лота" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
-                    ) : null}
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900">{listing.category || listing.category_path}</p>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {new Date(listing.created_at).toLocaleDateString('ru-RU')}
-                      </p>
+                <div className="mt-5 grid grid-cols-4 gap-2 text-center">
+                  {[
+                    ['Сделок', completedDealsCount],
+                    ['Категорий', uniqueCategories],
+                    ['Стекло', glassDealsCount],
+                    ['Текстиль', clothDealsCount],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl bg-gray-50 px-2 py-3">
+                      <p className="text-xl font-black text-gray-950">{value}</p>
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-gray-400">{label}</p>
                     </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-bold ${
-                      listing.type === 'give' ? 'bg-emerald-100 text-emerald-700' : 'bg-sky-100 text-sky-700'
-                    }`}
-                  >
-                    {listing.type === 'give' ? 'Отдаю' : 'Заберу'}
-                  </span>
+                  ))}
                 </div>
-                <button
-                  onClick={() => handleDeleteListing(listing.id)}
-                  disabled={deletingListingId === listing.id}
-                  className="mt-3 w-full rounded-xl bg-red-600 py-3 text-sm font-bold text-white transition hover:bg-red-700 disabled:opacity-50"
-                >
-                  {deletingListingId === listing.id ? 'Удаляем...' : 'Снять с публикации'}
+
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-emerald-500"
+                    style={{ width: `${ecoProgress}%` }}
+                  />
+                </div>
+                <button type="button" onClick={handleSignOut} className="btn-danger mt-5 w-full">
+                  <Icon name="logout" size={20} />
+                  Выйти
                 </button>
+              </>
+            )}
+          </div>
+        </section>
+
+        <section className="mt-4 card p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="section-title">Достижения</p>
+              <h2 className="mt-1 text-xl font-black text-gray-950">Бейджи</h2>
+            </div>
+            <Icon name="award" size={26} className="text-emerald-600" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {achievements.map((achievement) => (
+              <div key={achievement.label} className={`rounded-[20px] p-3 text-center ${achievement.unlocked ? 'bg-emerald-50' : 'bg-gray-50'}`}>
+                <img
+                  src={achievement.icon}
+                  alt={achievement.label}
+                  className={`mx-auto mb-2 h-12 w-12 object-contain ${achievement.unlocked ? '' : 'grayscale opacity-45'}`}
+                />
+                <span className="text-xs font-black leading-4 text-gray-700">{achievement.label}</span>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </section>
 
-      <div className="m-4 rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-bold text-gray-600">КАК ОТКРЫВАЮТСЯ БЕЙДЖИ</h2>
-        <div className="space-y-3 text-sm text-gray-600">
-          <p><span className="font-semibold text-gray-900">Первая сделка</span> - получи хотя бы 1 эко-балл.</p>
-          <p><span className="font-semibold text-gray-900">Стекло</span> - закрой хотя бы одну сделку категории glass.</p>
-          <p><span className="font-semibold text-gray-900">Рейтинг</span> - держи рейтинг 5.0 и заверши хотя бы одну сделку.</p>
-          <p><span className="font-semibold text-gray-900">Текстиль</span> - закрой хотя бы одну сделку категории cloth.</p>
-        </div>
-      </div>
-
-      <div className="m-4 rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-bold text-gray-600">ПОСЛЕДНИЕ ОТЗЫВЫ</h2>
-        {reviews.length === 0 ? (
-          <p className="text-sm text-gray-500">Пока отзывов нет.</p>
-        ) : (
-          <div className="space-y-3">
-            {reviews.map((review) => (
-              <div key={review.id} className="rounded-2xl bg-gray-50 p-4">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-gray-800">{review.from_user?.full_name || 'Партнер'}</p>
-                  <span className="font-bold text-yellow-500">{review.rating.toFixed(1)} звёзд</span>
-                </div>
-                <p className="mt-1 text-sm text-gray-500">
-                  {new Date(review.created_at).toLocaleDateString('ru-RU')}
-                </p>
-              </div>
-            ))}
+        <section className="mt-4 card p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="section-title">Публикации</p>
+              <h2 className="mt-1 text-xl font-black text-gray-950">Мои объявления</h2>
+            </div>
+            <span className="chip h-8 min-h-8 px-3 text-xs">{myListings.length} шт.</span>
           </div>
-        )}
-      </div>
+
+          {myListingsLoading ? (
+            <p className="text-sm font-medium text-gray-500">Загружаем ваши объявления...</p>
+          ) : myListings.length === 0 ? (
+            <p className="rounded-2xl bg-gray-50 p-4 text-sm font-medium leading-6 text-gray-500">
+              Вы ещё ничего не отдавали. Создайте первый лот на карте.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {myListings.map((listing) => (
+                <article key={listing.id} className="rounded-[20px] bg-gray-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      {listing.image_url ? (
+                        <img src={listing.image_url} alt="Фото лота" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                      ) : (
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700">
+                          <Icon name="box" size={24} />
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-black text-gray-950">{listing.category || listing.category_path}</p>
+                        <p className="mt-1 text-sm font-medium text-gray-500">
+                          {new Date(listing.created_at).toLocaleDateString('ru-RU')}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`chip h-8 min-h-8 px-3 text-xs ${listing.type === 'give' ? 'chip-active' : 'border-sky-200 bg-sky-50 text-sky-700'}`}>
+                      {listing.type === 'give' ? 'Отдаю' : 'Заберу'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteListing(listing.id)}
+                    disabled={deletingListingId === listing.id}
+                    className="btn-danger mt-3 w-full text-sm"
+                  >
+                    {deletingListingId === listing.id ? 'Удаляем...' : 'Снять с публикации'}
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-4 card p-5">
+          <p className="section-title">Отзывы</p>
+          <h2 className="mt-1 text-xl font-black text-gray-950">Последние оценки</h2>
+          {reviews.length === 0 ? (
+            <p className="mt-4 rounded-2xl bg-gray-50 p-4 text-sm font-medium text-gray-500">Пока отзывов нет.</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {reviews.map((review) => (
+                <article key={review.id} className="rounded-[20px] bg-gray-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="truncate font-black text-gray-900">{review.from_user?.full_name || 'Партнёр'}</p>
+                    <span className="flex items-center gap-1 font-black text-amber-500">
+                      <Icon name="star" size={17} filled />
+                      {Number(review.rating).toFixed(1)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm font-medium text-gray-500">
+                    {new Date(review.created_at).toLocaleDateString('ru-RU')}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }

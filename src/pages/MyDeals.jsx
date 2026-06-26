@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import successImg from '../assets/images/ill-success.png';
 import { showToast } from '../lib/toast';
+import Icon from '../components/Icon';
 
 const confettiColors = ['#22c55e', '#16a34a', '#86efac', '#f59e0b', '#ef4444', '#38bdf8'];
 
@@ -56,7 +57,7 @@ export default function MyDeals() {
 
   const openMessenger = (user) => {
     if (!user?.phone) {
-      showToast('Номер телефона партнера не указан', 'error');
+      showToast('Номер телефона партнёра не указан', 'error');
       return;
     }
 
@@ -147,81 +148,106 @@ export default function MyDeals() {
       await fetchDeals();
       showToast('Отзыв отправлен', 'success');
     } catch {
-      setReviewError('Не удалось отправить отзыв. Проверь соединение и попробуй еще раз.');
+      setReviewError('Не удалось отправить отзыв. Проверь соединение и попробуй ещё раз.');
       showToast('Не удалось отправить отзыв', 'error');
     } finally {
       setSubmittingReview(false);
     }
   }
 
-  if (loading) return <div className="p-10 text-center">Загрузка сделок...</div>;
+  if (loading) {
+    return (
+      <div className="app-screen flex min-h-screen items-center justify-center px-5 pb-28">
+        <div className="card w-full max-w-sm p-6 text-center">
+          <Icon name="deals" size={42} className="mx-auto text-emerald-600" />
+          <p className="mt-4 text-lg font-black text-gray-950">Загружаем сделки...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50 p-4 pb-24">
-      <h2 className="mb-6 mt-4 text-2xl font-bold">Мои сделки</h2>
+    <div className="app-screen min-h-screen pb-28">
+      <main className="app-container px-4 py-5">
+        <header className="mb-5">
+          <p className="section-title">Обмены</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Мои сделки</h1>
+          <p className="mt-2 text-sm font-medium text-gray-600">Здесь хранятся брони и контакты партнёров.</p>
+        </header>
 
-      {deals.length === 0 ? (
-        <div className="mt-20 flex flex-col items-center text-gray-400">
-          <span className="mb-4 text-6xl">📭</span>
-          <p>У вас пока нет активных сделок</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {deals.map((deal) => {
-            const isGiver = deal.giver_id === currentUserId;
-            const partner = isGiver ? deal.taker : deal.giver;
-            const dealStatus = deal.listings?.status === 'reserved' ? 'Ожидает передачи' : 'Активна';
+        {deals.length === 0 ? (
+          <section className="card mt-12 p-7 text-center">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[26px] bg-emerald-100 text-emerald-700">
+              <Icon name="empty" size={40} />
+            </div>
+            <h2 className="mt-5 text-2xl font-black text-gray-950">Активных сделок пока нет</h2>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Забронируйте лот на карте или дождитесь, пока кто-то откликнется на ваше объявление.
+            </p>
+          </section>
+        ) : (
+          <section className="space-y-4">
+            {deals.map((deal) => {
+              const isGiver = deal.giver_id === currentUserId;
+              const partner = isGiver ? deal.taker : deal.giver;
+              const dealStatus = deal.listings?.status === 'reserved' ? 'Ожидает передачи' : 'Активна';
 
-            return (
-              <div key={deal.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <div className="mb-3 flex items-start justify-between">
-                  <div>
-                    <span className={`rounded px-2 py-1 text-xs font-bold uppercase ${isGiver ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {isGiver ? 'Отдаю' : 'Забираю'}
-                    </span>
-                    <span className="ml-2 rounded bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
-                      {dealStatus}
-                    </span>
-                    <h3 className="mt-2 text-lg font-bold">{deal.listings.category}</h3>
-                    <p className="text-sm text-gray-500">{deal.listings.quantity} шт.</p>
+              return (
+                <article key={deal.id} className="card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`chip h-8 min-h-8 px-3 text-xs ${isGiver ? 'chip-active' : 'border-sky-200 bg-sky-50 text-sky-700'}`}>
+                          <Icon name={isGiver ? 'gift' : 'truck'} size={14} />
+                          {isGiver ? 'Отдаю' : 'Забираю'}
+                        </span>
+                        <span className="chip h-8 min-h-8 px-3 text-xs">{dealStatus}</span>
+                      </div>
+                      <h2 className="mt-3 truncate text-xl font-black text-gray-950">{deal.listings.category}</h2>
+                      <p className="mt-1 text-sm font-medium text-gray-500">{deal.listings.quantity} шт.</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-xs font-bold uppercase tracking-wide text-gray-400">Партнёр</p>
+                      <p className="mt-1 max-w-28 truncate font-black text-gray-900">{partner?.full_name || 'Не указан'}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-400">Партнер:</p>
-                    <p className="font-medium">{partner?.full_name}</p>
-                  </div>
-                </div>
 
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => openMessenger(partner)}
-                    className="flex-grow rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200"
-                  >
-                    💬 Связаться
-                  </button>
-                  {isGiver && (
-                    <button
-                      onClick={() => handleCompleteDeal(deal)}
-                      disabled={completing}
-                      className="flex-grow rounded-xl bg-green-600 py-3 text-sm font-bold text-white transition hover:bg-green-700 disabled:opacity-50"
-                    >
-                      {completing ? 'Обработка...' : '✅ Завершить'}
+                  <div className="mt-4 grid gap-2">
+                    <button type="button" onClick={() => openMessenger(partner)} className="btn-ghost w-full">
+                      <Icon name="message" size={19} />
+                      Связаться
                     </button>
-                  )}
-                  {!isGiver && deal.listings?.status === 'reserved' && (
-                    <button
-                      onClick={() => handleCancelBooking(deal)}
-                      disabled={canceling}
-                      className="flex-grow rounded-xl bg-rose-600 py-3 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
-                    >
-                      {canceling ? 'Отмена...' : 'Отменить бронь'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+
+                    {isGiver && (
+                      <button
+                        type="button"
+                        onClick={() => handleCompleteDeal(deal)}
+                        disabled={completing}
+                        className="btn-primary w-full"
+                      >
+                        <Icon name="check" size={19} />
+                        {completing ? 'Обработка...' : 'Завершить сделку'}
+                      </button>
+                    )}
+
+                    {!isGiver && deal.listings?.status === 'reserved' && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelBooking(deal)}
+                        disabled={canceling}
+                        className="btn-danger w-full"
+                      >
+                        <Icon name="close" size={19} />
+                        {canceling ? 'Отмена...' : 'Отменить бронь'}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
+      </main>
 
       {successDeal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-hidden bg-slate-950/80 p-4">
@@ -242,19 +268,16 @@ export default function MyDeals() {
             ))}
           </div>
 
-          <div className="relative z-10 w-full max-w-sm rounded-[32px] border border-white/20 bg-white p-6 text-center shadow-[0_30px_90px_rgba(15,23,42,0.35)]">
-            <img src={successImg} alt="Успех" className="mx-auto mb-5 h-44 w-full rounded-2xl object-cover" />
-            <h1 className="mb-2 text-3xl font-bold text-green-600">Сделка завершена</h1>
-            <p className="mb-4 text-gray-600">+50 эко-баллов!</p>
-            <div className="mb-6 rounded-2xl bg-green-50 p-4">
-              <p className="text-sm text-gray-600">Вы получили</p>
-              <p className="text-2xl font-bold text-green-600">+{successDeal.ecoReward} ЭКО</p>
+          <div className="card relative z-10 w-full max-w-sm p-6 text-center">
+            <img src={successImg} alt="Успех" className="mx-auto mb-5 h-44 w-full rounded-[22px] object-cover" />
+            <p className="section-title text-emerald-700">Готово</p>
+            <h1 className="mt-2 text-3xl font-black text-gray-950">Сделка завершена</h1>
+            <div className="my-6 rounded-[22px] bg-emerald-50 p-4">
+              <p className="text-sm font-bold text-gray-600">Вы получили</p>
+              <p className="mt-1 text-3xl font-black text-emerald-700">+{successDeal.ecoReward} ЭКО</p>
             </div>
-            <button
-              onClick={handleCloseSuccessModal}
-              className="w-full rounded-xl bg-green-600 py-3 font-bold text-white transition hover:bg-green-700"
-            >
-              Закрыть
+            <button type="button" onClick={handleCloseSuccessModal} className="btn-primary w-full">
+              Оценить партнёра
             </button>
           </div>
         </div>
@@ -262,9 +285,9 @@ export default function MyDeals() {
 
       {reviewDeal && !successDeal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/80 p-4">
-          <div className="w-full max-w-sm rounded-[32px] bg-white p-6 text-center shadow-[0_30px_90px_rgba(15,23,42,0.35)]">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-green-600">Оцените партнера</p>
-            <h2 className="mt-2 text-2xl font-bold text-gray-900">Как всё прошло?</h2>
+          <div className="card w-full max-w-sm p-6 text-center">
+            <p className="section-title text-emerald-700">Отзыв</p>
+            <h2 className="mt-2 text-2xl font-black text-gray-950">Как всё прошло?</h2>
 
             <div className="mt-6 flex items-center justify-center gap-2">
               {Array.from({ length: 5 }).map((_, index) => {
@@ -275,25 +298,21 @@ export default function MyDeals() {
                     key={starValue}
                     type="button"
                     onClick={() => setReviewRating(starValue)}
-                    className={`text-4xl transition ${active ? 'text-yellow-400' : 'text-gray-300 hover:text-yellow-300'}`}
+                    className={`rounded-2xl p-2 transition ${active ? 'text-amber-400' : 'text-gray-300 hover:text-amber-300'}`}
                     aria-label={`${starValue} star`}
                   >
-                    ⭐
+                    <Icon name="star" size={30} filled={active} />
                   </button>
                 );
               })}
             </div>
 
-            <button
-              onClick={handleSubmitReview}
-              disabled={submittingReview}
-              className="mt-8 w-full rounded-xl bg-green-600 py-3 font-bold text-white transition hover:bg-green-700 disabled:opacity-50"
-            >
+            <button type="button" onClick={handleSubmitReview} disabled={submittingReview} className="btn-primary mt-7 w-full">
               {submittingReview ? 'Отправка...' : 'Отправить'}
             </button>
 
             {reviewError && (
-              <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+              <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
                 {reviewError}
               </p>
             )}

@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { supabase } from '../supabaseClient';
 import CreateListing from './CreateListing';
 import emptyImg from '../assets/images/ill-empty.png';
 import { showToast } from '../lib/toast';
+import Icon from '../components/Icon';
 
 const getIconUrl = (name) => new URL(`../assets/icons/${name}`, import.meta.url).href;
 const getPinUrl = (name) => new URL(`../assets/pins/${name}`, import.meta.url).href;
@@ -24,6 +24,13 @@ const MAIN_CATEGORY_ALIASES = [
   ['textile', 'textil', 'cloth', 'текстиль'],
   ['paper', 'бумага'],
   ['packaging', 'упаковка', 'cardboard', 'carton'],
+];
+
+const distanceOptions = [
+  { id: 'all', label: 'Любое расстояние' },
+  { id: '1', label: 'До 1 км' },
+  { id: '5', label: 'До 5 км' },
+  { id: '10', label: 'До 10 км' },
 ];
 
 const giveIcon = new L.Icon({
@@ -67,7 +74,6 @@ export default function MapScreen() {
   async function fetchListings() {
     const { data: userData } = await supabase.auth.getUser();
     setCurrentUserId(userData?.user?.id || null);
-    console.log('ID текущего пользователя:', userData?.user?.id);
 
     const { data, error } = await supabase
       .from('listings')
@@ -79,7 +85,6 @@ export default function MapScreen() {
       return;
     }
 
-    console.log('Всего лотов получено для карты:', data?.length || 0);
     setListings(data || []);
   }
 
@@ -151,6 +156,8 @@ export default function MapScreen() {
   });
 
   const hasCategoryResults = categoryFilteredListings.length > 0;
+  const hasResults = filteredListings.length > 0;
+  const myActiveCount = listings.filter((item) => item.user_id === currentUserId).length;
 
   const requestLocation = () => {
     if (!navigator.geolocation) {
@@ -177,14 +184,14 @@ export default function MapScreen() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (user.id === listing.user_id) {
-        showToast('Эй, нельзя забронировать свой же лот!', 'error');
+        showToast('Нельзя забронировать свой же лот', 'error');
         return;
       }
 
       const { error: txError } = await supabase.from('transactions').insert({
         listing_id: listing.id,
         giver_id: listing.user_id,
-        taker_id: user.id
+        taker_id: user.id,
       });
       if (txError) throw txError;
 
@@ -194,7 +201,7 @@ export default function MapScreen() {
         .eq('id', listing.id);
       if (updateError) throw updateError;
 
-      showToast("Лот успешно забронирован! Перейди во вкладку 'Сделки' для связи.", 'success');
+      showToast("Лот забронирован. Контакты появятся во вкладке 'Сделки'.", 'success');
       fetchListings();
       window.dispatchEvent(new Event('listings-updated'));
     } catch (e) {
@@ -204,29 +211,40 @@ export default function MapScreen() {
     }
   };
 
-  const hasResults = filteredListings.length > 0;
-
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
-      <header className="z-[1000] bg-white shadow-sm">
-        <div className="flex items-center justify-between gap-3 p-4">
-          <input
-            type="text"
-            placeholder="Найти банки, картон..."
-            className="flex-grow rounded-lg border border-gray-200 bg-gray-50 p-2 outline-none focus:ring-2 focus:ring-green-500"
-          />
-          <button className="rounded-lg bg-green-50 p-2 font-medium text-green-700">Фильтры</button>
-        </div>
+    <div className="relative flex h-[100svh] flex-col overflow-hidden bg-[#eaf3e9]">
+      <header className="glass-panel z-[1000] rounded-b-[28px] px-4 pb-4 pt-4">
+        <div className="mx-auto max-w-md">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="section-title">VratiMe</p>
+              <h1 className="text-2xl font-black tracking-tight text-gray-950">Карта обмена</h1>
+            </div>
+            <div className="rounded-2xl bg-emerald-100 px-3 py-2 text-right">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Активно</p>
+              <p className="text-xl font-black text-emerald-800">{listings.length}</p>
+            </div>
+          </div>
 
-        <div className="px-4 pb-3">
-          <div className="flex gap-3 overflow-x-auto">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Icon name="search" size={19} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Найти банки, картон..."
+                className="field h-12 min-h-12 bg-white pl-11 text-sm"
+              />
+            </div>
+            <button type="button" className="btn-secondary h-12 min-h-12 px-3" aria-label="Фильтры">
+              <Icon name="sliders" size={20} />
+            </button>
+          </div>
+
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             <button
+              type="button"
               onClick={() => setActiveCategory(null)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                activeCategory === null
-                  ? 'border-green-600 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-white text-gray-600'
-              }`}
+              className={`chip ${activeCategory === null ? 'chip-active' : ''}`}
             >
               Все
             </button>
@@ -240,12 +258,9 @@ export default function MapScreen() {
               return (
                 <button
                   key={category.id}
+                  type="button"
                   onClick={() => setActiveCategory(categoryPath)}
-                  className={`flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                    isActive
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 bg-white text-gray-600'
-                  }`}
+                  className={`chip ${isActive ? 'chip-active' : ''}`}
                 >
                   {iconSrc ? <img src={iconSrc} alt="" className="h-5 w-5 object-contain" /> : null}
                   <span>{category.name}</span>
@@ -254,89 +269,56 @@ export default function MapScreen() {
             })}
           </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto">
-            <button
-              onClick={() => setDistanceFilter('all')}
-              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                distanceFilter === 'all'
-                  ? 'border-green-600 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-white text-gray-600'
-              }`}
-            >
-              Любое расстояние
-            </button>
-            <button
-              onClick={() => setDistanceFilter('1')}
-              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                distanceFilter === '1'
-                  ? 'border-green-600 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-white text-gray-600'
-              }`}
-            >
-              До 1 км
-            </button>
-            <button
-              onClick={() => setDistanceFilter('5')}
-              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                distanceFilter === '5'
-                  ? 'border-green-600 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-white text-gray-600'
-              }`}
-            >
-              До 5 км
-            </button>
-            <button
-              onClick={() => setDistanceFilter('10')}
-              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                distanceFilter === '10'
-                  ? 'border-green-600 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-white text-gray-600'
-              }`}
-            >
-              До 10 км
-            </button>
-            <button
-              onClick={requestLocation}
-              className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
-            >
-              Рядом со мной
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+            {distanceOptions.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setDistanceFilter(option.id)}
+                className={`chip text-xs ${distanceFilter === option.id ? 'chip-active' : ''}`}
+              >
+                {option.label}
+              </button>
+            ))}
+            <button type="button" onClick={requestLocation} className="chip text-xs text-emerald-700">
+              <Icon name="location" size={15} />
+              Рядом
             </button>
           </div>
 
-          {locationStatus ? <p className="mt-2 text-xs text-gray-500">{locationStatus}</p> : null}
-
-          <div className="mt-3 rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-800">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span>Активных лотов: {listings.length}</span>
-              <span>Показано сейчас: {filteredListings.length}</span>
-              <span>Моих среди активных: {listings.filter((item) => item.user_id === currentUserId).length}</span>
-            </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-bold text-gray-500">
+            <span className="rounded-full bg-white/70 px-3 py-1">Показано: {filteredListings.length}</span>
+            <span className="rounded-full bg-white/70 px-3 py-1">Моих: {myActiveCount}</span>
+            {locationStatus ? <span className="rounded-full bg-white/70 px-3 py-1">{locationStatus}</span> : null}
           </div>
         </div>
       </header>
 
-      <div className="relative z-0 flex-grow">
+      <div className="relative z-0 min-h-0 flex-1">
         <MapContainer center={defaultPosition} zoom={13} zoomControl={false} className="h-full w-full">
           <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
 
           {filteredListings.map((item) => (
             <Marker key={item.id} position={[item.lat, item.lng]} icon={item.type === 'give' ? giveIcon : takeIcon}>
               <Popup>
-                <div className="min-w-[150px] p-1">
+                <div className="w-[220px]">
                   {item.image_url ? (
-                    <img src={item.image_url} alt="Фото лота" className="mb-3 h-32 w-full rounded-xl object-cover" />
+                    <img src={item.image_url} alt="Фото лота" className="mb-3 h-32 w-full rounded-2xl object-cover" />
                   ) : null}
-                  <strong className="mb-1 block text-lg">{item.type === 'give' ? '🎁 Отдаю' : '🚚 Заберу'}</strong>
-                  <div className="mb-3 text-sm text-gray-600">
-                    <p>Категория: {item.category_path || item.category}</p>
-                    <p>Количество: {item.quantity} шт.</p>
+                  <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                    <Icon name={item.type === 'give' ? 'gift' : 'truck'} size={14} />
+                    {item.type === 'give' ? 'Отдают' : 'Заберут'}
                   </div>
+                  <p className="text-base font-black text-gray-950">{item.category_path || item.category}</p>
+                  <p className="mt-1 text-sm font-medium text-gray-500">Количество: {item.quantity} шт.</p>
 
                   <button
+                    type="button"
                     onClick={() => handleBook(item)}
                     disabled={loading}
-                    className="w-full rounded-lg bg-green-600 py-2 font-bold text-white transition hover:bg-green-700 disabled:opacity-50"
+                    className="btn-primary mt-4 w-full text-sm"
                   >
+                    <Icon name="check" size={17} />
                     {loading ? 'Секунду...' : 'Забронировать'}
                   </button>
                 </div>
@@ -346,23 +328,21 @@ export default function MapScreen() {
         </MapContainer>
 
         {!hasResults && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
-            <div className="max-w-sm rounded-3xl bg-white/95 p-6 text-center shadow-lg">
-              <img src={emptyImg} alt="Пусто" className="mx-auto mb-4 h-36 w-full max-w-[220px] object-contain" />
-              <p className="text-base font-semibold text-gray-700">
+          <div className="pointer-events-none absolute inset-x-4 bottom-32 z-[700] flex justify-center">
+            <div className="card max-w-sm p-5 text-center">
+              <img src={emptyImg} alt="Пусто" className="mx-auto mb-4 h-32 w-full max-w-[210px] object-contain" />
+              <p className="text-lg font-black text-gray-900">
                 {hasCategoryResults ? 'В этом радиусе пока пусто' : 'В этой категории пока пусто'}
               </p>
+              <p className="mt-2 text-sm text-gray-500">Попробуйте расширить радиус или выбрать другую категорию.</p>
             </div>
           </div>
         )}
       </div>
 
-      <div className="absolute bottom-24 right-4 z-[999]">
-        <button
-          onClick={() => setIsCreating(true)}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-3xl text-white shadow-lg hover:scale-105"
-        >
-          +
+      <div className="absolute bottom-28 right-5 z-[999]">
+        <button type="button" onClick={() => setIsCreating(true)} className="fab flex items-center justify-center">
+          <Icon name="plus" size={30} strokeWidth={2.4} />
         </button>
       </div>
 

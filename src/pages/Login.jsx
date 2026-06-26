@@ -2,43 +2,82 @@ import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import logo from '../assets/images/app-logo.png';
 import { showToast } from '../lib/toast';
+import Icon from '../components/Icon';
 
 export default function Login() {
   const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isLoading) return;
+
+    setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOtp({ email });
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
+      });
       if (error) throw error;
       showToast('Проверь почту для входа!', 'success');
     } catch (error) {
-      showToast(error.error_description || error.message, 'error');
+      const message =
+        error?.status === 429
+          ? 'Слишком много попыток. Подождите минуту и попробуйте снова.'
+          : error.error_description || error.message;
+      showToast(message, 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 p-4">
-      <img src={logo} alt="VratiMe" className="w-32 h-32 mb-6" />
-      <h1 className="text-3xl font-bold mb-2">VratiMe</h1>
-      <p className="text-gray-600 mb-8 text-center">Обменивайся тарой. Спасай природу Черногории.</p>
+    <div className="app-screen flex min-h-screen items-center justify-center py-8">
+      <main className="auth-container">
+        <section className="card overflow-hidden p-5">
+          <div className="rounded-[28px] bg-gradient-to-br from-emerald-100 via-white to-sky-50 p-6 text-center">
+            <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center rounded-[32px] bg-white shadow-[0_18px_42px_rgba(22,138,74,0.16)]">
+              <img src={logo} alt="VratiMe" className="h-20 w-20 object-contain" />
+            </div>
+            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">
+              <Icon name="leaf" size={15} />
+              Eco exchange
+            </div>
+            <h1 className="text-4xl font-black tracking-tight text-gray-950">VratiMe</h1>
+            <p className="mx-auto mt-3 max-w-xs text-balance text-base font-medium leading-6 text-gray-600">
+              Обменивайся тарой. Спасай природу Черногории.
+            </p>
+          </div>
 
-      <form onSubmit={handleLogin} className="w-full max-w-sm flex flex-col gap-4">
-        <input
-          type="email"
-          placeholder="Твой Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-          required
-        />
-        <button
-          type="submit"
-          className="w-full bg-green-600 text-white py-3 rounded-lg font-medium shadow-md hover:bg-green-700 transition"
-        >
-          Войти по Magic Link
-        </button>
-      </form>
+          <form onSubmit={handleLogin} className="mt-6 flex flex-col gap-4">
+            <label className="space-y-2">
+              <span className="text-sm font-bold text-gray-700">Email для входа</span>
+              <div className="relative">
+                <Icon name="mail" size={20} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="field pl-12"
+                  required
+                />
+              </div>
+            </label>
+
+            <button type="submit" disabled={isLoading} className="btn-primary w-full">
+              <Icon name="mail" size={20} />
+              {isLoading ? 'Отправляем ссылку...' : 'Войти по Magic Link'}
+            </button>
+
+            <p className="px-2 text-center text-xs font-medium leading-5 text-gray-500">
+              Мы пришлём безопасную ссылку на почту. Пароль не нужен.
+            </p>
+          </form>
+        </section>
+      </main>
     </div>
   );
 }
