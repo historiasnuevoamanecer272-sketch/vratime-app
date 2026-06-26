@@ -7,21 +7,45 @@ import Icon from '../components/Icon';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [recentEmails, setRecentEmails] = useState(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('vratimeRecentEmails') || '[]');
+      return Array.isArray(saved) ? saved.slice(0, 4) : [];
+    } catch {
+      return [];
+    }
+  });
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
+
+  const rememberEmail = (value) => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return;
+
+    const next = [normalized, ...recentEmails.filter((item) => item !== normalized)].slice(0, 4);
+    setRecentEmails(next);
+    window.localStorage.setItem('vratimeRecentEmails', JSON.stringify(next));
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     if (isLoading) return;
 
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      showToast('Введите корректный email', 'error');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        email,
+        email: normalizedEmail,
         options: {
           emailRedirectTo: redirectTo,
         },
       });
       if (error) throw error;
+      rememberEmail(normalizedEmail);
       showToast('Проверь почту для входа!', 'success');
     } catch (error) {
       const message =
@@ -74,10 +98,14 @@ export default function Login() {
             <label className="space-y-2">
               <span className="text-sm font-bold text-gray-700">Email для входа</span>
               <input
-                type="email"
+                id="login-email"
+                type="text"
                 name="email"
                 autoComplete="email"
                 inputMode="email"
+                autoCapitalize="none"
+                spellCheck={false}
+                enterKeyHint="send"
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -85,6 +113,21 @@ export default function Login() {
                 required
               />
             </label>
+
+            {recentEmails.length > 0 ? (
+              <div className="scroll-row -mt-1 flex gap-2 overflow-x-auto pb-1">
+                {recentEmails.map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setEmail(item)}
+                    className="chip max-w-[220px] overflow-hidden text-ellipsis text-xs"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            ) : null}
 
             <button type="submit" disabled={isLoading} className="btn-primary w-full">
               <Icon name="mail" size={20} />

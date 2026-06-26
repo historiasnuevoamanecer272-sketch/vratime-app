@@ -61,6 +61,8 @@ export default function Onboarding({ onComplete }) {
               <input
                 type="text"
                 required
+                name="name"
+                autoComplete="name"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                 placeholder="Например: Марко"
@@ -97,7 +99,10 @@ export default function Onboarding({ onComplete }) {
             <label className="block space-y-2">
               <span className="text-sm font-bold text-gray-700">Номер или никнейм</span>
               <input
-                type="text"
+                type="tel"
+                name="tel"
+                autoComplete="tel"
+                inputMode="tel"
                 required
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}

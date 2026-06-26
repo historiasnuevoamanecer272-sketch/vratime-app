@@ -437,6 +437,8 @@ export default function CreateListing({ onBack, onSuccess }) {
                 <input
                   type="number"
                   min="1"
+                  inputMode="numeric"
+                  enterKeyHint="done"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) || 1 })}
                   className="field"

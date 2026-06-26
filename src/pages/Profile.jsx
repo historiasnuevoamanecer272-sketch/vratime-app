@@ -277,6 +277,8 @@ export default function Profile() {
               <div className="space-y-3">
                 <input
                   type="text"
+                  name="name"
+                  autoComplete="name"
                   value={editForm.full_name}
                   onChange={(e) => setEditForm((current) => ({ ...current, full_name: e.target.value }))}
                   placeholder="Имя"
@@ -293,6 +295,9 @@ export default function Profile() {
                 </select>
                 <input
                   type="tel"
+                  name="tel"
+                  autoComplete="tel"
+                  inputMode="tel"
                   value={editForm.phone}
                   onChange={(e) => setEditForm((current) => ({ ...current, phone: e.target.value }))}
                   placeholder="Телефон"

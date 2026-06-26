@@ -54,6 +54,7 @@ export default function MapScreen() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [activeCategory, setActiveCategory] = useState(null);
   const [distanceFilter, setDistanceFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState(null);
   const [locationStatus, setLocationStatus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -148,8 +149,23 @@ export default function MapScreen() {
         return itemPath.startsWith(activeCategory);
       });
 
+  const searchedListings = categoryFilteredListings.filter((item) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+    const searchableText = [
+      item.category,
+      item.category_path,
+      item.type === 'give' ? 'отдаю' : 'заберу',
+      item.quantity,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return searchableText.includes(query);
+  });
+
   const distanceLimit = distanceFilter === 'all' ? null : Number(distanceFilter);
-  const filteredListings = categoryFilteredListings.filter((item) => {
+  const filteredListings = searchedListings.filter((item) => {
     if (!distanceLimit || !userLocation) return true;
     const km = getDistanceKm(userLocation, [item.lat, item.lng]);
     return km !== null && km <= distanceLimit;
@@ -220,27 +236,26 @@ export default function MapScreen() {
               <p className="section-title">VratiMe</p>
               <h1 className="text-2xl font-black tracking-tight text-gray-950">Карта обмена</h1>
             </div>
-            <div className="rounded-2xl bg-emerald-100 px-3 py-2 text-right">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Активно</p>
-              <p className="text-xl font-black text-emerald-800">{listings.length}</p>
+            <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-2xl bg-emerald-100 text-center">
+              <p className="text-xl font-black leading-none text-emerald-800">{listings.length}</p>
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">лотов</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Icon name="search" size={19} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Найти банки, картон..."
-                className="field h-12 min-h-12 bg-white pl-11 text-sm"
-              />
-            </div>
-            <button type="button" className="btn-secondary h-12 min-h-12 px-3" aria-label="Фильтры">
-              <Icon name="sliders" size={20} />
-            </button>
+          <div>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Найти банки, картон..."
+              className="field h-12 min-h-12 bg-white text-sm"
+              autoComplete="off"
+              enterKeyHint="search"
+              aria-label="Поиск объявлений"
+            />
           </div>
 
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div className="scroll-row mt-3 flex gap-2 overflow-x-auto pb-1">
             <button
               type="button"
               onClick={() => setActiveCategory(null)}
@@ -269,7 +284,7 @@ export default function MapScreen() {
             })}
           </div>
 
-          <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          <div className="scroll-row mt-2 flex gap-2 overflow-x-auto pb-1">
             {distanceOptions.map((option) => (
               <button
                 key={option.id}

@@ -137,6 +137,23 @@ button {
     background-color 160ms ease;
 }
 
+.field::placeholder {
+  color: #8a948b;
+}
+
+.field[type='search'] {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.field[type='search']::-webkit-search-decoration,
+.field[type='search']::-webkit-search-cancel-button,
+.field[type='search']::-webkit-search-results-button,
+.field[type='search']::-webkit-search-results-decoration {
+  display: none;
+  -webkit-appearance: none;
+}
+
 .field:focus {
   border-color: rgba(22, 138, 74, 0.72);
   box-shadow: 0 0 0 4px rgba(22, 138, 74, 0.12);
@@ -201,6 +218,7 @@ button {
 }
 
 .chip {
+  flex: 0 0 auto;
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -219,6 +237,16 @@ button {
     border-color 160ms ease,
     color 160ms ease,
     box-shadow 160ms ease;
+}
+
+.scroll-row {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  scroll-padding-inline: 16px;
+}
+
+.scroll-row::-webkit-scrollbar {
+  display: none;
 }
 
 .chip-active {

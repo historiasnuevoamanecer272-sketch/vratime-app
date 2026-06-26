@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 import MapScreen from './pages/MapScreen';
@@ -30,12 +30,30 @@ export default function App() {
   const [installDismissed, setInstallDismissed] = useState(
     () => window.localStorage.getItem('vratimeInstallDismissed') === '1'
   );
+  const [isIosInstallCandidate] = useState(() => isIosDevice() && !isStandaloneApp());
 
-  async function checkProfile(userId) {
-    const { data } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
-    if (data?.id) setIsProfileComplete(true);
+  const pushToast = useCallback((message, type = 'info') => {
+    const toast = { id: Date.now(), message, type };
+    setToasts((current) => [...current, toast]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((item) => item.id !== toast.id));
+    }, 3200);
+  }, []);
+
+  const checkProfile = useCallback(async (userId) => {
+    setLoading(true);
+    const { data, error } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
+
+    if (error) {
+      console.error('Profile check failed:', error);
+      setIsProfileComplete(true);
+      pushToast('Профиль временно не загрузился. Открыли приложение, данные можно проверить позже.', 'error');
+    } else {
+      setIsProfileComplete(Boolean(data?.id));
+    }
+
     setLoading(false);
-  }
+  }, [pushToast]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,7 +72,7 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [checkProfile]);
 
   useEffect(() => {
     return subscribeToasts((toast) => {
@@ -64,14 +82,6 @@ export default function App() {
       }, 3200);
     });
   }, []);
-
-  const showInstallToast = (message) => {
-    const toast = { id: Date.now(), message, type: 'success' };
-    setToasts((current) => [...current, toast]);
-    window.setTimeout(() => {
-      setToasts((current) => current.filter((item) => item.id !== toast.id));
-    }, 3200);
-  };
 
   useEffect(() => {
     if (isStandaloneApp() || installDismissed) return undefined;
@@ -87,22 +97,17 @@ export default function App() {
       setShowInstallHelp(false);
       setInstallDismissed(true);
       window.localStorage.setItem('vratimeInstallDismissed', '1');
-      showInstallToast('Приложение установлено');
+      pushToast('Приложение установлено', 'success');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
 
-    if (isIosDevice()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setShowInstallHelp(true);
-    }
-
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleInstalled);
     };
-  }, [installDismissed]);
+  }, [installDismissed, pushToast]);
 
   const handleInstall = async () => {
     if (!installPrompt) return;
@@ -119,7 +124,7 @@ export default function App() {
     window.localStorage.setItem('vratimeInstallDismissed', '1');
   };
 
-  const installBanner = !installDismissed && showInstallHelp && !isStandaloneApp() ? (
+  const installBanner = !installDismissed && !isStandaloneApp() && (showInstallHelp || isIosInstallCandidate) ? (
     <div className="fixed inset-x-3 top-3 z-[6500] mx-auto max-w-md rounded-[22px] border border-emerald-200 bg-white/95 p-3 shadow-[0_18px_44px_rgba(15,23,42,0.16)] backdrop-blur">
       <div className="flex items-start gap-3">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
@@ -189,7 +194,6 @@ export default function App() {
 
   return (
     <div className="app-shell relative min-h-screen">
-      {installBanner}
       {activeTab === 'map' && <MapScreen />}
       {activeTab === 'deals' && <MyDeals />}
       {activeTab === 'profile' && <Profile />}
