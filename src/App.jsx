@@ -14,12 +14,22 @@ const tabs = [
   { id: 'profile', label: 'Профиль', icon: 'user' },
 ];
 
+const isStandaloneApp = () =>
+  window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+const isIosDevice = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   const [activeTab, setActiveTab] = useState('map');
   const [toasts, setToasts] = useState([]);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(
+    () => window.localStorage.getItem('vratimeInstallDismissed') === '1'
+  );
 
   async function checkProfile(userId) {
     const { data } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle();
@@ -55,28 +65,131 @@ export default function App() {
     });
   }, []);
 
+  const showInstallToast = (message) => {
+    const toast = { id: Date.now(), message, type: 'success' };
+    setToasts((current) => [...current, toast]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((item) => item.id !== toast.id));
+    }, 3200);
+  };
+
+  useEffect(() => {
+    if (isStandaloneApp() || installDismissed) return undefined;
+
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+      setShowInstallHelp(true);
+    };
+
+    const handleInstalled = () => {
+      setInstallPrompt(null);
+      setShowInstallHelp(false);
+      setInstallDismissed(true);
+      window.localStorage.setItem('vratimeInstallDismissed', '1');
+      showInstallToast('Приложение установлено');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleInstalled);
+
+    if (isIosDevice()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowInstallHelp(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleInstalled);
+    };
+  }, [installDismissed]);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+    setShowInstallHelp(false);
+  };
+
+  const dismissInstallPrompt = () => {
+    setShowInstallHelp(false);
+    setInstallDismissed(true);
+    window.localStorage.setItem('vratimeInstallDismissed', '1');
+  };
+
+  const installBanner = !installDismissed && showInstallHelp && !isStandaloneApp() ? (
+    <div className="fixed inset-x-3 top-3 z-[6500] mx-auto max-w-md rounded-[22px] border border-emerald-200 bg-white/95 p-3 shadow-[0_18px_44px_rgba(15,23,42,0.16)] backdrop-blur">
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+          <Icon name="install" size={23} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-gray-950">Установить VratiMe</p>
+          <p className="mt-1 text-xs font-medium leading-5 text-gray-600">
+            {installPrompt
+              ? 'Откроется как обычное приложение и будет дольше сохранять вход.'
+              : 'На iPhone: нажмите «Поделиться» и выберите «На экран Домой».'}
+          </p>
+          {installPrompt ? (
+            <button type="button" onClick={handleInstall} className="btn-primary mt-3 h-10 min-h-10 px-4 text-sm">
+              Установить
+            </button>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={dismissInstallPrompt}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500"
+          aria-label="Скрыть"
+        >
+          <Icon name="close" size={17} />
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   if (loading) {
     return (
-      <div className="app-screen flex min-h-screen items-center justify-center px-6">
-        <div className="card flex w-full max-w-xs flex-col items-center p-8 text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] bg-emerald-100 text-emerald-700">
-            <Icon name="leaf" size={34} />
-          </div>
-          <p className="text-2xl font-black text-gray-950">VratiMe</p>
-          <p className="mt-2 text-sm font-medium text-gray-500">Загружаем приложение</p>
-          <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
-            <div className="h-full w-2/3 animate-pulse rounded-full bg-emerald-500" />
+      <>
+        {installBanner}
+        <div className="app-screen flex min-h-screen items-center justify-center px-6">
+          <div className="card flex w-full max-w-xs flex-col items-center p-8 text-center">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] bg-emerald-100 text-emerald-700">
+              <Icon name="leaf" size={34} />
+            </div>
+            <p className="text-2xl font-black text-gray-950">VratiMe</p>
+            <p className="mt-2 text-sm font-medium text-gray-500">Загружаем приложение</p>
+            <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-emerald-100">
+              <div className="h-full w-2/3 animate-pulse rounded-full bg-emerald-500" />
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  if (!session) return <Login />;
-  if (!isProfileComplete) return <Onboarding onComplete={() => setIsProfileComplete(true)} />;
+  if (!session) {
+    return (
+      <>
+        {installBanner}
+        <Login />
+      </>
+    );
+  }
+  if (!isProfileComplete) {
+    return (
+      <>
+        {installBanner}
+        <Onboarding onComplete={() => setIsProfileComplete(true)} />
+      </>
+    );
+  }
 
   return (
     <div className="app-shell relative min-h-screen">
+      {installBanner}
       {activeTab === 'map' && <MapScreen />}
       {activeTab === 'deals' && <MyDeals />}
       {activeTab === 'profile' && <Profile />}

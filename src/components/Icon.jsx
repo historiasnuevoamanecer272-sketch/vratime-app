@@ -131,6 +131,14 @@ const paths = {
       <path d="M8.5 12.5L7 21l5-3 5 3-1.5-8.5" />
     </>
   ),
+  install: (
+    <>
+      <rect x="6" y="3" width="12" height="18" rx="3" />
+      <path d="M10 18h4" />
+      <path d="M12 7v7" />
+      <path d="M9 11l3 3 3-3" />
+    </>
+  ),
   box: (
     <>
       <path d="M21 8l-9-5-9 5 9 5 9-5z" />
