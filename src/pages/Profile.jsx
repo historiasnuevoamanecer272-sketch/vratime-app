@@ -9,15 +9,17 @@ import Icon from '../components/Icon';
 
 const badgeAssets = import.meta.glob('../assets/icons/badge-*.png', { eager: true, import: 'default' });
 const badge = (file) => badgeAssets[`../assets/icons/${file}`];
+let profileCache = null;
 
-export default function Profile() {
+export default function Profile({ userId }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
-  const [profile, setProfile] = useState(null);
-  const [deals, setDeals] = useState([]);
-  const [listings, setListings] = useState([]);
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cached = profileCache?.userId === userId ? profileCache : null;
+  const [profile, setProfile] = useState(cached?.profile || null);
+  const [deals, setDeals] = useState(cached?.deals || []);
+  const [listings, setListings] = useState(cached?.listings || []);
+  const [reviews, setReviews] = useState(cached?.reviews || []);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -25,9 +27,8 @@ export default function Profile() {
   const [form, setForm] = useState({ full_name: '', language, messenger_type: 'viber', contact_value: '' });
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id;
+    if (profileCache?.userId !== userId) setLoading(true);
+    setError('');
     if (!userId) return setLoading(false);
     const [profileResult, contactResult, dealResult, listingResult, reviewResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
@@ -37,14 +38,20 @@ export default function Profile() {
       supabase.from('reviews').select('id, rating, created_at, from_user:profiles!reviews_from_user_id_fkey(full_name)').eq('to_user_id', userId).order('created_at', { ascending: false }).limit(5),
     ]);
     const firstError = profileResult.error || contactResult.error || dealResult.error || listingResult.error || reviewResult.error;
-    if (firstError) setError(firstError.message);
-    setProfile(profileResult.data || null); setDeals(dealResult.data || []); setListings(listingResult.data || []); setReviews(reviewResult.data || []);
+    if (firstError) {
+      setError(firstError.message);
+      setLoading(false);
+      return;
+    }
+    const nextData = { userId, profile: profileResult.data || null, deals: dealResult.data || [], listings: listingResult.data || [], reviews: reviewResult.data || [] };
+    if (profileResult.data) profileCache = nextData;
+    setProfile(nextData.profile); setDeals(nextData.deals); setListings(nextData.listings); setReviews(nextData.reviews);
     if (profileResult.data) {
       const nextLanguage = profileResult.data.preferred_language || profileResult.data.language || language;
       setForm({ full_name: profileResult.data.full_name || '', language: nextLanguage, messenger_type: contactResult.data?.messenger_type || 'viber', contact_value: contactResult.data?.contact_value || '' });
     }
     setLoading(false);
-  }, [language]);
+  }, [language, userId]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(load, 0);

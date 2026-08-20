@@ -1,7 +1,7 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from './supabaseClient';
-import { setAppLanguage } from './i18n';
+import i18n, { getAppLanguage, setAppLanguage } from './i18n';
 import { subscribeToasts } from './lib/toast';
 import Icon from './components/Icon';
 
@@ -20,6 +20,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
+  const [profileError, setProfileError] = useState(false);
   const [activeTab, setActiveTab] = useState('map');
   const [isCreating, setIsCreating] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -27,6 +28,8 @@ export default function App() {
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(() => localStorage.getItem('vratimeInstallDismissed') === '1');
   const [isIosInstallCandidate] = useState(() => isIos() && !isStandalone());
+  const profileUserRef = useRef(null);
+  const profileRequestRef = useRef(0);
 
   const pushToast = useCallback((message, type = 'info') => {
     const toast = { id: `${Date.now()}-${Math.random()}`, message, type };
@@ -35,40 +38,68 @@ export default function App() {
   }, []);
 
   const checkProfile = useCallback(async (userId) => {
-    setLoading(true);
-    const [profileResult, contactResult] = await Promise.all([
-      supabase.from('profiles').select('id, language, preferred_language').eq('id', userId).maybeSingle(),
-      supabase.from('profile_contacts').select('user_id').eq('user_id', userId).maybeSingle(),
-    ]);
-    const { data, error } = profileResult;
-    const contactError = contactResult.error;
-    if (error) {
-      console.error('Profile check failed:', error);
-      setProfileComplete(true);
-      pushToast(t('errors.load'), 'error');
-    } else if (contactError) {
-      console.error('Contact check failed:', contactError);
-      setProfileComplete(false);
-      pushToast(t('errors.load'), 'error');
-    } else {
-      setProfileComplete(Boolean(data?.id && contactResult.data?.user_id));
-      if (data?.preferred_language || data?.language) setAppLanguage(data.preferred_language || data.language);
+    const requestId = ++profileRequestRef.current;
+    setProfileError(false);
+    try {
+      const [profileResult, contactResult] = await Promise.all([
+        supabase.from('profiles').select('id, language, preferred_language').eq('id', userId).maybeSingle(),
+        supabase.from('profile_contacts').select('user_id').eq('user_id', userId).maybeSingle(),
+      ]);
+
+      if (requestId !== profileRequestRef.current || profileUserRef.current !== userId) return;
+
+      const { data, error } = profileResult;
+      const contactError = contactResult.error;
+      if (error || contactError) {
+        console.error('Profile check failed:', error || contactError);
+        setProfileComplete(false);
+        setProfileError(true);
+        pushToast(i18n.t('errors.load'), 'error');
+      } else {
+        setProfileError(false);
+        setProfileComplete(Boolean(data?.id && contactResult.data?.user_id));
+        const profileLanguage = data?.preferred_language || data?.language;
+        if (profileLanguage && profileLanguage !== getAppLanguage()) setAppLanguage(profileLanguage);
+      }
+    } finally {
+      if (requestId === profileRequestRef.current && profileUserRef.current === userId) setLoading(false);
     }
-    setLoading(false);
-  }, [pushToast, t]);
+  }, [pushToast]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) checkProfile(data.session.user.id);
-      else setLoading(false);
-    });
+    let active = true;
+    let profileTimer;
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!active) return;
       setSession(nextSession);
-      if (nextSession) checkProfile(nextSession.user.id);
-      else { setLoading(false); setProfileComplete(false); }
+      const userId = nextSession?.user?.id || null;
+
+      if (!userId) {
+        profileUserRef.current = null;
+        profileRequestRef.current += 1;
+        setProfileComplete(false);
+        setProfileError(false);
+        setLoading(false);
+        return;
+      }
+
+      // SIGNED_IN may fire again when a browser tab regains focus. The profile
+      // is already known for this user, so do not replace the app with a splash.
+      if (profileUserRef.current === userId) return;
+
+      profileUserRef.current = userId;
+      setLoading(true);
+      // Supabase advises keeping auth callbacks synchronous. Defer database
+      // queries until its internal auth lock has been released.
+      profileTimer = window.setTimeout(() => {
+        if (active && profileUserRef.current === userId) checkProfile(userId);
+      }, 0);
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      window.clearTimeout(profileTimer);
+      data.subscription.unsubscribe();
+    };
   }, [checkProfile]);
 
   useEffect(() => subscribeToasts((toast) => pushToast(toast.message, toast.type)), [pushToast]);
@@ -89,6 +120,14 @@ export default function App() {
   const dismissInstall = () => {
     setShowInstallHelp(false); setInstallDismissed(true);
     localStorage.setItem('vratimeInstallDismissed', '1');
+  };
+
+  const retryProfile = () => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    profileUserRef.current = userId;
+    setLoading(true);
+    checkProfile(userId);
   };
 
   const loadingView = (
@@ -116,7 +155,8 @@ export default function App() {
 
   if (loading) return <>{installBanner}{loadingView}</>;
   if (!session) return <>{installBanner}<Suspense fallback={loadingView}><Login /></Suspense></>;
-  if (!profileComplete) return <>{installBanner}<Suspense fallback={loadingView}><Onboarding onComplete={() => setProfileComplete(true)} /></Suspense></>;
+  if (profileError) return <>{installBanner}<div className="app-screen grid min-h-screen place-items-center px-5"><div className="state-card"><Icon name="close" size={28} /><strong>{t('errors.load')}</strong><button type="button" className="btn-secondary" onClick={retryProfile}>{t('common.retry')}</button></div></div></>;
+  if (!profileComplete) return <>{installBanner}<Suspense fallback={loadingView}><Onboarding userId={session.user.id} onComplete={() => setProfileComplete(true)} /></Suspense></>;
 
   const tabs = [
     { id: 'map', label: t('nav.map'), icon: 'map' },
@@ -127,11 +167,11 @@ export default function App() {
 
   return (
     <div className="app-shell relative min-h-screen">
-      <div inert={isCreating ? '' : undefined} aria-hidden={isCreating || undefined}>
+      <div inert={isCreating || undefined} aria-hidden={isCreating || undefined}>
         <Suspense fallback={loadingView}>
-          {activeTab === 'map' ? <MapScreen onCreate={() => setIsCreating(true)} /> : null}
+          {activeTab === 'map' ? <MapScreen userId={session.user.id} onCreate={() => setIsCreating(true)} /> : null}
           {activeTab === 'deals' ? <MyDeals /> : null}
-          {activeTab === 'profile' ? <Profile /> : null}
+          {activeTab === 'profile' ? <Profile userId={session.user.id} /> : null}
         </Suspense>
 
         <nav className="bottom-nav" aria-label={t('nav.label')}>
@@ -149,7 +189,7 @@ export default function App() {
         </nav>
       </div>
 
-      {isCreating ? <Suspense fallback={loadingView}><CreateListing onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
+      {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
       <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`}><p>{toast.message}</p></div>)}</div>
     </div>
   );

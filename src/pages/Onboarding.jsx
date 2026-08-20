@@ -6,7 +6,7 @@ import { saveMyProfile } from '../lib/api';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 
-export default function Onboarding({ onComplete }) {
+export default function Onboarding({ userId, onComplete }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ full_name: '', language: getAppLanguage(), messenger_type: 'viber', contact_value: '' });
@@ -14,17 +14,24 @@ export default function Onboarding({ onComplete }) {
   useEffect(() => {
     let active = true;
     const prefill = async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-      const { data } = await supabase.from('profiles').select('full_name, language, preferred_language').eq('id', userData.user.id).maybeSingle();
-      if (!active || !data) return;
-      const language = data.preferred_language || data.language || getAppLanguage();
-      setForm((current) => ({ ...current, full_name: data.full_name || current.full_name, language }));
+      const [profileResult, contactResult] = await Promise.all([
+        supabase.from('profiles').select('full_name, language, preferred_language').eq('id', userId).maybeSingle(),
+        supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId).maybeSingle(),
+      ]);
+      if (!active || !profileResult.data) return;
+      const language = profileResult.data.preferred_language || profileResult.data.language || getAppLanguage();
+      setForm((current) => ({
+        ...current,
+        full_name: profileResult.data.full_name || current.full_name,
+        language,
+        messenger_type: contactResult.data?.messenger_type || current.messenger_type,
+        contact_value: contactResult.data?.contact_value || current.contact_value,
+      }));
       setAppLanguage(language);
     };
     const initialLoad = window.setTimeout(prefill, 0);
     return () => { active = false; window.clearTimeout(initialLoad); };
-  }, []);
+  }, [userId]);
 
   const update = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));

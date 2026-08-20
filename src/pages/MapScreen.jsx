@@ -29,12 +29,11 @@ function FlyToLocation({ location }) {
   return null;
 }
 
-export default function MapScreen({ onCreate }) {
+export default function MapScreen({ userId, onCreate }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const [listings, setListings] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [bookingId, setBookingId] = useState(null);
@@ -48,12 +47,10 @@ export default function MapScreen({ onCreate }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true); setLoadError('');
-    const [{ data: userData }, listingsResult, categoriesResult] = await Promise.all([
-      supabase.auth.getUser(),
+    const [listingsResult, categoriesResult] = await Promise.all([
       supabase.from('listings').select('*').eq('status', 'active').order('created_at', { ascending: false }),
       supabase.from('categories').select('*').order('id'),
     ]);
-    setCurrentUserId(userData?.user?.id || null);
     if (listingsResult.error || categoriesResult.error) setLoadError(listingsResult.error?.message || categoriesResult.error?.message || t('errors.load'));
     setListings(listingsResult.data || []);
     setCategories(categoriesResult.data || []);
@@ -94,7 +91,7 @@ export default function MapScreen({ onCreate }) {
   };
 
   const handleBook = async (item) => {
-    if (item.user_id === currentUserId) return showToast(t('map.own'), 'error');
+    if (item.user_id === userId) return showToast(t('map.own'), 'error');
     setBookingId(item.id);
     try {
       await bookListing(item.id);
@@ -116,7 +113,7 @@ export default function MapScreen({ onCreate }) {
         <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
         <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })}{location ? ` · ${kmBetween(location, [Number(item.lat), Number(item.lng)]).toFixed(1)} km` : ''}</p>
-        <button type="button" className="btn-primary mt-3 w-full min-h-10 text-sm" disabled={bookingId === item.id || item.user_id === currentUserId} onClick={() => handleBook(item)}>{bookingId === item.id ? t('map.booking') : item.user_id === currentUserId ? t('map.ownLabel') : t('map.book')}</button>
+        <button type="button" className="btn-primary mt-3 w-full min-h-10 text-sm" disabled={bookingId === item.id || item.user_id === userId} onClick={() => handleBook(item)}>{bookingId === item.id ? t('map.booking') : item.user_id === userId ? t('map.ownLabel') : t('map.book')}</button>
       </div>
     </article>
   );

@@ -22,7 +22,7 @@ function MapMover({ position }) {
   return null;
 }
 
-export default function CreateListing({ onBack, onSuccess }) {
+export default function CreateListing({ userId, onBack, onSuccess }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const [step, setStep] = useState(1);
@@ -86,18 +86,17 @@ export default function CreateListing({ onBack, onSuccess }) {
     setLoading(true);
     let uploadedPath = '';
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user) throw userError || new Error('No user');
+      if (!userId) throw new Error('No user');
       let imageUrl = null;
       if (photo) {
         const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
-        uploadedPath = `${userData.user.id}/listings/${crypto.randomUUID()}.${extension}`;
+        uploadedPath = `${userId}/listings/${crypto.randomUUID()}.${extension}`;
         const { error: uploadError } = await supabase.storage.from(bucket).upload(uploadedPath, photo, { contentType: photo.type, upsert: false, cacheControl: '3600' });
         if (uploadError) throw uploadError;
         imageUrl = supabase.storage.from(bucket).getPublicUrl(uploadedPath).data.publicUrl;
       }
       const { error } = await supabase.from('listings').insert({
-        user_id: userData.user.id, type: form.type, status: 'active', category_id: selected.id,
+        user_id: userId, type: form.type, status: 'active', category_id: selected.id,
         category: categoryLabel(selected, 'ru'), category_path: selected.category_path,
         description: form.description.trim() || null, image_url: imageUrl, quantity: Number(form.quantity),
         lat: position[0], lng: position[1],
