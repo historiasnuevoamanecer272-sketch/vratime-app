@@ -25,7 +25,7 @@ export const saveMyProfile = async (profile) => {
     // Keep the single-contact profile editable until the new migration is
     // applied. Multiple channels are never silently discarded.
     if (!/upsert_my_profile_v2|schema cache|function/i.test(error.message || '')) throw error;
-    if (contacts.length !== 1) throw new Error('multi_messenger_migration_required');
+    if (contacts.length !== 1) throw new Error('multi_messenger_migration_required', { cause: error });
     return rpc('upsert_my_profile', {
       profile_name: profile.full_name,
       profile_language: profile.language,
