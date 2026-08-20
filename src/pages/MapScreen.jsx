@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { supabase } from '../supabaseClient';
 import { bookListing } from '../lib/api';
@@ -123,12 +123,19 @@ export default function MapScreen({ userId, onCreate }) {
     </article>
   );
 
+  const listingPreview = (item) => (
+    <div className="listing-preview">
+      {item.image_url ? <img src={item.image_url} alt="" /> : <span><CategoryIcon category={item} size={26} /></span>}
+      <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{t('common.pieces', { count: item.quantity })} · {t('map.hoverHint')}</small></div>
+    </div>
+  );
+
   return (
     <div className="map-page relative h-[100svh] overflow-hidden">
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
         <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         <FlyToLocation location={location} />
-        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={item.type === 'give' ? giveIcon : takeIcon}><Popup>{listingCard(item)}</Popup></Marker>)}
+        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={item.type === 'give' ? giveIcon : takeIcon}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
       </MapContainer>
 
       <header className="map-toolbar glass-panel">
