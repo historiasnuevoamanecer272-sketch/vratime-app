@@ -83,6 +83,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .contact-channel-toggle input:checked + .contact-channel-check { border-color: var(--sea); color: white; background: var(--sea); }
 .contact-channel-input { display: block; margin-top: 10px; }
 .contact-channel-input .field { min-height: 46px; background: rgba(255,255,255,.93); }
+.telegram-mode { display: flex; gap: 7px; margin: 10px 0 0 31px; }
+.telegram-mode button { min-height: 30px; padding: 0 11px; border: 1px solid #a9cccf; border-radius: 999px; color: var(--muted); background: rgba(255,255,255,.72); font-size: .7rem; font-weight: 800; }
+.telegram-mode button.active { border-color: var(--sea); color: #fff; background: var(--sea); }
 .contact-channel-hint { margin: 8px 1px 0 31px; color: var(--muted); font-size: .69rem; line-height: 1.4; }
 
 .auth-screen { background: radial-gradient(circle at 85% 8%, rgba(28,164,188,.19), transparent 21rem), radial-gradient(circle at 5% 100%, rgba(54,190,150,.16), transparent 21rem), var(--paper); }

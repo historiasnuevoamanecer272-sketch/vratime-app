@@ -38,7 +38,8 @@ begin
     from jsonb_to_recordset(profile_channels) as channel(messenger_type text, contact_value text)
     where channel.messenger_type = 'tg'
       and btrim(channel.contact_value) !~ '^@[A-Za-z0-9_]{5,32}$'
-  ) then raise exception 'Invalid Telegram username'; end if;
+      and btrim(channel.contact_value) !~ '^\+[1-9][0-9]{6,14}$'
+  ) then raise exception 'Invalid Telegram contact'; end if;
 
   insert into public.profiles (id, full_name, language, preferred_language, updated_at)
   values (auth.uid(), btrim(profile_name), profile_language, profile_language, now())
