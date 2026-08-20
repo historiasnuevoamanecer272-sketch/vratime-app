@@ -63,6 +63,22 @@ const paths = {
       <path d="M12 19l-7-7 7-7" />
     </>
   ),
+  arrowRight: (
+    <>
+      <path d="M5 12h14" />
+      <path d="M12 5l7 7-7 7" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M20 6v5h-5" />
+      <path d="M4 18v-5h5" />
+      <path d="M18.5 9A7 7 0 0 0 6.2 6.3L4 9" />
+      <path d="M5.5 15A7 7 0 0 0 17.8 17.7L20 15" />
+    </>
+  ),
+  chevronUp: <path d="M6 15l6-6 6 6" />,
+  chevronDown: <path d="M6 9l6 6 6-6" />,
   gift: (
     <>
       <rect x="3" y="8" width="18" height="13" rx="2" />

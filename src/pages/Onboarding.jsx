@@ -1,120 +1,49 @@
 import { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { useTranslation } from 'react-i18next';
+import { getAppLanguage, setAppLanguage } from '../i18n';
+import { saveMyProfile } from '../lib/api';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 
 export default function Onboarding({ onComplete }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    language: 'me',
-    messenger_type: 'viber',
-    phone: '',
-  });
+  const [form, setForm] = useState({ full_name: '', language: getAppLanguage(), messenger_type: 'viber', contact_value: '' });
 
-  const handleSave = async (e) => {
-    e.preventDefault();
+  const update = (key, value) => {
+    setForm((current) => ({ ...current, [key]: value }));
+    if (key === 'language') setAppLanguage(value);
+  };
+
+  const handleSave = async (event) => {
+    event.preventDefault();
     setLoading(true);
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          full_name: formData.full_name,
-          language: formData.language,
-          messenger_type: formData.messenger_type,
-          phone: formData.phone,
-          updated_at: new Date(),
-        });
-
-      if (error) throw error;
-
+      await saveMyProfile({ ...form, full_name: form.full_name.trim(), contact_value: form.contact_value.trim() });
       onComplete();
     } catch (error) {
-      showToast('Ошибка при сохранении: ' + error.message, 'error');
+      showToast(`${t('errors.save')} ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="app-screen min-h-screen px-5 py-8">
-      <main className="app-container">
-        <section className="card p-5">
-          <div className="mb-6 rounded-[28px] bg-emerald-50 p-5">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm">
-              <Icon name="user" size={28} />
-            </div>
-            <p className="section-title">Первый запуск</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Настройка профиля</h1>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              Эти данные помогут участникам быстро договориться о передаче тары.
-            </p>
+    <div className="app-screen min-h-screen px-5 py-7 pt-safe">
+      <main className="app-container max-w-md">
+        <section className="card overflow-hidden">
+          <div className="onboarding-hero">
+            <span className="icon-tile icon-tile-light"><Icon name="user" size={25} /></span>
+            <p className="eyebrow mt-5 text-white/70">{t('onboarding.eyebrow')}</p>
+            <h1 className="font-display mt-2 text-4xl text-white">{t('onboarding.title')}</h1>
+            <p className="mt-3 max-w-sm text-sm font-medium leading-6 text-white/75">{t('onboarding.text')}</p>
           </div>
-
-          <form onSubmit={handleSave} className="space-y-4">
-            <label className="block space-y-2">
-              <span className="text-sm font-bold text-gray-700">Отображаемое имя</span>
-              <input
-                type="text"
-                required
-                name="name"
-                autoComplete="name"
-                value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                placeholder="Например: Марко"
-                className="field"
-              />
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-bold text-gray-700">Язык приложения</span>
-              <select
-                value={formData.language}
-                onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                className="field"
-              >
-                <option value="me">Crnogorski</option>
-                <option value="en">English</option>
-                <option value="ru">Русский</option>
-              </select>
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-bold text-gray-700">Мессенджер для связи</span>
-              <select
-                value={formData.messenger_type}
-                onChange={(e) => setFormData({ ...formData, messenger_type: e.target.value })}
-                className="field"
-              >
-                <option value="viber">Viber</option>
-                <option value="wa">WhatsApp</option>
-                <option value="tg">Telegram</option>
-              </select>
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-bold text-gray-700">Номер или никнейм</span>
-              <input
-                type="tel"
-                name="tel"
-                autoComplete="tel"
-                inputMode="tel"
-                required
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="+382..."
-                className="field"
-              />
-            </label>
-
-            <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">
-              <Icon name="check" size={20} />
-              {loading ? 'Сохраняем...' : 'Сохранить и продолжить'}
-            </button>
+          <form className="space-y-4 p-5" onSubmit={handleSave}>
+            <label className="block"><span className="field-label">{t('onboarding.name')}</span><input className="field" type="text" value={form.full_name} onChange={(event) => update('full_name', event.target.value)} placeholder={t('onboarding.namePlaceholder')} autoComplete="name" required minLength={2} /></label>
+            <label className="block"><span className="field-label">{t('onboarding.language')}</span><select className="field" value={form.language} onChange={(event) => update('language', event.target.value)}><option value="me">Crnogorski</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+            <label className="block"><span className="field-label">{t('onboarding.messenger')}</span><select className="field" value={form.messenger_type} onChange={(event) => update('messenger_type', event.target.value)}><option value="viber">Viber</option><option value="wa">WhatsApp</option><option value="tg">Telegram</option></select></label>
+            <label className="block"><span className="field-label">{t('onboarding.contact')}</span><input className="field" type="text" value={form.contact_value} onChange={(event) => update('contact_value', event.target.value)} placeholder={t('onboarding.contactPlaceholder')} autoComplete="tel" required minLength={3} /></label>
+            <button type="submit" className="btn-primary mt-2 w-full" disabled={loading}><Icon name="check" size={19} />{loading ? t('onboarding.saving') : t('onboarding.submit')}</button>
           </form>
         </section>
       </main>
