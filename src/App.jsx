@@ -43,7 +43,7 @@ export default function App() {
     try {
       const [profileResult, contactResult] = await Promise.all([
         supabase.from('profiles').select('id, language, preferred_language').eq('id', userId).maybeSingle(),
-        supabase.from('profile_contacts').select('user_id').eq('user_id', userId).maybeSingle(),
+        supabase.from('profile_contacts').select('messenger_type').eq('user_id', userId),
       ]);
 
       if (requestId !== profileRequestRef.current || profileUserRef.current !== userId) return;
@@ -57,7 +57,7 @@ export default function App() {
         pushToast(i18n.t('errors.load'), 'error');
       } else {
         setProfileError(false);
-        setProfileComplete(Boolean(data?.id && contactResult.data?.user_id));
+        setProfileComplete(Boolean(data?.id && contactResult.data?.length));
         const profileLanguage = data?.preferred_language || data?.language;
         if (profileLanguage && profileLanguage !== getAppLanguage()) setAppLanguage(profileLanguage);
       }

@@ -4,9 +4,11 @@ import { supabase } from '../supabaseClient';
 import { deactivateListing, getMyDeals, saveMyProfile } from '../lib/api';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage, setAppLanguage } from '../i18n';
+import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contacts';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
+import ContactChannelsFields from '../components/ContactChannelsFields';
 
 const badgeAssets = import.meta.glob('../assets/icons/badge-*.png', { eager: true, import: 'default' });
 const badge = (file) => badgeAssets[`../assets/icons/${file}`];
@@ -25,7 +27,7 @@ export default function Profile({ userId }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deactivating, setDeactivating] = useState(null);
-  const [form, setForm] = useState({ full_name: '', language, messenger_type: 'viber', contact_value: '' });
+  const [form, setForm] = useState({ full_name: cached?.profile?.full_name || '', language, contacts: cached?.contacts || emptyContactMap() });
 
   const load = useCallback(async () => {
     if (profileCache?.userId !== userId) setLoading(true);
@@ -33,7 +35,7 @@ export default function Profile({ userId }) {
     if (!userId) return setLoading(false);
     const [profileResult, contactResult, dealResult, listingResult, reviewResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
-      supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId).maybeSingle(),
+      supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId),
       getMyDeals().then((data) => ({ data })).catch((error) => ({ error })),
       supabase.from('listings').select('*').eq('user_id', userId).neq('status', 'canceled').order('created_at', { ascending: false }),
       supabase.from('reviews').select('id, rating, created_at, from_user:profiles!reviews_from_user_id_fkey(full_name)').eq('to_user_id', userId).order('created_at', { ascending: false }).limit(5),
@@ -44,12 +46,12 @@ export default function Profile({ userId }) {
       setLoading(false);
       return;
     }
-    const nextData = { userId, profile: profileResult.data || null, deals: dealResult.data || [], listings: listingResult.data || [], reviews: reviewResult.data || [] };
+    const nextData = { userId, profile: profileResult.data || null, contacts: contactsToMap(contactResult.data || []), deals: dealResult.data || [], listings: listingResult.data || [], reviews: reviewResult.data || [] };
     if (profileResult.data) profileCache = nextData;
     setProfile(nextData.profile); setDeals(nextData.deals); setListings(nextData.listings); setReviews(nextData.reviews);
     if (profileResult.data) {
       const nextLanguage = profileResult.data.preferred_language || profileResult.data.language || language;
-      setForm({ full_name: profileResult.data.full_name || '', language: nextLanguage, messenger_type: contactResult.data?.messenger_type || 'viber', contact_value: contactResult.data?.contact_value || '' });
+      setForm({ full_name: profileResult.data.full_name || '', language: nextLanguage, contacts: nextData.contacts });
     }
     setLoading(false);
   }, [language, userId]);
@@ -79,9 +81,11 @@ export default function Profile({ userId }) {
   ];
 
   const save = async () => {
+    const validationError = validateContacts(form.contacts);
+    if (validationError) return showToast(t(`contacts.${validationError}`), 'error');
     setSaving(true);
     try {
-      await saveMyProfile({ ...form, full_name: form.full_name.trim(), contact_value: form.contact_value.trim() });
+      await saveMyProfile({ ...form, full_name: form.full_name.trim() });
       setAppLanguage(form.language); setEditing(false); showToast(t('profile.saved'), 'success'); await load();
     } catch (saveError) { showToast(`${t('errors.save')} ${saveError.message}`, 'error'); }
     finally { setSaving(false); }
@@ -113,7 +117,7 @@ export default function Profile({ userId }) {
         </section>
 
         {editing ? <section className="card -mt-4 rounded-t-none p-5">
-          <div className="space-y-4"><label className="block"><span className="field-label">{t('profile.name')}</span><input className="field" value={form.full_name} onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))} /></label><label className="block"><span className="field-label">{t('profile.language')}</span><select className="field" value={form.language} onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}><option value="me">Crnogorski</option><option value="ru">Русский</option><option value="en">English</option></select></label><label className="block"><span className="field-label">{t('profile.messenger')}</span><select className="field" value={form.messenger_type} onChange={(event) => setForm((current) => ({ ...current, messenger_type: event.target.value }))}><option value="viber">Viber</option><option value="wa">WhatsApp</option><option value="tg">Telegram</option></select></label><label className="block"><span className="field-label">{t('profile.contact')}</span><input className="field" value={form.contact_value} onChange={(event) => setForm((current) => ({ ...current, contact_value: event.target.value }))} /></label><button type="button" className="btn-primary w-full" disabled={saving} onClick={save}>{saving ? t('onboarding.saving') : t('common.save')}</button></div>
+          <div className="space-y-4"><label className="block"><span className="field-label">{t('profile.name')}</span><input className="field" value={form.full_name} onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))} /></label><label className="block"><span className="field-label">{t('profile.language')}</span><select className="field" value={form.language} onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}><option value="me">Crnogorski</option><option value="ru">Русский</option><option value="en">English</option></select></label><ContactChannelsFields contacts={form.contacts} onChange={(contacts) => setForm((current) => ({ ...current, contacts }))} t={t} /><button type="button" className="btn-primary w-full" disabled={saving} onClick={save}>{saving ? t('onboarding.saving') : t('common.save')}</button></div>
         </section> : null}
 
         <section className="impact-grid mt-4"><div className="impact-card"><span><Icon name="deals" size={21} /></span><strong>{completedDeals.length}</strong><small>{t('profile.deals')}</small></div><div className="impact-card"><span><Icon name="leaf" size={21} /></span><strong>{itemCount}</strong><small>{t('profile.items')}</small></div></section>

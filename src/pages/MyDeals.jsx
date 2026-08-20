@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { cancelBooking, completeDeal, getMyDeals, submitReview } from '../lib/api';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
+import { contactHref } from '../lib/contacts';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
@@ -64,6 +65,7 @@ export default function MyDeals() {
   };
 
   const statusOf = (deal) => deal.canceled_at ? 'canceled' : deal.completed_at ? 'completed' : deal.status || 'reserved';
+  const contactsOf = (deal) => Array.isArray(deal.contacts) && deal.contacts.length ? deal.contacts : deal.contact_value ? [{ messenger_type: deal.messenger_type, contact_value: deal.contact_value, contact_href: deal.contact_href }] : [];
 
   return (
     <div className="app-screen min-h-screen pb-28 pt-safe">
@@ -80,13 +82,14 @@ export default function MyDeals() {
           {shownDeals.map((deal) => {
             const status = statusOf(deal);
             const working = workingId === deal.transaction_id;
+            const partnerContacts = contactsOf(deal);
             return <article key={deal.transaction_id} className="deal-card">
               <div className="flex gap-3">
                 {deal.image_url ? <img src={deal.image_url} alt="" className="deal-thumb" /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
                 <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 truncate text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div><span className={`status-pill status-${status}`}>{t(`status.${status}`)}</span></div><p className="mt-2 text-xs font-semibold text-muted">{t('common.pieces', { count: deal.quantity })} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</p></div>
               </div>
 
-              {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{deal.contact_value ? <a href={deal.contact_href || undefined}>{deal.messenger_type?.toUpperCase()} · {deal.contact_value}</a> : <p>{t('deals.contactHidden')}</p>}</div></div> : null}
+              {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contact.contact_href || contactHref(contact)}>{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t('deals.contactHidden')}</p>}</div></div> : null}
 
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {role === 'giver' ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'complete')}><Icon name="check" size={17} />{working ? t('deals.completing') : t('deals.complete')}</button> : null}

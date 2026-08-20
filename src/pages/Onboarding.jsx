@@ -3,20 +3,22 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { saveMyProfile } from '../lib/api';
+import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contacts';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import ContactChannelsFields from '../components/ContactChannelsFields';
 
 export default function Onboarding({ userId, onComplete }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ full_name: '', language: getAppLanguage(), messenger_type: 'viber', contact_value: '' });
+  const [form, setForm] = useState({ full_name: '', language: getAppLanguage(), contacts: emptyContactMap() });
 
   useEffect(() => {
     let active = true;
     const prefill = async () => {
       const [profileResult, contactResult] = await Promise.all([
         supabase.from('profiles').select('full_name, language, preferred_language').eq('id', userId).maybeSingle(),
-        supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId).maybeSingle(),
+        supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId),
       ]);
       if (!active || !profileResult.data) return;
       const language = profileResult.data.preferred_language || profileResult.data.language || getAppLanguage();
@@ -24,8 +26,7 @@ export default function Onboarding({ userId, onComplete }) {
         ...current,
         full_name: profileResult.data.full_name || current.full_name,
         language,
-        messenger_type: contactResult.data?.messenger_type || current.messenger_type,
-        contact_value: contactResult.data?.contact_value || current.contact_value,
+        contacts: contactResult.data?.length ? contactsToMap(contactResult.data) : current.contacts,
       }));
       setAppLanguage(language);
     };
@@ -40,9 +41,11 @@ export default function Onboarding({ userId, onComplete }) {
 
   const handleSave = async (event) => {
     event.preventDefault();
+    const validationError = validateContacts(form.contacts);
+    if (validationError) return showToast(t(`contacts.${validationError}`), 'error');
     setLoading(true);
     try {
-      await saveMyProfile({ ...form, full_name: form.full_name.trim(), contact_value: form.contact_value.trim() });
+      await saveMyProfile({ ...form, full_name: form.full_name.trim() });
       onComplete();
     } catch (error) {
       showToast(`${t('errors.save')} ${error.message}`, 'error');
@@ -64,8 +67,7 @@ export default function Onboarding({ userId, onComplete }) {
           <form className="space-y-4 p-5" onSubmit={handleSave}>
             <label className="block"><span className="field-label">{t('onboarding.name')}</span><input className="field" type="text" value={form.full_name} onChange={(event) => update('full_name', event.target.value)} placeholder={t('onboarding.namePlaceholder')} autoComplete="name" required minLength={2} /></label>
             <label className="block"><span className="field-label">{t('onboarding.language')}</span><select className="field" value={form.language} onChange={(event) => update('language', event.target.value)}><option value="me">Crnogorski</option><option value="ru">Русский</option><option value="en">English</option></select></label>
-            <label className="block"><span className="field-label">{t('onboarding.messenger')}</span><select className="field" value={form.messenger_type} onChange={(event) => update('messenger_type', event.target.value)}><option value="viber">Viber</option><option value="wa">WhatsApp</option><option value="tg">Telegram</option></select></label>
-            <label className="block"><span className="field-label">{t('onboarding.contact')}</span><input className="field" type="text" value={form.contact_value} onChange={(event) => update('contact_value', event.target.value)} placeholder={t('onboarding.contactPlaceholder')} autoComplete="tel" required minLength={3} /></label>
+            <ContactChannelsFields contacts={form.contacts} onChange={(contacts) => update('contacts', contacts)} t={t} />
             <button type="submit" className="btn-primary mt-2 w-full" disabled={loading}><Icon name="check" size={19} />{loading ? t('onboarding.saving') : t('onboarding.submit')}</button>
           </form>
         </section>

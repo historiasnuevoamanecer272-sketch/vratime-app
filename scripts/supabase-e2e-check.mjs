@@ -66,11 +66,12 @@ try {
 
   const [clientA, clientB, clientC] = await Promise.all(credentials.map(({ email, password: userPassword }) => signIn(email, userPassword)));
   for (const [index, client] of [clientA, clientB, clientC].entries()) {
-    requireData(await client.rpc('upsert_my_profile', {
+    requireData(await client.rpc('upsert_my_profile_v2', {
       profile_name: `VratiMe Test ${index + 1}`,
       profile_language: ['ru', 'me', 'en'][index],
-      profile_messenger: index === 1 ? 'tg' : 'viber',
-      profile_contact: index === 1 ? '@vratime_test' : '+38267000000',
+      profile_channels: index === 1
+        ? [{ messenger_type: 'tg', contact_value: '@vratime_test' }, { messenger_type: 'wa', contact_value: '+38267000001' }]
+        : [{ messenger_type: 'viber', contact_value: '+38267000000' }],
     }), 'create test profile');
   }
 
@@ -126,7 +127,7 @@ try {
   if (!directStatusUpdate.error) throw new Error('Direct listing status mutation was not blocked');
   const dealsA = requireData(await clientA.rpc('get_my_deals'), 'giver deals');
   const dealsB = requireData(await clientB.rpc('get_my_deals'), 'taker deals');
-  if (!dealsA.find((deal) => deal.transaction_id === transactionId)?.contact_value || !dealsB.find((deal) => deal.transaction_id === transactionId)?.contact_value) {
+  if (!dealsA.find((deal) => deal.transaction_id === transactionId)?.contacts?.length || !dealsB.find((deal) => deal.transaction_id === transactionId)?.contacts?.length) {
     throw new Error('Participants did not receive partner contacts');
   }
   const outsiderDeals = requireData(await clientC.rpc('get_my_deals'), 'outsider deals');
