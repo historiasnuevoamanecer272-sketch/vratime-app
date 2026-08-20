@@ -48,7 +48,7 @@ export default function Onboarding({ userId, onComplete }) {
       await saveMyProfile({ ...form, full_name: form.full_name.trim() });
       onComplete();
     } catch (error) {
-      showToast(`${t('errors.save')} ${error.message}`, 'error');
+      showToast(error.message === 'multi_messenger_migration_required' ? t('contacts.migrationRequired') : `${t('errors.save')} ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }

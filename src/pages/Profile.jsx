@@ -87,7 +87,7 @@ export default function Profile({ userId }) {
     try {
       await saveMyProfile({ ...form, full_name: form.full_name.trim() });
       setAppLanguage(form.language); setEditing(false); showToast(t('profile.saved'), 'success'); await load();
-    } catch (saveError) { showToast(`${t('errors.save')} ${saveError.message}`, 'error'); }
+    } catch (saveError) { showToast(saveError.message === 'multi_messenger_migration_required' ? t('contacts.migrationRequired') : `${t('errors.save')} ${saveError.message}`, 'error'); }
     finally { setSaving(false); }
   };
 
