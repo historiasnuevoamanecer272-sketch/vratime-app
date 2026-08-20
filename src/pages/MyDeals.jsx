@@ -43,6 +43,7 @@ export default function MyDeals() {
   }), [deals, role, view]);
 
   const runAction = async (deal, action) => {
+    if (action === 'cancel' && !window.confirm(t('deals.cancelConfirm'))) return;
     setWorkingId(deal.transaction_id);
     try {
       if (action === 'cancel') { await cancelBooking(deal.transaction_id); showToast(t('deals.canceled'), 'success'); }
@@ -93,7 +94,7 @@ export default function MyDeals() {
 
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {role === 'giver' ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'complete')}><Icon name="check" size={17} />{working ? t('deals.completing') : t('deals.complete')}</button> : null}
-                {role === 'taker' ? <button type="button" className="btn-ghost w-full text-sm" disabled={working} onClick={() => runAction(deal, 'cancel')}><Icon name="close" size={17} />{working ? t('deals.canceling') : t('deals.cancel')}</button> : null}
+                <button type="button" className="btn-ghost w-full text-sm" disabled={working} onClick={() => runAction(deal, 'cancel')}><Icon name="close" size={17} />{working ? t('deals.canceling') : t('deals.cancel')}</button>
               </div> : null}
               {deal.completed_at && !deal.my_review_rating ? <button type="button" className="btn-secondary mt-4 w-full text-sm" onClick={() => setRatingDeal(deal)}><Icon name="star" size={17} />{t('deals.rate')}</button> : null}
               {deal.my_review_rating ? <div className="mt-4 flex items-center gap-1 text-amber-500">{[1, 2, 3, 4, 5].map((value) => <Icon key={value} name="star" size={17} filled={value <= deal.my_review_rating} />)}</div> : null}
