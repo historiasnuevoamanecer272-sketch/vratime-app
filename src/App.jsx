@@ -36,13 +36,22 @@ export default function App() {
 
   const checkProfile = useCallback(async (userId) => {
     setLoading(true);
-    const { data, error } = await supabase.from('profiles').select('id, language, preferred_language').eq('id', userId).maybeSingle();
+    const [profileResult, contactResult] = await Promise.all([
+      supabase.from('profiles').select('id, language, preferred_language').eq('id', userId).maybeSingle(),
+      supabase.from('profile_contacts').select('user_id').eq('user_id', userId).maybeSingle(),
+    ]);
+    const { data, error } = profileResult;
+    const contactError = contactResult.error;
     if (error) {
       console.error('Profile check failed:', error);
       setProfileComplete(true);
       pushToast(t('errors.load'), 'error');
+    } else if (contactError) {
+      console.error('Contact check failed:', contactError);
+      setProfileComplete(false);
+      pushToast(t('errors.load'), 'error');
     } else {
-      setProfileComplete(Boolean(data?.id));
+      setProfileComplete(Boolean(data?.id && contactResult.data?.user_id));
       if (data?.preferred_language || data?.language) setAppLanguage(data.preferred_language || data.language);
     }
     setLoading(false);
@@ -118,25 +127,27 @@ export default function App() {
 
   return (
     <div className="app-shell relative min-h-screen">
-      <Suspense fallback={loadingView}>
-        {activeTab === 'map' ? <MapScreen onCreate={() => setIsCreating(true)} /> : null}
-        {activeTab === 'deals' ? <MyDeals /> : null}
-        {activeTab === 'profile' ? <Profile /> : null}
-      </Suspense>
+      <div inert={isCreating ? '' : undefined} aria-hidden={isCreating || undefined}>
+        <Suspense fallback={loadingView}>
+          {activeTab === 'map' ? <MapScreen onCreate={() => setIsCreating(true)} /> : null}
+          {activeTab === 'deals' ? <MyDeals /> : null}
+          {activeTab === 'profile' ? <Profile /> : null}
+        </Suspense>
 
-      <nav className="bottom-nav" aria-label={t('nav.label')}>
-        <div className="bottom-nav-inner">
-          {tabs.map((tab) => tab.action ? (
-            <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => setIsCreating(true)} aria-label={t('nav.create')}>
-              <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
-            </button>
-          ) : (
-            <button key={tab.id} type="button" className={`bottom-nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
-              <Icon name={tab.icon} size={22} /><span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
-      </nav>
+        <nav className="bottom-nav" aria-label={t('nav.label')}>
+          <div className="bottom-nav-inner">
+            {tabs.map((tab) => tab.action ? (
+              <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => setIsCreating(true)} aria-label={t('nav.create')}>
+                <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
+              </button>
+            ) : (
+              <button key={tab.id} type="button" className={`bottom-nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
+                <Icon name={tab.icon} size={22} /><span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      </div>
 
       {isCreating ? <Suspense fallback={loadingView}><CreateListing onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
       <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`}><p>{toast.message}</p></div>)}</div>

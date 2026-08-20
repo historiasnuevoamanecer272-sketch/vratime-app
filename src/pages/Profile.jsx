@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { getMyDeals, saveMyProfile } from '../lib/api';
+import { deactivateListing, getMyDeals, saveMyProfile } from '../lib/api';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
@@ -81,10 +81,15 @@ export default function Profile() {
 
   const deactivate = async (listingId) => {
     setDeactivating(listingId);
-    const { error: updateError } = await supabase.from('listings').update({ status: 'canceled' }).eq('id', listingId).eq('status', 'active');
-    setDeactivating(null);
-    if (updateError) return showToast(updateError.message, 'error');
-    window.dispatchEvent(new Event('listings-updated')); await load();
+    try {
+      await deactivateListing(listingId);
+      window.dispatchEvent(new Event('listings-updated'));
+      await load();
+    } catch (updateError) {
+      showToast(updateError.message, 'error');
+    } finally {
+      setDeactivating(null);
+    }
   };
 
   if (loading) return <div className="app-screen grid min-h-screen place-items-center pb-28"><div className="state-card"><span className="spinner" />{t('common.loading')}</div></div>;

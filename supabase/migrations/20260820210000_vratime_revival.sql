@@ -140,17 +140,18 @@ revoke all on public.transactions from anon;
 revoke all on public.reviews from anon;
 grant select on public.categories to anon, authenticated;
 grant select on public.listings to anon, authenticated;
-grant insert, update on public.listings to authenticated;
+revoke update on public.listings from anon, authenticated;
+grant insert on public.listings to authenticated;
 grant select on public.profiles to authenticated;
 grant select on public.profile_contacts to authenticated;
 grant select on public.transactions to authenticated;
-grant select, insert on public.reviews to authenticated;
+revoke insert on public.reviews from anon, authenticated;
+grant select on public.reviews to authenticated;
 
 create policy categories_public_read on public.categories for select using (true);
 create policy listings_public_active_read on public.listings for select to anon using (status = 'active');
 create policy listings_authenticated_read on public.listings for select to authenticated using (true);
 create policy listings_owner_insert on public.listings for insert to authenticated with check (user_id = auth.uid() and status = 'active');
-create policy listings_owner_update on public.listings for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy profiles_authenticated_read on public.profiles for select to authenticated using (true);
 create policy profile_contacts_owner_read on public.profile_contacts for select to authenticated using (user_id = auth.uid());
 create policy transactions_participant_read on public.transactions for select to authenticated using (auth.uid() in (giver_id, taker_id));
@@ -249,6 +250,22 @@ begin
 end;
 $$;
 
+create or replace function public.deactivate_listing(target_listing_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare selected_listing public.listings%rowtype;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  select * into selected_listing from public.listings where id = target_listing_id for update;
+  if not found or selected_listing.user_id <> auth.uid() then raise exception 'Listing not found'; end if;
+  if selected_listing.status <> 'active' then raise exception 'Only an active listing can be deactivated'; end if;
+  update public.listings set status = 'canceled' where id = selected_listing.id;
+end;
+$$;
+
 create or replace function public.complete_deal(target_transaction_id uuid)
 returns jsonb
 language plpgsql
@@ -291,6 +308,7 @@ begin
   if not found or auth.uid() not in (selected_transaction.giver_id, selected_transaction.taker_id) then raise exception 'Transaction not found'; end if;
   if selected_transaction.completed_at is null or selected_transaction.canceled_at is not null then raise exception 'Only completed transactions can be reviewed'; end if;
   partner_id := case when auth.uid() = selected_transaction.giver_id then selected_transaction.taker_id else selected_transaction.giver_id end;
+  perform 1 from public.profiles where id = partner_id for update;
   insert into public.reviews (transaction_id, from_user_id, to_user_id, rating)
   values (selected_transaction.id, auth.uid(), partner_id, target_rating)
   returning id into review_id;
@@ -350,12 +368,14 @@ $$;
 revoke all on function public.upsert_my_profile(text, text, text, text) from public;
 revoke all on function public.book_listing(uuid) from public;
 revoke all on function public.cancel_booking(uuid) from public;
+revoke all on function public.deactivate_listing(uuid) from public;
 revoke all on function public.complete_deal(uuid) from public;
 revoke all on function public.submit_review(uuid, integer) from public;
 revoke all on function public.get_my_deals() from public;
 grant execute on function public.upsert_my_profile(text, text, text, text) to authenticated;
 grant execute on function public.book_listing(uuid) to authenticated;
 grant execute on function public.cancel_booking(uuid) to authenticated;
+grant execute on function public.deactivate_listing(uuid) to authenticated;
 grant execute on function public.complete_deal(uuid) to authenticated;
 grant execute on function public.submit_review(uuid, integer) to authenticated;
 grant execute on function public.get_my_deals() to authenticated;

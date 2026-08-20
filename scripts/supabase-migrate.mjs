@@ -35,7 +35,10 @@ try {
         (select coalesce(jsonb_agg(jsonb_build_object('name', policyname, 'cmd', cmd, 'roles', roles, 'using', qual, 'check', with_check) order by policyname), '[]'::jsonb) from pg_policies where schemaname = 'storage' and tablename = 'objects') as storage_policies,
         not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name in ('phone', 'contacts', 'messenger_type')) as legacy_contacts_removed,
         to_regprocedure('public.book_listing(uuid)') is not null as booking_rpc,
-        to_regprocedure('public.complete_deal(uuid)') is not null as completion_rpc
+        to_regprocedure('public.complete_deal(uuid)') is not null as completion_rpc,
+        to_regprocedure('public.deactivate_listing(uuid)') is not null as deactivate_rpc,
+        has_table_privilege('authenticated', 'public.listings', 'update') as direct_listing_update,
+        has_table_privilege('authenticated', 'public.reviews', 'insert') as direct_review_insert
     `);
     process.stdout.write(`${JSON.stringify(result.rows[0])}\n`);
   } else {

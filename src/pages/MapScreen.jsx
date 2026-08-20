@@ -151,10 +151,10 @@ export default function MapScreen({ onCreate }) {
       {!loading && !loadError && filtered.length === 0 ? <div className="map-state card"><Icon name="empty" size={28} /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={onCreate}>{t('nav.create')}</button></div> : null}
 
       <button type="button" className="list-sheet-peek" onClick={() => setSheetOpen((value) => !value)} aria-expanded={sheetOpen}><span className="sheet-handle" /><span><strong>{t('map.listTitle')}</strong><small>{t('map.offers', { count: filtered.length })}</small></span><Icon name={sheetOpen ? 'chevronDown' : 'chevronUp'} size={20} /></button>
-      <section className={`listing-sheet ${sheetOpen ? 'open' : ''}`} aria-hidden={!sheetOpen}>
+      {sheetOpen ? <section className="listing-sheet open">
         <div className="listing-sheet-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('map.listTitle')}</h2></div><button type="button" className="icon-button" onClick={() => setSheetOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div>
         <div className="space-y-3 overflow-y-auto px-4 pb-28">{filtered.map((item) => listingCard(item, true))}</div>
-      </section>
+      </section> : null}
     </div>
   );
 }

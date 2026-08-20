@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { supabase } from '../supabaseClient';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { saveMyProfile } from '../lib/api';
 import { showToast } from '../lib/toast';
@@ -9,6 +10,21 @@ export default function Onboarding({ onComplete }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ full_name: '', language: getAppLanguage(), messenger_type: 'viber', contact_value: '' });
+
+  useEffect(() => {
+    let active = true;
+    const prefill = async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data } = await supabase.from('profiles').select('full_name, language, preferred_language').eq('id', userData.user.id).maybeSingle();
+      if (!active || !data) return;
+      const language = data.preferred_language || data.language || getAppLanguage();
+      setForm((current) => ({ ...current, full_name: data.full_name || current.full_name, language }));
+      setAppLanguage(language);
+    };
+    const initialLoad = window.setTimeout(prefill, 0);
+    return () => { active = false; window.clearTimeout(initialLoad); };
+  }, []);
 
   const update = (key, value) => {
     setForm((current) => ({ ...current, [key]: value }));

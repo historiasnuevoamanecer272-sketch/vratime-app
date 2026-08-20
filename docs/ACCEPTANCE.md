@@ -21,5 +21,5 @@
 
 - Repeat the flow in Russian, Montenegrin and English; reload and confirm the language persists.
 - Check widths 360, 390, 768 and 1440 px; keyboard navigation; safe areas; reduced motion; location denied; offline/network errors; 5 MB photo limit.
-- Run `npm run lint` and `npm run build`.
+- Run `npm run lint`, `npm run build`, `npm run test:i18n`, `npm run test:static`, `npm run db:test`, and `npm run db:e2e`.
 - Preview locally before pushing. Push/deploy only after explicit approval.

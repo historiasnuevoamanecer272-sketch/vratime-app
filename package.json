@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "db:migrate": "node scripts/supabase-migrate.mjs",
     "db:check": "node scripts/supabase-migrate.mjs --check",
-    "db:test": "node scripts/supabase-integration-check.mjs"
+    "db:test": "node scripts/supabase-integration-check.mjs",
+    "db:e2e": "node scripts/supabase-e2e-check.mjs",
+    "test:i18n": "node scripts/i18n-check.mjs",
+    "test:static": "node scripts/static-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
