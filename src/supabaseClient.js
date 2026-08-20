@@ -23,6 +23,11 @@ const fetchWithTimeout = async (input, init = {}) => {
   }
 };
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+const clientKey = '__vratimeSupabaseClient';
+const existingClient = import.meta.env.DEV ? globalThis[clientKey] : null;
+
+export const supabase = existingClient || createClient(supabaseUrl, supabaseAnonKey, {
   global: { fetch: fetchWithTimeout },
 });
+
+if (import.meta.env.DEV) globalThis[clientKey] = supabase;
