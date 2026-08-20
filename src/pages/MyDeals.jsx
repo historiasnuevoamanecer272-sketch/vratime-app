@@ -5,6 +5,7 @@ import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import CategoryIcon from '../components/CategoryIcon';
 
 export default function MyDeals() {
   const { t } = useTranslation();
@@ -81,7 +82,7 @@ export default function MyDeals() {
             const working = workingId === deal.transaction_id;
             return <article key={deal.transaction_id} className="deal-card">
               <div className="flex gap-3">
-                {deal.image_url ? <img src={deal.image_url} alt="" className="deal-thumb" /> : <span className="deal-thumb deal-thumb-empty"><Icon name={deal.listing_type === 'take' ? 'truck' : 'gift'} size={25} /></span>}
+                {deal.image_url ? <img src={deal.image_url} alt="" className="deal-thumb" /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
                 <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 truncate text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div><span className={`status-pill status-${status}`}>{t(`status.${status}`)}</span></div><p className="mt-2 text-xs font-semibold text-muted">{t('common.pieces', { count: deal.quantity })} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</p></div>
               </div>
 

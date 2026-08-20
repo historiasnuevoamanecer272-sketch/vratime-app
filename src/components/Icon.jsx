@@ -162,6 +162,57 @@ const paths = {
       <path d="M12 13v8" />
     </>
   ),
+  bottle: (
+    <>
+      <path d="M9 3h6" />
+      <path d="M10 3v4l-2 3v10a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V10l-2-3V3" />
+      <path d="M8 13h8" />
+    </>
+  ),
+  jar: (
+    <>
+      <path d="M7 4h10" />
+      <path d="M6 7h12" />
+      <rect x="6" y="7" width="12" height="14" rx="3" />
+      <path d="M9 11h6" />
+    </>
+  ),
+  shirt: (
+    <>
+      <path d="M9 4a4 4 0 0 0 6 0l5 3-3 5-2-1v10H9V11l-2 1-3-5z" />
+    </>
+  ),
+  fabric: (
+    <>
+      <path d="M5 5h14v14H5z" />
+      <path d="M5 10c3-2 5 2 8 0s4 1 6 0" />
+      <path d="M5 15c3-2 5 2 8 0s4 1 6 0" />
+    </>
+  ),
+  file: (
+    <>
+      <path d="M7 3h7l4 4v14H7z" />
+      <path d="M14 3v5h5" />
+      <path d="M10 13h5" />
+      <path d="M10 17h5" />
+    </>
+  ),
+  eggCarton: (
+    <>
+      <path d="M4 10h16l-2 10H6z" />
+      <path d="M6 10l2-6h8l2 6" />
+      <circle cx="9" cy="14" r="2" />
+      <circle cx="15" cy="14" r="2" />
+    </>
+  ),
+  pallet: (
+    <>
+      <path d="M4 7h16v9H4z" />
+      <path d="M8 7v9M12 7v9M16 7v9" />
+      <path d="M3 19h18" />
+      <path d="M6 16v3M18 16v3" />
+    </>
+  ),
   empty: (
     <>
       <path d="M4 7h16v11a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z" />

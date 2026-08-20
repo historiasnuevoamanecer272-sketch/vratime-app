@@ -7,6 +7,7 @@ import { categoryLabel } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import CategoryIcon from '../components/CategoryIcon';
 
 const bucket = 'LISTING-PHOTOS';
 const markerIcon = new L.Icon({ iconUrl: new URL('../assets/pins/pin-give.png', import.meta.url).href, iconSize: [38, 46], iconAnchor: [19, 46] });
@@ -133,7 +134,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
           {step === 2 ? <section>
             <p className="eyebrow text-sea">{t('create.categoryEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.categoryTitle')}</h1>
             <div className="scroll-row mt-4 flex gap-2 overflow-x-auto pb-1"><button type="button" className={`chip ${trail.length === 0 ? 'chip-active' : ''}`} onClick={() => setTrail([])}>{t('create.root')}</button>{trail.map((item, index) => <button key={item.id} type="button" className="chip chip-active" onClick={() => setTrail((current) => current.slice(0, index + 1))}>{categoryLabel(item, language)}</button>)}</div>
-            {categoriesLoading ? <div className="state-card mt-5">{t('create.loadingCategories')}</div> : visibleCategories.length ? <div className="category-grid mt-5">{visibleCategories.map((item) => <button type="button" className="category-card" key={item.id} onClick={() => chooseCategory(item)}><span className="category-icon"><Icon name="box" size={27} /></span><strong>{categoryLabel(item, language)}</strong><small>{categories.some((child) => child.parent_id === item.id) ? t('create.open') : t('common.choose')}</small></button>)}</div> : <div className="state-card mt-5">{t('create.noCategories')}</div>}
+            {categoriesLoading ? <div className="state-card mt-5">{t('create.loadingCategories')}</div> : visibleCategories.length ? <div className="category-grid mt-5">{visibleCategories.map((item) => <button type="button" className="category-card" key={item.id} onClick={() => chooseCategory(item)}><span className="category-icon"><CategoryIcon category={item} size={31} /></span><strong>{categoryLabel(item, language)}</strong><small>{categories.some((child) => child.parent_id === item.id) ? t('create.open') : t('common.choose')}</small></button>)}</div> : <div className="state-card mt-5">{t('create.noCategories')}</div>}
           </section> : null}
 
           {step === 3 ? <section className="pb-28">

@@ -4,10 +4,11 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { supabase } from '../supabaseClient';
 import { bookListing } from '../lib/api';
-import { categoryLabel, listingCategoryLabel, rootPath } from '../lib/categories';
+import { categoryLabel, categorySearchText, listingCategoryLabel, normalizeSearch, rootPath } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import CategoryIcon from '../components/CategoryIcon';
 
 const pin = (file) => new L.Icon({ iconUrl: new URL(`../assets/pins/${file}`, import.meta.url).href, iconSize: [38, 46], iconAnchor: [19, 46], popupAnchor: [0, -42] });
 const giveIcon = pin('pin-give.png');
@@ -71,14 +72,18 @@ export default function MapScreen({ userId, onCreate }) {
   const filtered = useMemo(() => listings.filter((item) => {
     if (category !== 'all' && rootPath(item) !== category) return false;
     if (type !== 'all' && item.type !== type) return false;
-    const text = `${listingCategoryLabel(item, language)} ${item.description || ''}`.toLowerCase();
-    if (query.trim() && !text.includes(query.trim().toLowerCase())) return false;
+    if (query.trim() && !categorySearchText(item, categories).includes(normalizeSearch(query))) return false;
     if (distance !== 'all' && location) {
       const itemDistance = kmBetween(location, [Number(item.lat), Number(item.lng)]);
       if (itemDistance === null || itemDistance > Number(distance)) return false;
     }
     return Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng));
-  }), [category, distance, language, listings, location, query, type]);
+  }), [categories, category, distance, listings, location, query, type]);
+
+  const hasFilters = Boolean(query.trim() || category !== 'all' || type !== 'all' || distance !== 'all');
+  const resetFilters = () => {
+    setQuery(''); setCategory('all'); setType('all'); setDistance('all');
+  };
 
   const locate = () => {
     if (!navigator.geolocation) return setLocationMessage(t('map.locationMissing'));
@@ -108,7 +113,7 @@ export default function MapScreen({ userId, onCreate }) {
   const distanceLabel = { all: t('map.anyDistance'), 1: t('map.km1'), 5: t('map.km5'), 10: t('map.km10') };
   const listingCard = (item, compact = false) => (
     <article key={`${compact ? 'sheet' : 'popup'}-${item.id}`} className={`listing-card ${compact ? 'listing-card-row' : ''}`}>
-      {item.image_url ? <img src={item.image_url} alt="" className="listing-image" /> : <span className="listing-placeholder"><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={25} /></span>}
+      {item.image_url ? <img src={item.image_url} alt="" className="listing-image" /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
       <div className="min-w-0 flex-1">
         <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
@@ -134,7 +139,7 @@ export default function MapScreen({ userId, onCreate }) {
         <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('map.search')} aria-label={t('map.search')} /><button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
         <div className="scroll-row mt-3 flex gap-2 overflow-x-auto pb-1">
           <button type="button" className={`chip ${category === 'all' ? 'chip-active' : ''}`} onClick={() => setCategory('all')}>{t('map.all')}</button>
-          {roots.map((item) => <button key={item.id} type="button" className={`chip ${category === rootPath(item) ? 'chip-active' : ''}`} onClick={() => setCategory(rootPath(item))}>{categoryLabel(item, language)}</button>)}
+          {roots.map((item) => <button key={item.id} type="button" className={`chip ${category === rootPath(item) ? 'chip-active' : ''}`} onClick={() => setCategory(rootPath(item))}><CategoryIcon category={item} size={17} />{categoryLabel(item, language)}</button>)}
         </div>
         <div className="scroll-row mt-2 flex gap-2 overflow-x-auto pb-1">
           {['all', 'give', 'take'].map((value) => <button key={value} type="button" className={`chip chip-small ${type === value ? 'chip-active' : ''}`} onClick={() => setType(value)}>{value === 'all' ? t('map.all') : t(value === 'give' ? 'map.give' : 'map.take')}</button>)}
@@ -145,12 +150,12 @@ export default function MapScreen({ userId, onCreate }) {
       </header>
 
       {loadError ? <div className="map-state card"><Icon name="close" size={24} /><p>{t('errors.load')}</p><button type="button" className="btn-secondary" onClick={fetchData}>{t('common.retry')}</button></div> : null}
-      {!loading && !loadError && filtered.length === 0 ? <div className="map-state card"><Icon name="empty" size={28} /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={onCreate}>{t('nav.create')}</button></div> : null}
+      {!loading && !loadError && filtered.length === 0 ? <div className="map-state card"><Icon name="empty" size={28} /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={hasFilters ? resetFilters : onCreate}>{t(hasFilters ? 'map.resetFilters' : 'nav.create')}</button></div> : null}
 
       <button type="button" className="list-sheet-peek" onClick={() => setSheetOpen((value) => !value)} aria-expanded={sheetOpen}><span className="sheet-handle" /><span><strong>{t('map.listTitle')}</strong><small>{t('map.offers', { count: filtered.length })}</small></span><Icon name={sheetOpen ? 'chevronDown' : 'chevronUp'} size={20} /></button>
       {sheetOpen ? <section className="listing-sheet open">
         <div className="listing-sheet-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('map.listTitle')}</h2></div><button type="button" className="icon-button" onClick={() => setSheetOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div>
-        <div className="space-y-3 overflow-y-auto px-4 pb-28">{filtered.map((item) => listingCard(item, true))}</div>
+        <div className="listing-sheet-list space-y-3 px-4 pb-28">{filtered.map((item) => listingCard(item, true))}</div>
       </section> : null}
     </div>
   );

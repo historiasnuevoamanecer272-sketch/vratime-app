@@ -34,3 +34,26 @@ export const listingCategoryLabel = (listing, language = 'ru') => {
 };
 
 export const rootPath = (category) => (category?.category_path || '').split('/')[0];
+
+export const normalizeSearch = (value) => String(value || '')
+  .normalize('NFD')
+  .replace(/\p{M}/gu, '')
+  .replace(/ё/g, 'е')
+  .toLowerCase()
+  .trim();
+
+export const categorySearchText = (listing, categories = []) => {
+  const path = listing?.category_path || '';
+  const parts = path.split('/').filter(Boolean);
+  const paths = parts.map((_, index) => parts.slice(0, index + 1).join('/'));
+  const values = [listing?.category, listing?.description, path.replace(/[/-]/g, ' ')];
+
+  paths.forEach((currentPath) => {
+    const category = categories.find((item) => (item.category_path || item.path) === currentPath);
+    const translations = category?.translations || legacyTranslations[currentPath];
+    if (translations) values.push(...Object.values(translations));
+    values.push(category?.name, category?.category, currentPath.replace(/[/-]/g, ' '));
+  });
+
+  return normalizeSearch(values.filter(Boolean).join(' '));
+};
