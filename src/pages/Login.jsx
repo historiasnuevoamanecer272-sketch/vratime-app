@@ -1,163 +1,78 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import logo from '../assets/images/app-logo.png';
+import { getAppLanguage, setAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
+import logo from '../assets/images/app-logo.png';
 import Icon from '../components/Icon';
 
+const languages = [{ id: 'ru', label: 'RU' }, { id: 'me', label: 'ME' }, { id: 'en', label: 'EN' }];
+
 export default function Login() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [recentEmails, setRecentEmails] = useState(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem('vratimeRecentEmails') || '[]');
-      return Array.isArray(saved) ? saved.slice(0, 4) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [sentEmail, setSentEmail] = useState('');
+  const [loading, setLoading] = useState(false);
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
+  const googleEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
 
-  const rememberEmail = (value) => {
-    const normalized = value.trim().toLowerCase();
-    if (!normalized) return;
-
-    const next = [normalized, ...recentEmails.filter((item) => item !== normalized)].slice(0, 4);
-    setRecentEmails(next);
-    window.localStorage.setItem('vratimeRecentEmails', JSON.stringify(next));
-  };
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (isLoading) return;
-
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      showToast('Введите корректный email', 'error');
+  const sendMagicLink = async (event) => {
+    event?.preventDefault();
+    const normalized = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return showToast(t('auth.invalid'), 'error');
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({ email: normalized, options: { emailRedirectTo: redirectTo } });
+    setLoading(false);
+    if (error) {
+      showToast(error.status === 429 ? t('auth.rateLimit') : error.message, 'error');
       return;
     }
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          emailRedirectTo: redirectTo,
-        },
-      });
-      if (error) throw error;
-      rememberEmail(normalizedEmail);
-      showToast('Проверь почту для входа!', 'success');
-    } catch (error) {
-      const message =
-        error?.status === 429
-          ? 'Слишком много попыток. Подождите минуту и попробуйте снова.'
-          : error.error_description || error.message;
-      showToast(message, 'error');
-    } finally {
-      setIsLoading(false);
-    }
+    setSentEmail(normalized);
   };
 
-  const handleOAuthLogin = async (provider) => {
-    if (isLoading) return;
-
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo,
-        },
-      });
-      if (error) throw error;
-    } catch (error) {
-      showToast(error.error_description || error.message, 'error');
-      setIsLoading(false);
-    }
+  const continueWithGoogle = async () => {
+    if (!googleEnabled) return showToast(t('auth.googleUnavailable'), 'info');
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
+    if (error) { showToast(error.message, 'error'); setLoading(false); }
   };
 
   return (
-    <div className="app-screen flex min-h-screen items-center justify-center py-8">
-      <main className="auth-container">
-        <section className="card overflow-hidden p-5">
-          <div className="rounded-[28px] bg-gradient-to-br from-emerald-100 via-white to-sky-50 p-6 text-center">
-            <div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center rounded-[32px] bg-white shadow-[0_18px_42px_rgba(22,138,74,0.16)]">
-              <img src={logo} alt="VratiMe" className="h-20 w-20 object-contain" />
-            </div>
-            <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">
-              <Icon name="leaf" size={15} />
-              Eco exchange
-            </div>
-            <h1 className="text-4xl font-black tracking-tight text-gray-950">VratiMe</h1>
-            <p className="mx-auto mt-3 max-w-xs text-balance text-base font-medium leading-6 text-gray-600">
-              Обменивайся тарой. Спасай природу Черногории.
-            </p>
+    <div className="auth-screen app-screen min-h-screen px-5 py-5 pt-safe">
+      <main className="auth-container flex min-h-[calc(100svh-2.5rem)] flex-col justify-center">
+        <div className="mb-5 flex justify-end gap-1" aria-label="Language">
+          {languages.map((language) => <button key={language.id} type="button" className={`language-chip ${getAppLanguage() === language.id ? 'active' : ''}`} onClick={() => setAppLanguage(language.id)}>{language.label}</button>)}
+        </div>
+
+        <section className="auth-card">
+          <div className="auth-hero">
+            <div className="auth-mark"><img src={logo} alt="VratiMe" /></div>
+            <p className="eyebrow text-sea"><Icon name="leaf" size={14} />{t('auth.eyebrow')}</p>
+            <h1 className="font-display mt-3 text-[2.65rem] leading-[1.02] text-forest">{t('auth.title')}</h1>
+            <p className="mt-4 text-[0.94rem] font-medium leading-6 text-muted">{t('auth.subtitle')}</p>
           </div>
 
-          <form onSubmit={handleLogin} className="mt-6 flex flex-col gap-4">
-            <label className="space-y-2">
-              <span className="text-sm font-bold text-gray-700">Email для входа</span>
-              <input
-                id="login-email"
-                type="text"
-                name="email"
-                autoComplete="email"
-                inputMode="email"
-                autoCapitalize="none"
-                spellCheck={false}
-                enterKeyHint="send"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="field"
-                required
-              />
-            </label>
-
-            {recentEmails.length > 0 ? (
-              <div className="scroll-row -mt-1 flex gap-2 overflow-x-auto pb-1">
-                {recentEmails.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setEmail(item)}
-                    className="chip max-w-[220px] overflow-hidden text-ellipsis text-xs"
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            <button type="submit" disabled={isLoading} className="btn-primary w-full">
-              <Icon name="mail" size={20} />
-              {isLoading ? 'Отправляем ссылку...' : 'Войти по Magic Link'}
-            </button>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleOAuthLogin('google')}
-                className="btn-ghost w-full text-sm"
-              >
-                Google
-              </button>
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => handleOAuthLogin('facebook')}
-                className="btn-ghost w-full text-sm"
-              >
-                Facebook
-              </button>
+          {sentEmail ? (
+            <div className="auth-form text-center" aria-live="polite">
+              <span className="success-orb mx-auto"><Icon name="mail" size={30} /></span>
+              <h2 className="font-display mt-5 text-2xl text-forest">{t('auth.sentTitle')}</h2>
+              <p className="mt-2 text-sm leading-6 text-muted">{t('auth.sentText', { email: sentEmail })}</p>
+              <p className="mt-3 rounded-2xl bg-paper-deep px-4 py-3 text-xs font-semibold text-muted">{t('auth.spam')}</p>
+              <button type="button" className="btn-primary mt-5 w-full" disabled={loading} onClick={sendMagicLink}>{loading ? t('auth.sending') : t('auth.resend')}</button>
+              <button type="button" className="btn-link mt-4" onClick={() => setSentEmail('')}>{t('auth.another')}</button>
             </div>
-
-            <p className="px-2 text-center text-xs font-medium leading-5 text-gray-500">
-              Если письмо не пришло, проверь папку «Спам» или войди через соцсеть.
-            </p>
-          </form>
+          ) : (
+            <form className="auth-form" onSubmit={sendMagicLink}>
+              <label className="field-label" htmlFor="login-email">{t('auth.email')}</label>
+              <div className="field-with-icon"><Icon name="mail" size={19} /><input id="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" inputMode="email" autoCapitalize="none" className="field" required /></div>
+              <button type="submit" className="btn-primary mt-4 w-full" disabled={loading}><Icon name="arrowRight" size={19} />{loading ? t('auth.sending') : t('auth.magic')}</button>
+              <div className="auth-divider"><span>{t('auth.divider')}</span></div>
+              <button type="button" className="btn-google w-full" disabled={loading} onClick={continueWithGoogle}><span className="google-g">G</span>{t('auth.google')}</button>
+              <p className="mt-4 text-center text-xs font-medium leading-5 text-muted">{t('auth.hint')}</p>
+            </form>
+          )}
         </section>
+        <p className="mt-5 text-center text-xs font-bold tracking-wide text-muted">VratiMe · NVO LUNA</p>
       </main>
     </div>
   );

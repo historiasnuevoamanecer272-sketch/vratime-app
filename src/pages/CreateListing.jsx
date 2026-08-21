@@ -1,472 +1,156 @@
 import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../supabaseClient';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { useTranslation } from 'react-i18next';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import { supabase } from '../supabaseClient';
+import { categoryLabel } from '../lib/categories';
+import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import CategoryIcon from '../components/CategoryIcon';
 
-const iconAssets = import.meta.glob('../assets/icons/*.{png,PNG,jpg,jpeg,webp}', {
-  eager: true,
-  import: 'default',
-});
+const bucket = 'LISTING-PHOTOS';
+const markerIcon = new L.Icon({ iconUrl: new URL('../assets/pins/pin-give.png', import.meta.url).href, iconSize: [38, 46], iconAnchor: [19, 46] });
 
-const iconUrls = Object.fromEntries(
-  Object.entries(iconAssets).map(([path, url]) => [path.split('/').pop(), url])
-);
-
-const getPinUrl = (name) => new URL(`../assets/pins/${name}`, import.meta.url).href;
-const locationIcon = new L.Icon({
-  iconUrl: getPinUrl('pin-give.png'),
-  iconSize: [40, 48],
-  iconAnchor: [20, 48],
-});
-
-const normalizeKey = (value = '') =>
-  value
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replaceAll('ё', 'е')
-    .replace(/[\s_]+/g, '-')
-    .replace(/[^a-z0-9\u0400-\u04ff-]/g, '')
-    .replace(/-+/g, '-');
-
-const getPathSegment = (value = '') => {
-  const rawValue = value.toString().trim().replaceAll('ё', 'е');
-  const segment = rawValue.split('/').filter(Boolean).at(-1) || rawValue;
-  return normalizeKey(segment);
-};
-
-const getIconUrl = (name) => iconUrls[name] || null;
-const LISTING_PHOTOS_BUCKET = 'LISTING-PHOTOS';
-
-function LocationSelector({ position, setPosition }) {
-  useMapEvents({
-    click(e) {
-      setPosition([e.latlng.lat, e.latlng.lng]);
-    },
-  });
-
-  return <Marker position={position} icon={locationIcon} />;
+function LocationPicker({ position, onChange }) {
+  useMapEvents({ click: ({ latlng }) => onChange([latlng.lat, latlng.lng]) });
+  return <Marker position={position} icon={markerIcon} />;
 }
 
-export default function CreateListing({ onBack, onSuccess }) {
+function MapMover({ position }) {
+  const map = useMap();
+  useEffect(() => map.flyTo(position, 14, { duration: 0.7 }), [map, position]);
+  return null;
+}
+
+export default function CreateListing({ userId, onBack, onSuccess }) {
+  const { t } = useTranslation();
+  const language = getAppLanguage();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [photoUploading, setPhotoUploading] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-  const [imageName, setImageName] = useState('');
   const [categoriesLoading, setCategoriesLoading] = useState(true);
-  const [categoriesError, setCategoriesError] = useState('');
-  const [position, setPosition] = useState([42.441, 19.263]);
   const [categories, setCategories] = useState([]);
-  const [categoryTrail, setCategoryTrail] = useState([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const [selectedCategoryLabel, setSelectedCategoryLabel] = useState('');
-  const [selectedCategoryPath, setSelectedCategoryPath] = useState('');
-  const [formData, setFormData] = useState({
-    type: 'give',
-    quantity: 1,
-  });
+  const [trail, setTrail] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [position, setPosition] = useState([42.441, 19.263]);
+  const [photo, setPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [form, setForm] = useState({ type: 'give', quantity: 1, description: '' });
 
   useEffect(() => {
     let active = true;
-
-    const fetchCategories = async () => {
-      setCategoriesLoading(true);
-      setCategoriesError('');
-
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, name, parent_id, icon_url, category_path')
-        .order('name', { ascending: true });
-
+    supabase.from('categories').select('*').order('id').then(({ data, error }) => {
       if (!active) return;
-
-      if (error) {
-        console.error('Ошибка загрузки категорий:', error);
-        setCategories([]);
-        setCategoriesError(error.message);
-        showToast('Не удалось загрузить категории: ' + error.message, 'error');
-      } else {
-        setCategories(data || []);
-      }
-
-      setCategoriesLoading(false);
-    };
-
-    fetchCategories();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const currentParentCategory = categoryTrail.at(-1) || null;
-
-  const visibleCategories = useMemo(() => {
-    const parentId = currentParentCategory?.id ?? null;
-    return categories.filter((category) => {
-      if (parentId === null) return category.parent_id === null;
-      return category.parent_id === parentId;
+      setCategories(data || []); setCategoriesLoading(false);
+      if (error) showToast(`${t('errors.load')} ${error.message}`, 'error');
     });
-  }, [categories, currentParentCategory]);
+    return () => { active = false; };
+  }, [t]);
 
-  const breadcrumbLabel = categoryTrail.length > 0 ? categoryTrail.map((item) => item.name).join(' / ') : 'Основные категории';
+  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
 
-  const getCategoryAsset = (category) => {
-    const iconName = category.icon_url?.split('/').pop();
-    if (!iconName) return null;
-    return getIconUrl(iconName);
-  };
+  const parent = trail.at(-1);
+  const visibleCategories = useMemo(() => categories.filter((item) => parent ? item.parent_id === parent.id : item.parent_id === null), [categories, parent]);
+  const getPath = (items) => items.at(-1)?.category_path || items.map((item) => item.slug).join('/');
 
-  const getFinalPath = (trail) => {
-    const leaf = trail.at(-1);
-    if (!leaf) return '';
-
-    if (leaf.category_path?.includes('/')) {
-      return leaf.category_path;
-    }
-
-    return trail
-      .map((item) => getPathSegment(item.category_path || item.name))
-      .filter(Boolean)
-      .join('/');
-  };
-
-  const openCategory = (category) => {
-    const children = categories.filter((item) => item.parent_id === category.id);
-
-    if (children.length > 0) {
-      setCategoryTrail((current) => [...current, category]);
-      return;
-    }
-
-    const finalTrail = [...categoryTrail, category];
-    setSelectedCategoryId(category.id);
-    setSelectedCategoryLabel(category.name);
-    setSelectedCategoryPath(getFinalPath(finalTrail));
+  const chooseCategory = (item) => {
+    const children = categories.some((category) => category.parent_id === item.id);
+    if (children) return setTrail((current) => [...current, item]);
+    setSelected({ ...item, category_path: getPath([...trail, item]) });
     setStep(3);
   };
 
-  const jumpToCrumb = (index) => {
-    setCategoryTrail(categoryTrail.slice(0, index + 1));
-  };
-
-  const handleStepBack = () => {
-    if (step === 3) {
-      setStep(2);
-      return;
-    }
-
-    if (step === 2 && categoryTrail.length > 0) {
-      setCategoryTrail(categoryTrail.slice(0, -1));
-      return;
-    }
-
-    if (step > 1) {
-      setStep(step - 1);
-      setCategoryTrail([]);
-      return;
-    }
-
+  const goBack = () => {
+    if (step === 3) return setStep(2);
+    if (step === 2 && trail.length) return setTrail((current) => current.slice(0, -1));
+    if (step === 2) return setStep(1);
     onBack();
   };
 
-  const handlePublish = async () => {
+  const selectPhoto = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showToast(t('create.badFile'), 'error');
+    if (file.size > 5 * 1024 * 1024) return showToast(t('create.tooLarge'), 'error');
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhoto(file); setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const useLocation = () => {
+    if (!navigator.geolocation) return showToast(t('map.locationMissing'), 'error');
+    navigator.geolocation.getCurrentPosition(({ coords }) => setPosition([coords.latitude, coords.longitude]), () => showToast(t('map.locationDenied'), 'error'), { enableHighAccuracy: true, timeout: 10000 });
+  };
+
+  const publish = async () => {
+    if (!selected || form.quantity < 1 || form.quantity > 10000) return;
     setLoading(true);
-
+    let uploadedPath = '';
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      if (!userId) throw new Error('No user');
+      let imageUrl = null;
+      if (photo) {
+        const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
+        uploadedPath = `${userId}/listings/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(uploadedPath, photo, { contentType: photo.type, upsert: false, cacheControl: '3600' });
+        if (uploadError) throw uploadError;
+        imageUrl = supabase.storage.from(bucket).getPublicUrl(uploadedPath).data.publicUrl;
+      }
       const { error } = await supabase.from('listings').insert({
-        user_id: user.id,
-        type: formData.type,
-        status: 'active',
-        category_id: selectedCategoryId,
-        category: selectedCategoryLabel,
-        category_path: selectedCategoryPath,
-        image_url: imageUrl || null,
-        quantity: formData.quantity,
-        lat: position[0],
-        lng: position[1],
+        user_id: userId, type: form.type, status: 'active', category_id: selected.id,
+        category: categoryLabel(selected, 'ru'), category_path: selected.category_path,
+        description: form.description.trim() || null, image_url: imageUrl, quantity: Number(form.quantity),
+        lat: position[0], lng: position[1],
       });
-
       if (error) throw error;
+      showToast(t('create.published'), 'success');
       window.dispatchEvent(new Event('listings-updated'));
       onSuccess();
-    } catch (e) {
-      showToast('Ошибка публикации: ' + e.message, 'error');
+    } catch (error) {
+      if (uploadedPath) await supabase.storage.from(bucket).remove([uploadedPath]);
+      showToast(`${t('errors.save')} ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePhotoSelect = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setPhotoUploading(true);
-
-    try {
-      const filePath = `listings/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from(LISTING_PHOTOS_BUCKET)
-        .upload(filePath, file, {
-          upsert: true,
-          contentType: file.type,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from(LISTING_PHOTOS_BUCKET).getPublicUrl(filePath);
-      const publicUrl = data?.publicUrl || '';
-
-      if (!publicUrl) {
-        throw new Error('Не удалось получить public URL файла');
-      }
-
-      setImageUrl(publicUrl);
-      setImageName(file.name);
-    } catch (error) {
-      console.error('Ошибка загрузки фото:', error);
-      showToast('Не удалось загрузить фото: ' + error.message, 'error');
-    } finally {
-      setPhotoUploading(false);
-      event.target.value = '';
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-[7000] bg-slate-950/40">
-      <div className="app-container flex h-[100svh] flex-col overflow-hidden bg-[#f6faf4] shadow-[0_0_80px_rgba(15,23,42,0.28)]">
-        <header className="glass-panel rounded-b-[28px] px-5 pb-4 pt-4">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <button type="button" onClick={handleStepBack} className="btn-ghost h-11 min-h-11 px-3 text-sm">
-              <Icon name="arrowLeft" size={18} />
-              Назад
-            </button>
-            <div className="text-right">
-              <p className="section-title">Новый лот</p>
-              <p className="text-sm font-black text-gray-950">Шаг {step} из 3</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((item) => (
-              <div
-                key={item}
-                className={`h-2 rounded-full ${item <= step ? 'bg-emerald-500' : 'bg-emerald-100'}`}
-              />
-            ))}
-          </div>
+    <div className="modal-backdrop">
+      <div className="wizard-shell" role="dialog" aria-modal="true" aria-label={t('create.title')}>
+        <header className="wizard-header">
+          <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={goBack}><Icon name="arrowLeft" size={17} />{t('common.back')}</button>
+          <div className="text-right"><p className="eyebrow text-sea">{t('create.title')}</p><p className="mt-1 text-sm font-extrabold text-forest">{t('create.step', { step })}</p></div>
+          <div className="wizard-progress col-span-2">{[1, 2, 3].map((value) => <span key={value} className={value <= step ? 'active' : ''} />)}</div>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-          {step === 1 && (
-            <section className="space-y-4">
-              <div>
-                <p className="section-title">Тип объявления</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Что хотите сделать?</h2>
-              </div>
+        <main className="wizard-content">
+          {step === 1 ? <section>
+            <p className="eyebrow text-sea">{t('create.typeEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.typeTitle')}</h1>
+            <div className="mt-7 space-y-3">
+              {[['give', 'gift'], ['take', 'truck']].map(([value, icon]) => <button key={value} type="button" className={`choice-card ${value}`} onClick={() => { setForm((current) => ({ ...current, type: value })); setStep(2); }}><span className="choice-icon"><Icon name={icon} size={29} /></span><span><strong>{t(`create.${value}`)}</strong><small>{t(`create.${value}Text`)}</small></span><Icon name="arrowRight" size={20} /></button>)}
+            </div>
+          </section> : null}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData({ ...formData, type: 'give' });
-                  setStep(2);
-                }}
-                className="soft-card flex w-full items-center gap-4 p-5 text-left transition hover:border-emerald-300 hover:bg-emerald-50"
-              >
-                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                  <Icon name="gift" size={30} />
-                </span>
-                <span>
-                  <span className="block text-xl font-black text-gray-950">Я отдаю</span>
-                  <span className="mt-1 block text-sm font-medium leading-5 text-gray-600">
-                    У меня есть тара или материалы для переработки.
-                  </span>
-                </span>
-              </button>
+          {step === 2 ? <section>
+            <p className="eyebrow text-sea">{t('create.categoryEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.categoryTitle')}</h1>
+            <div className="scroll-row mt-4 flex gap-2 overflow-x-auto pb-1"><button type="button" className={`chip ${trail.length === 0 ? 'chip-active' : ''}`} onClick={() => setTrail([])}>{t('create.root')}</button>{trail.map((item, index) => <button key={item.id} type="button" className="chip chip-active" onClick={() => setTrail((current) => current.slice(0, index + 1))}>{categoryLabel(item, language)}</button>)}</div>
+            {categoriesLoading ? <div className="state-card mt-5">{t('create.loadingCategories')}</div> : visibleCategories.length ? <div className="category-grid mt-5">{visibleCategories.map((item) => <button type="button" className="category-card" key={item.id} onClick={() => chooseCategory(item)}><span className="category-icon"><CategoryIcon category={item} size={31} /></span><strong>{categoryLabel(item, language)}</strong><small>{categories.some((child) => child.parent_id === item.id) ? t('create.open') : t('common.choose')}</small></button>)}</div> : <div className="state-card mt-5">{t('create.noCategories')}</div>}
+          </section> : null}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData({ ...formData, type: 'take' });
-                  setStep(2);
-                }}
-                className="soft-card flex w-full items-center gap-4 p-5 text-left transition hover:border-sky-300 hover:bg-sky-50"
-              >
-                <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
-                  <Icon name="truck" size={32} />
-                </span>
-                <span>
-                  <span className="block text-xl font-black text-gray-950">Я заберу</span>
-                  <span className="mt-1 block text-sm font-medium leading-5 text-gray-600">
-                    Мне нужна тара, сырьё или материалы для проекта.
-                  </span>
-                </span>
-              </button>
-            </section>
-          )}
-
-          {step === 2 && (
-            <section className="space-y-5 pb-10">
-              <div>
-                <p className="section-title">Категория</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Что именно?</h2>
-                <p className="mt-2 text-sm font-bold text-emerald-700">{breadcrumbLabel}</p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {categoryTrail.length === 0 ? (
-                  <span className="chip chip-active">Основные категории</span>
-                ) : (
-                  categoryTrail.map((item, index) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => jumpToCrumb(index)}
-                      className={`chip ${index === categoryTrail.length - 1 ? 'chip-active' : ''}`}
-                    >
-                      {item.name}
-                    </button>
-                  ))
-                )}
-              </div>
-
-              {categoriesLoading ? (
-                <div className="card py-14 text-center text-sm font-bold text-gray-500">Загружаем категории...</div>
-              ) : visibleCategories.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3">
-                  {visibleCategories.map((cat) => {
-                    const iconSrc = getCategoryAsset(cat);
-                    const isSelectedBranch = categoryTrail.some((item) => item.id === cat.id);
-                    const hasChildren = categories.some((item) => item.parent_id === cat.id);
-
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => openCategory(cat)}
-                        className={`soft-card flex min-h-[146px] flex-col items-center justify-center gap-3 p-4 text-center transition hover:border-emerald-400 hover:bg-emerald-50 ${
-                          isSelectedBranch ? 'border-emerald-400 bg-emerald-50' : ''
-                        }`}
-                      >
-                        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50 text-emerald-700">
-                          {iconSrc ? <img src={iconSrc} alt="" className="h-12 w-12 object-contain" /> : <Icon name="box" size={34} />}
-                        </span>
-                        <span className="text-sm font-black leading-5 text-gray-950">{cat.name}</span>
-                        <span className="text-xs font-bold text-gray-400">
-                          {hasChildren ? 'Открыть подкатегории' : 'Выбрать'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="card p-6 text-center">
-                  <Icon name="empty" size={44} className="mx-auto text-gray-300" />
-                  <p className="mt-3 text-sm font-bold text-gray-500">
-                    {categoryTrail.length === 0
-                      ? 'Категории пока не найдены.'
-                      : 'В этой ветке пока нет подкатегорий.'}
-                  </p>
-                  {categoriesError ? <p className="mt-2 text-xs text-rose-500">{categoriesError}</p> : null}
-                </div>
-              )}
-            </section>
-          )}
-
-          {step === 3 && (
-            <section className="space-y-4 pb-32">
-              <div>
-                <p className="section-title">Публикация</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Где находится сырьё?</h2>
-                <p className="mt-2 text-sm font-medium leading-6 text-gray-600">
-                  Нажмите на карту, чтобы поставить точку. Фото необязательно, но помогает быстрее договориться.
-                </p>
-              </div>
-
-              <div className="card p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                      <Icon name="camera" size={24} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-black text-gray-950">Фото лота</p>
-                      <p className="truncate text-sm font-medium text-gray-500">{imageName || 'Можно пропустить'}</p>
-                    </div>
-                  </div>
-                  <label className="btn-secondary h-11 min-h-11 cursor-pointer px-4 text-sm">
-                    {photoUploading ? 'Загрузка...' : 'Выбрать'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handlePhotoSelect}
-                      disabled={photoUploading}
-                    />
-                  </label>
-                </div>
-
-                {imageUrl ? (
-                  <div className="mt-4 flex items-center gap-3 rounded-2xl bg-emerald-50 p-3">
-                    <img src={imageUrl} alt={imageName || 'Фото лота'} className="h-16 w-16 rounded-xl object-cover" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-black text-gray-900">{imageName || 'Фото загружено'}</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImageUrl('');
-                          setImageName('');
-                        }}
-                        className="mt-1 text-xs font-black text-rose-600"
-                      >
-                        Удалить фото
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <label className="block space-y-2">
-                <span className="text-sm font-bold text-gray-700">Количество</span>
-                <input
-                  type="number"
-                  min="1"
-                  inputMode="numeric"
-                  enterKeyHint="done"
-                  value={formData.quantity}
-                  onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) || 1 })}
-                  className="field"
-                />
-              </label>
-
-              <div className="h-80 overflow-hidden rounded-[24px] border border-emerald-100 shadow-sm sm:h-96">
-                <MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full">
-                  <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
-                  <LocationSelector position={position} setPosition={setPosition} />
-                </MapContainer>
-              </div>
-            </section>
-          )}
+          {step === 3 ? <section className="pb-28">
+            <p className="eyebrow text-sea">{t('create.publishEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.publishTitle')}</h1><p className="mt-3 text-sm leading-6 text-muted">{t('create.publishText')}</p>
+            <div className="detail-card mt-5">
+              <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}</strong><small className="block truncate text-muted">{photo?.name || t('common.optional')}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={selectPhoto} /></label></div>
+              {photoPreview ? <div className="photo-preview"><img src={photoPreview} alt="" /><button type="button" className="btn-link" onClick={() => { URL.revokeObjectURL(photoPreview); setPhoto(null); setPhotoPreview(''); }}>{t('common.remove')}</button></div> : null}
+            </div>
+            <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.min(10000, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
+            <label className="mt-4 block"><span className="field-label">{t('create.description')}</span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
+            <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" onClick={useLocation}><Icon name="location" size={16} />{t('create.useLocation')}</button></div>
+            <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" /><MapMover position={position} /><LocationPicker position={position} onChange={setPosition} /></MapContainer></div>
+          </section> : null}
         </main>
 
-        {step === 3 && (
-          <footer className="glass-panel fixed bottom-0 left-1/2 z-[7100] w-full max-w-[520px] -translate-x-1/2 rounded-t-[28px] px-5 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4">
-            <button disabled={loading} onClick={handlePublish} className="btn-primary w-full">
-              <Icon name={formData.type === 'give' ? 'gift' : 'truck'} size={20} />
-              {loading
-                ? 'Секунду...'
-                : formData.type === 'give'
-                  ? 'Опубликовать лот'
-                  : 'Разместить запрос на вывоз'}
-            </button>
-          </footer>
-        )}
+        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'truck'} size={19} />{loading ? t('create.publishing') : t(form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
       </div>
     </div>
   );

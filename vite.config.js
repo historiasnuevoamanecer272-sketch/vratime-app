@@ -15,21 +15,21 @@ export default defineConfig({
       manifest: {
         name: 'VratiMe',
         short_name: 'VratiMe',
-        description: 'Платформа обмена тарой и вторсырьем в Черногории',
-        theme_color: '#168a4a',
-        background_color: '#f4f8f3',
+        description: 'Give packaging and materials another life in Montenegro',
+        theme_color: '#087783',
+        background_color: '#effafa',
         display: 'standalone',
         start_url: './',
         scope: './',
         icons: [
           {
-            src: 'app-logo.png',
+            src: 'app-logo-192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any maskable',
+            purpose: 'any',
           },
           {
-            src: 'app-logo.png',
+            src: 'app-logo-512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable',
