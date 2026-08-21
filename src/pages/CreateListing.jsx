@@ -83,7 +83,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
   };
 
   const publish = async () => {
-    if (!selected || form.quantity < 1) return;
+    if (!selected || form.quantity < 1 || form.quantity > 10000) return;
     setLoading(true);
     let uploadedPath = '';
     try {
@@ -116,7 +116,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
 
   return (
     <div className="modal-backdrop">
-      <div className="wizard-shell">
+      <div className="wizard-shell" role="dialog" aria-modal="true" aria-label={t('create.title')}>
         <header className="wizard-header">
           <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={goBack}><Icon name="arrowLeft" size={17} />{t('common.back')}</button>
           <div className="text-right"><p className="eyebrow text-sea">{t('create.title')}</p><p className="mt-1 text-sm font-extrabold text-forest">{t('create.step', { step })}</p></div>
@@ -143,7 +143,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
               <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}</strong><small className="block truncate text-muted">{photo?.name || t('common.optional')}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={selectPhoto} /></label></div>
               {photoPreview ? <div className="photo-preview"><img src={photoPreview} alt="" /><button type="button" className="btn-link" onClick={() => { URL.revokeObjectURL(photoPreview); setPhoto(null); setPhotoPreview(''); }}>{t('common.remove')}</button></div> : null}
             </div>
-            <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.max(1, Number(event.target.value) || 1) }))} /></label>
+            <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.min(10000, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
             <label className="mt-4 block"><span className="field-label">{t('create.description')}</span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" onClick={useLocation}><Icon name="location" size={16} />{t('create.useLocation')}</button></div>
             <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" /><MapMover position={position} /><LocationPicker position={position} onChange={setPosition} /></MapContainer></div>

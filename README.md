@@ -11,10 +11,7 @@ Mobile-first C2C exchange for reusable packaging, clothes and materials in Monte
 Quality checks:
 
 ```bash
-npm run lint
-npm run build
-npm run test:i18n
-npm run test:static
+npm test
 npm audit
 ```
 
@@ -26,12 +23,13 @@ Database helper commands require `SUPABASE_DB_HOST`, `SUPABASE_DB_USER`, `SUPABA
 
 ```bash
 npm run db:check
+npm run db:public
 npm run db:test
 npm run db:e2e
 npm run db:migrate
 ```
 
-`db:test` runs a database transaction and rolls every test write back. `db:e2e` creates isolated temporary Auth users, exercises the live HTTP/Auth/Storage/RPC flow including a concurrent booking race, then removes only those generated records and verifies the original row counts.
+`db:public` performs a read-only live check with the public anon key: category translations, active listings and blocked anonymous access to private tables. `db:test` runs a database transaction and rolls every test write back. `db:e2e` creates isolated temporary Auth users, exercises the live HTTP/Auth/Storage/RPC flow including a concurrent booking race, then removes only those generated records and verifies the original row counts.
 
 ## Release
 

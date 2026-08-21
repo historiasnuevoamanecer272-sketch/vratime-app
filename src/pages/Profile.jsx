@@ -92,6 +92,7 @@ export default function Profile({ userId }) {
   };
 
   const deactivate = async (listingId) => {
+    if (!window.confirm(t('profile.deactivateConfirm'))) return;
     setDeactivating(listingId);
     try {
       await deactivateListing(listingId);
@@ -123,6 +124,8 @@ export default function Profile({ userId }) {
         <section className="impact-grid mt-4"><div className="impact-card"><span><Icon name="deals" size={21} /></span><strong>{completedDeals.length}</strong><small>{t('profile.deals')}</small></div><div className="impact-card"><span><Icon name="leaf" size={21} /></span><strong>{itemCount}</strong><small>{t('profile.items')}</small></div></section>
 
         <section className="card mt-4 p-5"><div className="flex items-center justify-between"><div><p className="eyebrow text-sea">{t('profile.level')}</p><h2 className="font-display mt-1 text-2xl text-forest">{levels[levelIndex]}</h2></div><span className="level-number">{levelIndex + 1}</span></div><div className="level-track mt-5"><span style={{ width: `${levelProgress}%` }} /></div><p className="mt-2 text-xs font-semibold text-muted">{levelIndex === 4 ? t('profile.maxLevel') : t('profile.nextLevel', { count: 100 - levelProgress })}</p></section>
+
+        <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.pointsWhy')}</h2></div><span className="icon-tile"><Icon name="leaf" size={21} /></span></div><p className="mt-3 text-sm leading-6 text-muted">{t('profile.pointsIntro')}</p><ul className="mt-4 space-y-3 text-sm font-semibold leading-5 text-forest"><li className="flex gap-2"><Icon name="check" size={17} />{t('profile.pointsEarn')}</li><li className="flex gap-2"><Icon name="check" size={17} />{t('profile.pointsLevels')}</li><li className="flex gap-2"><Icon name="check" size={17} />{t('profile.pointsNoMoney')}</li></ul></section>
 
         <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.achievements')}</h2></div><Icon name="award" size={24} /></div><div className="mt-4 grid grid-cols-4 gap-2">{achievements.map((item) => <div key={item.label} className={`achievement ${item.unlocked ? 'unlocked' : ''}`}><img src={item.image} alt="" /><span>{item.label}</span></div>)}</div></section>
 

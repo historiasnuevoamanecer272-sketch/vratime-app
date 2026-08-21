@@ -4,18 +4,22 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test": "npm run test:quality",
+    "test:quality": "npm run lint && npm run test:i18n && npm run test:search && npm run test:contacts && npm run test:migrations && npm run build && npm run test:static",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "db:migrate": "node scripts/supabase-migrate.mjs",
     "db:check": "node scripts/supabase-migrate.mjs --check",
+    "db:public": "node scripts/supabase-public-check.mjs",
     "db:test": "node scripts/supabase-integration-check.mjs",
     "db:e2e": "node scripts/supabase-e2e-check.mjs",
     "test:i18n": "node scripts/i18n-check.mjs",
     "test:static": "node scripts/static-check.mjs",
     "test:search": "node scripts/category-search-check.mjs",
-    "test:contacts": "node scripts/contacts-check.mjs"
+    "test:contacts": "node scripts/contacts-check.mjs",
+    "test:migrations": "node scripts/migration-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

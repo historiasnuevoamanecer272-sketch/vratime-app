@@ -1,6 +1,10 @@
 import process from 'node:process';
 import pg from 'pg';
 
+for (const name of ['SUPABASE_DB_HOST', 'SUPABASE_DB_USER', 'SUPABASE_DB_PASSWORD']) {
+  if (!process.env[name]) throw new Error(`Missing ${name}`);
+}
+
 const client = new pg.Client({
   host: process.env.SUPABASE_DB_HOST,
   port: Number(process.env.SUPABASE_DB_PORT || 5432),
@@ -48,10 +52,14 @@ try {
         duplicate_blocked := true;
       end;
       if not duplicate_blocked then raise exception 'Duplicate booking was not blocked'; end if;
+      perform set_config('request.jwt.claim.sub', user_a::text, true);
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', user_a, 'role', 'authenticated')::text, true);
       perform public.cancel_booking(transaction_one);
       if not exists (select 1 from public.transactions where id = transaction_one and canceled_at is not null) then raise exception 'Cancellation history missing'; end if;
       if not exists (select 1 from public.listings where id = listing_one and status = 'active') then raise exception 'Listing was not restored'; end if;
 
+      perform set_config('request.jwt.claim.sub', user_b::text, true);
+      perform set_config('request.jwt.claims', jsonb_build_object('sub', user_b, 'role', 'authenticated')::text, true);
       insert into public.listings (id, user_id, type, status, category_id, category, category_path, quantity, lat, lng)
       values (listing_two, user_a, 'give', 'active', category_record.id, category_record.name, category_record.category_path, 3, 42.442, 19.264);
       transaction_two := public.book_listing(listing_two);

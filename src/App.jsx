@@ -153,10 +153,12 @@ export default function App() {
     </aside>
   ) : null;
 
-  if (loading) return <>{installBanner}{loadingView}</>;
-  if (!session) return <>{installBanner}<Suspense fallback={loadingView}><Login /></Suspense></>;
-  if (profileError) return <>{installBanner}<div className="app-screen grid min-h-screen place-items-center px-5"><div className="state-card"><Icon name="close" size={28} /><strong>{t('errors.load')}</strong><button type="button" className="btn-secondary" onClick={retryProfile}>{t('common.retry')}</button></div></div></>;
-  if (!profileComplete) return <>{installBanner}<Suspense fallback={loadingView}><Onboarding userId={session.user.id} onComplete={() => setProfileComplete(true)} /></Suspense></>;
+  const toastStack = <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`}><p>{toast.message}</p></div>)}</div>;
+
+  if (loading) return <>{installBanner}{loadingView}{toastStack}</>;
+  if (!session) return <>{installBanner}<Suspense fallback={loadingView}><Login /></Suspense>{toastStack}</>;
+  if (profileError) return <>{installBanner}<div className="app-screen grid min-h-screen place-items-center px-5"><div className="state-card"><Icon name="close" size={28} /><strong>{t('errors.load')}</strong><button type="button" className="btn-secondary" onClick={retryProfile}>{t('common.retry')}</button></div></div>{toastStack}</>;
+  if (!profileComplete) return <>{installBanner}<Suspense fallback={loadingView}><Onboarding userId={session.user.id} onComplete={() => setProfileComplete(true)} /></Suspense>{toastStack}</>;
 
   const tabs = [
     { id: 'map', label: t('nav.map'), icon: 'map' },
@@ -190,7 +192,7 @@ export default function App() {
       </div>
 
       {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
-      <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`}><p>{toast.message}</p></div>)}</div>
+      {toastStack}
     </div>
   );
 }

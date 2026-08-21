@@ -26,7 +26,7 @@ const signIn = async (email, password) => {
 
 const counts = async () => {
   const result = {};
-  for (const table of ['categories', 'listings', 'profiles', 'transactions', 'reviews']) {
+  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews']) {
     const response = await admin.from(table).select('*', { count: 'exact', head: true });
     if (response.error) throw response.error;
     result[table] = response.count;
@@ -71,8 +71,15 @@ try {
       profile_language: ['ru', 'me', 'en'][index],
       profile_channels: index === 1
         ? [{ messenger_type: 'tg', contact_value: '@vratime_test' }, { messenger_type: 'wa', contact_value: '+38267000001' }]
-        : [{ messenger_type: 'viber', contact_value: '+38267000000' }],
+        : index === 2
+          ? [{ messenger_type: 'viber', contact_value: '+38267000002' }, { messenger_type: 'wa', contact_value: '+38267000003' }, { messenger_type: 'tg', contact_value: '+38267000004' }]
+          : [{ messenger_type: 'viber', contact_value: '+38267000000' }],
     }), 'create test profile');
+  }
+
+  const profileCContacts = requireData(await clientC.from('profile_contacts').select('messenger_type, contact_value'), 'read three own contacts');
+  if (profileCContacts.length !== 3 || !profileCContacts.some((contact) => contact.messenger_type === 'tg' && contact.contact_value === '+38267000004')) {
+    throw new Error('Three independent messenger contacts or Telegram phone were not preserved');
   }
 
   const categories = requireData(await anonymous.from('categories').select('id, name, category_path, translations').order('id'), 'read categories');
@@ -110,9 +117,8 @@ try {
   const successfulBookings = race.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.status === 'fulfilled' && !entry.value.error);
   if (successfulBookings.length !== 1) throw new Error(`Race protection expected one winner, got ${successfulBookings.length}`);
   const winner = successfulBookings[0];
-  const winningClient = winner.index === 0 ? clientB : clientC;
   const raceTransactionId = winner.entry.value.data;
-  requireData(await winningClient.rpc('cancel_booking', { target_transaction_id: raceTransactionId }), 'cancel race booking');
+  requireData(await clientA.rpc('cancel_booking', { target_transaction_id: raceTransactionId }), 'cancel booking by the other participant');
   const canceledHistory = requireData(await admin.from('transactions').select('canceled_at').eq('id', raceTransactionId).single(), 'read canceled history');
   if (!canceledHistory.canceled_at) throw new Error('Cancellation history was not preserved');
   const restoredListing = requireData(await admin.from('listings').select('status').eq('id', raceListing.id).single(), 'read restored listing');

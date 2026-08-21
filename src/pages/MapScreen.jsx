@@ -135,7 +135,7 @@ export default function MapScreen({ userId, onCreate }) {
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
         <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         <FlyToLocation location={location} />
-        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={item.type === 'give' ? giveIcon : takeIcon}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
+        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={item.type === 'give' ? giveIcon : takeIcon} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
       </MapContainer>
 
       <header className="map-toolbar glass-panel">
