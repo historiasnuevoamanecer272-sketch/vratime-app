@@ -155,6 +155,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .leaflet-popup-content-wrapper { border-radius: 20px; box-shadow: var(--shadow); }
 .leaflet-popup-content { margin: 12px; }
 .leaflet-popup-content .listing-card .listing-image, .leaflet-popup-content .listing-placeholder { margin-bottom: 10px; }
+.vratime-marker-wrap { border: 0 !important; background: transparent !important; }
+.vratime-marker { position: relative; width: 42px; height: 42px; display: grid; place-items: center; border: 3px solid rgba(255,255,255,.96); border-radius: 17px 17px 17px 5px; color: #fff; box-shadow: 0 9px 18px rgba(4,91,99,.26); transform: rotate(-45deg); transition: transform .16s ease, box-shadow .16s ease; }
+.vratime-marker::after { content: ""; position: absolute; z-index: -1; inset: -6px; border-radius: 21px; background: rgba(255,255,255,.42); filter: blur(5px); }
+.vratime-marker:hover { box-shadow: 0 12px 24px rgba(4,91,99,.34); transform: rotate(-45deg) scale(1.08); }
+.vratime-marker svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: rotate(45deg); }
+.vratime-marker-give { background: linear-gradient(145deg, #0ca8b5, var(--sea)); }
+.vratime-marker-take { background: linear-gradient(145deg, #8bc986, #4f9b83); }
 .leaflet-tooltip.listing-tooltip { border: 0; border-radius: 17px; padding: 0; color: var(--ink); background: transparent; box-shadow: none; }
 .leaflet-tooltip.listing-tooltip::before { display: none; }
 .listing-preview { width: 245px; display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid rgba(203,227,227,.95); border-radius: 17px; background: rgba(251,255,255,.98); box-shadow: 0 12px 30px rgba(4,91,99,.18); backdrop-filter: blur(12px); }

@@ -10,7 +10,7 @@ In Google Cloud Console create an OAuth 2.0 Web client. Add this exact **Authori
 
 Add the production domain to **Authorized JavaScript origins**:
 
-`https://historiasnuevoamanecer272-sketch.github.io`
+`https://vratime.vzdigital.online`
 
 ## 2. Supabase provider
 
@@ -18,20 +18,22 @@ In Supabase open Authentication → Providers → Google, enable it, and paste t
 
 In Authentication → URL Configuration use the deployed application as Site URL:
 
-`https://historiasnuevoamanecer272-sketch.github.io/vratime-app/`
+`https://vratime.vzdigital.online/`
 
 Add these Redirect URLs:
 
 - `http://localhost:5173/**`
 - `http://127.0.0.1:5173/**`
-- `https://historiasnuevoamanecer272-sketch.github.io/vratime-app/**`
+- `https://vratime.vzdigital.online/**`
 
-## 3. GitHub setting
+## 3. Deployment setting
 
-In GitHub Settings → Secrets and variables → Actions → Variables set:
+In the production build environment set:
 
 `VITE_GOOGLE_AUTH_ENABLED=true`
 
 Keep it `false` until the Google provider is configured; the button then explains that OAuth is not ready instead of leading to an error.
+
+For the current self-hosted release, add it to the production build environment before creating the static `dist` archive. GitHub Pages may keep the same variable while it remains a fallback.
 
 References: [Supabase Google Auth](https://supabase.com/docs/guides/auth/social-login/auth-google), [Supabase redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
