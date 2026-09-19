@@ -29,7 +29,7 @@ npm run db:e2e
 npm run db:migrate
 ```
 
-`db:public` performs a read-only live check with the public anon key: category translations, active listings and blocked anonymous access to private tables. `db:test` runs a database transaction and rolls every test write back. `db:e2e` creates isolated temporary Auth users, exercises the live HTTP/Auth/Storage/RPC flow including a concurrent booking race, then removes only those generated records and verifies the original row counts.
+`db:public` performs a read-only live check with the public anon key: category translations, active listings and blocked anonymous access to private tables. `db:test` runs a database transaction and rolls every test write back. `db:e2e` creates five isolated temporary Auth users, exercises the live HTTP/Auth/Storage/RPC flow including a concurrent booking race and both listing roles, then removes only those generated records and verifies the original row counts. It reads the existing `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from `.env`; add only `SUPABASE_SECRET_KEY` locally before running it. Never commit that secret.
 
 ## Release
 

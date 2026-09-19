@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .env
 .private-backups/
+vratime-dist-*.tar.gz
 .env.*
 !.env.example
 

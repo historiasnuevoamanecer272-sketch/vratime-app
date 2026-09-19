@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <title>VratiMe</title>
-  <rect width="48" height="48" rx="14" fill="#d8f2ee"/>
-  <path d="M13.5 29.5c5.8 1.1 10.2-.5 13.2-4.7" fill="none" stroke="#087783" stroke-width="3" stroke-linecap="round"/>
-  <path d="M19 28.2c-1.2-8.2 3.7-13.5 15.6-14.7.7 11.8-4.1 18-12.2 16.9" fill="none" stroke="#045b63" stroke-width="3" stroke-linejoin="round"/>
+  <rect width="64" height="64" rx="19" fill="#f9ffff"/>
+  <path d="M45.5 18.5a20.5 20.5 0 1 1-8.1-4.6" fill="none" stroke="#087783" stroke-linecap="round" stroke-width="4.5"/>
+  <path d="m43.2 10.5 8.4 8.2-11.5 1.2" fill="none" stroke="#087783" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.5"/>
+  <path d="M18.3 37.4c1.1-11 8.9-17.7 20.1-17.7-1.7 11-8.9 18.6-18.9 18.6-1 0-1.1-.2-1.2-.9Z" fill="#8ecf83"/>
+  <path d="M14.6 47c5.1-8 10.9-13.2 18.5-16.8" fill="none" stroke="#6cba80" stroke-linecap="round" stroke-width="3.2"/>
 </svg>

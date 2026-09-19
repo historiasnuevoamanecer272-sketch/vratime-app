@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
-import L from 'leaflet';
 import { supabase } from '../supabaseClient';
 import { bookListing } from '../lib/api';
 import { categoryLabel, categorySearchText, listingCategoryLabel, normalizeSearch, rootPath } from '../lib/categories';
@@ -9,10 +8,8 @@ import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
-
-const pin = (file) => new L.Icon({ iconUrl: new URL(`../assets/pins/${file}`, import.meta.url).href, iconSize: [38, 46], iconAnchor: [19, 46], popupAnchor: [0, -42] });
-const giveIcon = pin('pin-give.png');
-const takeIcon = pin('pin-take.png');
+import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
+import { mapMarkerIcons } from '../lib/mapMarkers';
 const distances = ['all', '1', '5', '10'];
 
 const kmBetween = (from, to) => {
@@ -118,6 +115,7 @@ export default function MapScreen({ userId, onCreate }) {
         <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
         <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })}{location ? ` · ${kmBetween(location, [Number(item.lat), Number(item.lng)]).toFixed(1)} km` : ''}</p>
+        {item.description ? <p className="listing-description">{item.description}</p> : null}
         <button type="button" className="btn-primary mt-3 w-full min-h-10 text-sm" disabled={bookingId === item.id || item.user_id === userId} onClick={() => handleBook(item)}>{bookingId === item.id ? t('map.booking') : item.user_id === userId ? t('map.ownLabel') : t('map.book')}</button>
       </div>
     </article>
@@ -126,7 +124,7 @@ export default function MapScreen({ userId, onCreate }) {
   const listingPreview = (item) => (
     <div className="listing-preview">
       {item.image_url ? <img src={item.image_url} alt="" /> : <span><CategoryIcon category={item} size={26} /></span>}
-      <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{t('common.pieces', { count: item.quantity })} · {t('map.hoverHint')}</small></div>
+      <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{item.description || `${t('common.pieces', { count: item.quantity })} · ${t('map.hoverHint')}`}</small></div>
     </div>
   );
 
@@ -135,7 +133,7 @@ export default function MapScreen({ userId, onCreate }) {
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
         <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         <FlyToLocation location={location} />
-        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={item.type === 'give' ? giveIcon : takeIcon} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
+        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={mapMarkerIcons[item.type === 'give' ? 'give' : 'take']} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
       </MapContainer>
 
       <header className="map-toolbar glass-panel">
@@ -143,7 +141,7 @@ export default function MapScreen({ userId, onCreate }) {
           <div><p className="eyebrow text-sea">{t('map.eyebrow')}</p><h1 className="font-display mt-1 text-2xl text-forest">{t('map.title')}</h1></div>
           <button type="button" className="count-badge" onClick={() => setSheetOpen(true)}><strong>{filtered.length}</strong><span>{t('map.offers', { count: filtered.length }).replace(String(filtered.length), '').trim()}</span></button>
         </div>
-        <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('map.search')} aria-label={t('map.search')} /><button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
+        <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('map.search')} aria-label={t('map.search')} />{query ? <button type="button" className="icon-button compact" onClick={() => setQuery('')} aria-label={t('map.resetFilters')}><Icon name="close" size={16} /></button> : null}<button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
         <div className="scroll-row mt-3 flex gap-2 overflow-x-auto pb-1">
           <button type="button" className={`chip ${category === 'all' ? 'chip-active' : ''}`} onClick={() => setCategory('all')}>{t('map.all')}</button>
           {roots.map((item) => <button key={item.id} type="button" className={`chip ${category === rootPath(item) ? 'chip-active' : ''}`} onClick={() => setCategory(rootPath(item))}><CategoryIcon category={item} size={17} />{categoryLabel(item, language)}</button>)}
@@ -157,7 +155,7 @@ export default function MapScreen({ userId, onCreate }) {
       </header>
 
       {loadError ? <div className="map-state card"><Icon name="close" size={24} /><p>{t('errors.load')}</p><button type="button" className="btn-secondary" onClick={fetchData}>{t('common.retry')}</button></div> : null}
-      {!loading && !loadError && filtered.length === 0 ? <div className="map-state card"><Icon name="empty" size={28} /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={hasFilters ? resetFilters : onCreate}>{t(hasFilters ? 'map.resetFilters' : 'nav.create')}</button></div> : null}
+      {!loading && !loadError && filtered.length === 0 ? <div className="map-state map-state-empty card"><img className="state-illustration" src={emptyListings} alt="" /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={hasFilters ? resetFilters : onCreate}>{t(hasFilters ? 'map.resetFilters' : 'nav.create')}</button></div> : null}
 
       <button type="button" className="list-sheet-peek" onClick={() => setSheetOpen((value) => !value)} aria-expanded={sheetOpen}><span className="sheet-handle" /><span><strong>{t('map.listTitle')}</strong><small>{t('map.offers', { count: filtered.length })}</small></span><Icon name={sheetOpen ? 'chevronDown' : 'chevronUp'} size={20} /></button>
       {sheetOpen ? <section className="listing-sheet open">

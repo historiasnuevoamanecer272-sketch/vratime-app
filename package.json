@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "db:migrate": "node scripts/supabase-migrate.mjs",
+    "db:snapshot": "node scripts/supabase-snapshot.mjs",
     "db:check": "node scripts/supabase-migrate.mjs --check",
     "db:public": "node scripts/supabase-public-check.mjs",
     "db:test": "node scripts/supabase-integration-check.mjs",

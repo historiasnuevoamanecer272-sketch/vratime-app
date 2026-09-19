@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cancelBooking, completeDeal, getMyDeals, submitReview } from '../lib/api';
 import { listingCategoryLabel } from '../lib/categories';
@@ -7,6 +7,8 @@ import { contactHref } from '../lib/contacts';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
+import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
+import completedHandover from '../assets/visuals/v1/deal-complete-v1.webp';
 
 export default function MyDeals() {
   const { t } = useTranslation();
@@ -18,10 +20,20 @@ export default function MyDeals() {
   const [error, setError] = useState('');
   const [workingId, setWorkingId] = useState(null);
   const [ratingDeal, setRatingDeal] = useState(null);
+  const didChooseInitialRole = useRef(false);
 
   const loadDeals = useCallback(async () => {
     setLoading(true); setError('');
-    try { setDeals(await getMyDeals() || []); }
+    try {
+      const nextDeals = await getMyDeals() || [];
+      setDeals(nextDeals);
+      if (!didChooseInitialRole.current) {
+        const hasGiverDeals = nextDeals.some((deal) => deal.role === 'giver');
+        const hasTakerDeals = nextDeals.some((deal) => deal.role === 'taker');
+        if (!hasGiverDeals && hasTakerDeals) setRole('taker');
+        didChooseInitialRole.current = true;
+      }
+    }
     catch (loadError) { setError(loadError.message); }
     finally { setLoading(false); }
   }, []);
@@ -77,7 +89,7 @@ export default function MyDeals() {
 
         {loading ? <div className="state-card mt-5"><span className="spinner" />{t('common.loading')}</div> : null}
         {error ? <div className="state-card mt-5"><Icon name="close" size={26} /><strong>{t('errors.load')}</strong><button type="button" className="btn-secondary" onClick={loadDeals}>{t('common.retry')}</button></div> : null}
-        {!loading && !error && shownDeals.length === 0 ? <div className="empty-panel mt-5"><span className="empty-orb"><Icon name="deals" size={31} /></span><h2 className="font-display mt-4 text-2xl text-forest">{t('deals.emptyTitle')}</h2><p className="mt-2 text-sm leading-6 text-muted">{t('deals.emptyText')}</p></div> : null}
+        {!loading && !error && shownDeals.length === 0 ? <div className="empty-panel mt-5"><img className="state-illustration" src={emptyListings} alt="" /><h2 className="font-display text-2xl text-forest">{t('deals.emptyTitle')}</h2><p className="text-sm leading-6 text-muted">{t('deals.emptyText')}</p></div> : null}
 
         <div className="mt-5 space-y-4">
           {shownDeals.map((deal) => {
@@ -90,7 +102,9 @@ export default function MyDeals() {
                 <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 truncate text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div><span className={`status-pill status-${status}`}>{t(`status.${status}`)}</span></div><p className="mt-2 text-xs font-semibold text-muted">{t('common.pieces', { count: deal.quantity })} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</p></div>
               </div>
 
-              {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contact.contact_href || contactHref(contact)} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t('deals.contactHidden')}</p>}</div></div> : null}
+              {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contactHref(contact) || contact.contact_href} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t('deals.contactHidden')}</p>}</div></div> : null}
+
+              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="check" size={12} /></span>{t('deals.flowReserved')}</li><li className={partnerContacts.length ? 'done' : ''}><span>{partnerContacts.length ? <Icon name="check" size={12} /> : 2}</span>{t('deals.flowContact')}</li><li className={deal.completed_at ? 'done' : ''}><span>{deal.completed_at ? <Icon name="check" size={12} /> : 3}</span>{t('deals.flowHandover')}</li></ol> : null}
 
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {role === 'giver' ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'complete')}><Icon name="check" size={17} />{working ? t('deals.completing') : t('deals.complete')}</button> : null}
@@ -103,7 +117,7 @@ export default function MyDeals() {
         </div>
       </main>
 
-      {ratingDeal ? <div className="modal-backdrop grid place-items-end sm:place-items-center"><section className="rating-dialog" role="dialog" aria-modal="true" aria-label={t('deals.rate')}><button type="button" className="icon-button ml-auto" onClick={() => setRatingDeal(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button><span className="success-orb mx-auto"><Icon name="star" size={28} /></span><h2 className="font-display mt-4 text-center text-2xl text-forest">{t('deals.rate')}</h2><p className="mt-2 text-center text-sm text-muted">{ratingDeal.partner_name || t('common.partner')}</p><div className="mt-5 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className="rating-star" disabled={workingId === ratingDeal.transaction_id} onClick={() => rate(value)} aria-label={`${value}/5`}><Icon name="star" size={30} filled /></button>)}</div></section></div> : null}
+      {ratingDeal ? <div className="modal-backdrop grid place-items-end sm:place-items-center"><section className="rating-dialog" role="dialog" aria-modal="true" aria-label={t('deals.rate')}><button type="button" className="icon-button ml-auto" onClick={() => setRatingDeal(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button><img className="rating-illustration" src={completedHandover} alt="" /><h2 className="font-display mt-2 text-center text-2xl text-forest">{t('deals.rate')}</h2><p className="mt-2 text-center text-sm text-muted">{ratingDeal.partner_name || t('common.partner')}</p><div className="mt-5 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className="rating-star" disabled={workingId === ratingDeal.transaction_id} onClick={() => rate(value)} aria-label={`${value}/5`}><Icon name="star" size={30} filled /></button>)}</div></section></div> : null}
     </div>
   );
 }

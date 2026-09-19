@@ -8,7 +8,7 @@ if (validateContacts({ viber: '', wa: '', tg: '@bad' }) !== 'telegramInvalid') t
 const telegramPhone = normalizeContacts({ tg: '+382 67 123 456' })[0];
 if (telegramPhone?.contact_value !== '+38267123456') throw new Error('Telegram phone was not normalized');
 if (validateContacts({ tg: '+382 67 123 456' })) throw new Error('Valid Telegram phone was rejected');
-if (contactHref(telegramPhone) !== 'https://t.me/+38267123456') throw new Error('Telegram phone link is invalid');
+if (contactHref(telegramPhone) !== 'tg://resolve?phone=38267123456') throw new Error('Telegram phone link is invalid');
 if (normalizeContacts({ viber: ' ', wa: ' ' }).length !== 0) throw new Error('Empty selected channels must not be persisted');
 
 process.stdout.write('Multi-messenger and Telegram alias/phone checks passed.\n');
