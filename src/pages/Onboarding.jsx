@@ -11,6 +11,7 @@ import ContactChannelsFields from '../components/ContactChannelsFields';
 export default function Onboarding({ userId, onComplete }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const [switchingAccount, setSwitchingAccount] = useState(false);
   const [form, setForm] = useState({ full_name: '', language: getAppLanguage(), contacts: emptyContactMap() });
 
   useEffect(() => {
@@ -54,6 +55,15 @@ export default function Onboarding({ userId, onComplete }) {
     }
   };
 
+  const switchAccount = async () => {
+    setSwitchingAccount(true);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setSwitchingAccount(false);
+      showToast(t('errors.save'), 'error');
+    }
+  };
+
   return (
     <div className="app-screen min-h-screen px-5 py-7 pt-safe">
       <main className="app-container max-w-md">
@@ -69,6 +79,10 @@ export default function Onboarding({ userId, onComplete }) {
             <label className="block"><span className="field-label">{t('onboarding.language')}</span><select className="field" value={form.language} onChange={(event) => update('language', event.target.value)}><option value="me">Crnogorski</option><option value="ru">Русский</option><option value="en">English</option></select></label>
             <ContactChannelsFields contacts={form.contacts} onChange={(contacts) => update('contacts', contacts)} t={t} />
             <button type="submit" className="btn-primary mt-2 w-full" disabled={loading}><Icon name="check" size={19} />{loading ? t('onboarding.saving') : t('onboarding.submit')}</button>
+            <aside className="account-recovery" aria-label={t('onboarding.returningTitle')}>
+              <span className="icon-tile"><Icon name="mail" size={18} /></span>
+              <div><strong>{t('onboarding.returningTitle')}</strong><p>{t('onboarding.returningText')}</p><button type="button" className="btn-link mt-2" disabled={switchingAccount} onClick={switchAccount}>{t('onboarding.returningAction')}</button></div>
+            </aside>
           </form>
         </section>
       </main>

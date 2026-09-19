@@ -107,6 +107,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .onboarding-hero, .profile-hero { position: relative; overflow: hidden; padding: 25px; background: linear-gradient(145deg, #0e9991 0%, #087783 52%, #075264 100%); }
 .onboarding-hero::after, .profile-hero::after { content: ""; position: absolute; width: 220px; height: 220px; right: -110px; bottom: -130px; border: 1px solid rgba(255,255,255,.14); border-radius: 44% 56% 60% 40%; }
 .onboarding-hero { border-radius: 25px 25px 0 0; }
+.account-recovery { display: flex; gap: 11px; margin-top: 18px; padding: 13px; border: 1px solid var(--line); border-radius: 18px; background: var(--paper); }
+.account-recovery > div { min-width: 0; }
+.account-recovery strong { display: block; color: var(--forest); font-size: .78rem; }
+.account-recovery p { margin-top: 4px; color: var(--muted); font-size: .7rem; font-weight: 600; line-height: 1.45; }
+.account-recovery .btn-link { font-size: .73rem; }
 
 .install-banner { position: fixed; z-index: 9000; top: max(.75rem, env(safe-area-inset-top)); left: 50%; width: min(calc(100vw - 1.5rem), 430px); transform: translateX(-50%); display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 20px; background: rgba(251,255,255,.95); box-shadow: var(--shadow); backdrop-filter: blur(15px); }
 
