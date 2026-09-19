@@ -6,7 +6,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/vratime-app/' : '/',
+  // GitHub Pages serves the app under /vratime-app/, while the custom domain
+  // serves it from /. Keep this explicit so both release targets stay valid.
+  base: process.env.VITE_PUBLIC_BASE ?? (process.env.GITHUB_ACTIONS ? '/vratime-app/' : '/'),
   plugins: [
     react(),
     tailwindcss(),
