@@ -82,7 +82,7 @@ try {
   for (const [index, client] of [clientA, clientB, clientC, clientD, clientE].entries()) {
     requireData(await client.rpc('upsert_my_profile_v2', {
       profile_name: `VratiMe Test ${index + 1}`,
-      profile_language: ['ru', 'me', 'en'][index],
+      profile_language: ['ru', 'me', 'en'][index % 3],
       profile_channels: index === 1
         ? [{ messenger_type: 'tg', contact_value: '@vratime_test' }, { messenger_type: 'wa', contact_value: '+38267000001' }]
         : index === 2
