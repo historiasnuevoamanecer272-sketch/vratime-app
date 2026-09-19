@@ -42,6 +42,10 @@ const telegramPhone = sources.get('20260821001000_allow_telegram_phone_contacts.
 requireText(telegramPhone, "!~ '^\\+[1-9][0-9]{6,14}$'", 'Telegram international phone validation');
 requireText(telegramPhone, 'grant execute on function public.upsert_my_profile_v2(text, text, jsonb) to authenticated', 'profile RPC grant');
 
+const telegramDeepLink = sources.get('20260919000000_fix_telegram_phone_deep_link.sql') || '';
+requireText(telegramDeepLink, "'tg://resolve?phone='", 'Telegram phone deep link');
+requireText(telegramDeepLink, 'revoke all on function public.get_my_deals() from public, anon', 'protected refreshed deal RPC');
+
 const rpcHardening = sources.get('20260821002000_restrict_rpc_execution.sql') || '';
 for (const signature of ['book_listing(uuid)', 'cancel_booking(uuid)', 'complete_deal(uuid)', 'get_my_deals()']) {
   requireText(rpcHardening, `revoke execute on function public.${signature} from public, anon`, `anonymous RPC revoke for ${signature}`);

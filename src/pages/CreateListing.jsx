@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
-import L from 'leaflet';
 import { supabase } from '../supabaseClient';
 import { categoryLabel } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
@@ -9,13 +8,12 @@ import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
 import { getCategoryArtwork } from '../lib/categoryArtwork';
+import { mapMarkerIcons } from '../lib/mapMarkers';
 
 const bucket = 'LISTING-PHOTOS';
-const markerIcon = new L.Icon({ iconUrl: new URL('../assets/pins/pin-give.png', import.meta.url).href, iconSize: [38, 46], iconAnchor: [19, 46] });
-
-function LocationPicker({ position, onChange }) {
+function LocationPicker({ position, type, onChange }) {
   useMapEvents({ click: ({ latlng }) => onChange([latlng.lat, latlng.lng]) });
-  return <Marker position={position} icon={markerIcon} />;
+  return <Marker position={position} icon={mapMarkerIcons[type === 'take' ? 'take' : 'give']} />;
 }
 
 function MapMover({ position }) {
@@ -150,7 +148,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.min(10000, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
             <label className="mt-4 block"><span className="field-label">{t('create.description')}</span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" onClick={useLocation}><Icon name="location" size={16} />{t('create.useLocation')}</button></div>
-            <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" /><MapMover position={position} /><LocationPicker position={position} onChange={setPosition} /></MapContainer></div>
+            <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={setPosition} /></MapContainer></div>
           </section> : null}
         </main>
 

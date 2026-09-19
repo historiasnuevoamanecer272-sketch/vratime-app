@@ -41,7 +41,9 @@ export const validateContacts = (contacts = {}) => {
 export const contactHref = (contact) => {
   const value = contact?.contact_value || '';
   if (contact?.messenger_type === 'wa') return `https://wa.me/${value.replace(/\D/g, '')}`;
-  if (contact?.messenger_type === 'tg') return `https://t.me/${value.startsWith('@') ? value.slice(1) : `+${value.replace(/\D/g, '')}`}`;
+  if (contact?.messenger_type === 'tg') return value.startsWith('@')
+    ? `https://t.me/${value.slice(1)}`
+    : `tg://resolve?phone=${value.replace(/\D/g, '')}`;
   if (contact?.messenger_type === 'viber') return `viber://chat?number=${value.replace(/[^+\d]/g, '')}`;
   return undefined;
 };

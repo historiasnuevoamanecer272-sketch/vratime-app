@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
-import L from 'leaflet';
 import { supabase } from '../supabaseClient';
 import { bookListing } from '../lib/api';
 import { categoryLabel, categorySearchText, listingCategoryLabel, normalizeSearch, rootPath } from '../lib/categories';
@@ -10,22 +9,7 @@ import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
 import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
-
-const markerSvg = (type) => type === 'give'
-  ? '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M12 8v13M3 12h18M7.5 8A2.5 2.5 0 1 1 12 6a2.5 2.5 0 1 1 4.5 2"/></svg>'
-  : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>';
-
-const marker = (type) => L.divIcon({
-  className: 'vratime-marker-wrap',
-  html: `<span class="vratime-marker vratime-marker-${type}">${markerSvg(type)}</span>`,
-  iconSize: [48, 56],
-  iconAnchor: [24, 53],
-  popupAnchor: [0, -48],
-  tooltipAnchor: [0, -46],
-});
-
-const giveIcon = marker('give');
-const takeIcon = marker('take');
+import { mapMarkerIcons } from '../lib/mapMarkers';
 const distances = ['all', '1', '5', '10'];
 
 const kmBetween = (from, to) => {
@@ -148,7 +132,7 @@ export default function MapScreen({ userId, onCreate }) {
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
         <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         <FlyToLocation location={location} />
-        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={item.type === 'give' ? giveIcon : takeIcon} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
+        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={mapMarkerIcons[item.type === 'give' ? 'give' : 'take']} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
       </MapContainer>
 
       <header className="map-toolbar glass-panel">
