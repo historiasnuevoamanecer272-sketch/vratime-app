@@ -4,6 +4,7 @@ import { supabase } from './supabaseClient';
 import i18n, { getAppLanguage, setAppLanguage } from './i18n';
 import { subscribeToasts } from './lib/toast';
 import Icon from './components/Icon';
+import logo from './assets/images/app-logo.png';
 
 const Login = lazy(() => import('./pages/Login'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
@@ -133,7 +134,7 @@ export default function App() {
   const loadingView = (
     <div className="app-screen grid min-h-screen place-items-center px-6">
       <div className="loading-card card w-full max-w-xs p-8 text-center">
-        <div className="brand-orb mx-auto grid h-16 w-16 place-items-center"><Icon name="leaf" size={32} /></div>
+        <div className="brand-orb mx-auto grid h-16 w-16 place-items-center"><img className="loading-logo" src={logo} alt="" /></div>
         <p className="mt-4 font-display text-3xl text-forest">VratiMe</p>
         <p className="mt-2 text-sm font-semibold text-muted">{t('common.loading')}</p>
         <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-sage"><div className="loading-progress h-full w-2/3 rounded-full bg-forest" /></div>

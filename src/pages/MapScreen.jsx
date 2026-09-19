@@ -9,6 +9,7 @@ import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
+import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 
 const pin = (file) => new L.Icon({ iconUrl: new URL(`../assets/pins/${file}`, import.meta.url).href, iconSize: [38, 46], iconAnchor: [19, 46], popupAnchor: [0, -42] });
 const giveIcon = pin('pin-give.png');
@@ -157,7 +158,7 @@ export default function MapScreen({ userId, onCreate }) {
       </header>
 
       {loadError ? <div className="map-state card"><Icon name="close" size={24} /><p>{t('errors.load')}</p><button type="button" className="btn-secondary" onClick={fetchData}>{t('common.retry')}</button></div> : null}
-      {!loading && !loadError && filtered.length === 0 ? <div className="map-state card"><Icon name="empty" size={28} /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={hasFilters ? resetFilters : onCreate}>{t(hasFilters ? 'map.resetFilters' : 'nav.create')}</button></div> : null}
+      {!loading && !loadError && filtered.length === 0 ? <div className="map-state map-state-empty card"><img className="state-illustration" src={emptyListings} alt="" /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={hasFilters ? resetFilters : onCreate}>{t(hasFilters ? 'map.resetFilters' : 'nav.create')}</button></div> : null}
 
       <button type="button" className="list-sheet-peek" onClick={() => setSheetOpen((value) => !value)} aria-expanded={sheetOpen}><span className="sheet-handle" /><span><strong>{t('map.listTitle')}</strong><small>{t('map.offers', { count: filtered.length })}</small></span><Icon name={sheetOpen ? 'chevronDown' : 'chevronUp'} size={20} /></button>
       {sheetOpen ? <section className="listing-sheet open">

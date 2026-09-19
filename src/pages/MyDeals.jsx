@@ -7,6 +7,8 @@ import { contactHref } from '../lib/contacts';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
+import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
+import completedHandover from '../assets/visuals/v1/deal-complete-v1.webp';
 
 export default function MyDeals() {
   const { t } = useTranslation();
@@ -77,7 +79,7 @@ export default function MyDeals() {
 
         {loading ? <div className="state-card mt-5"><span className="spinner" />{t('common.loading')}</div> : null}
         {error ? <div className="state-card mt-5"><Icon name="close" size={26} /><strong>{t('errors.load')}</strong><button type="button" className="btn-secondary" onClick={loadDeals}>{t('common.retry')}</button></div> : null}
-        {!loading && !error && shownDeals.length === 0 ? <div className="empty-panel mt-5"><span className="empty-orb"><Icon name="deals" size={31} /></span><h2 className="font-display mt-4 text-2xl text-forest">{t('deals.emptyTitle')}</h2><p className="mt-2 text-sm leading-6 text-muted">{t('deals.emptyText')}</p></div> : null}
+        {!loading && !error && shownDeals.length === 0 ? <div className="empty-panel mt-5"><img className="state-illustration" src={emptyListings} alt="" /><h2 className="font-display text-2xl text-forest">{t('deals.emptyTitle')}</h2><p className="text-sm leading-6 text-muted">{t('deals.emptyText')}</p></div> : null}
 
         <div className="mt-5 space-y-4">
           {shownDeals.map((deal) => {
@@ -92,6 +94,8 @@ export default function MyDeals() {
 
               {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contact.contact_href || contactHref(contact)} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t('deals.contactHidden')}</p>}</div></div> : null}
 
+              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="check" size={12} /></span>{t('deals.flowReserved')}</li><li className={partnerContacts.length ? 'done' : ''}><span>{partnerContacts.length ? <Icon name="check" size={12} /> : 2}</span>{t('deals.flowContact')}</li><li className={deal.completed_at ? 'done' : ''}><span>{deal.completed_at ? <Icon name="check" size={12} /> : 3}</span>{t('deals.flowHandover')}</li></ol> : null}
+
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {role === 'giver' ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'complete')}><Icon name="check" size={17} />{working ? t('deals.completing') : t('deals.complete')}</button> : null}
                 <button type="button" className="btn-ghost w-full text-sm" disabled={working} onClick={() => runAction(deal, 'cancel')}><Icon name="close" size={17} />{working ? t('deals.canceling') : t('deals.cancel')}</button>
@@ -103,7 +107,7 @@ export default function MyDeals() {
         </div>
       </main>
 
-      {ratingDeal ? <div className="modal-backdrop grid place-items-end sm:place-items-center"><section className="rating-dialog" role="dialog" aria-modal="true" aria-label={t('deals.rate')}><button type="button" className="icon-button ml-auto" onClick={() => setRatingDeal(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button><span className="success-orb mx-auto"><Icon name="star" size={28} /></span><h2 className="font-display mt-4 text-center text-2xl text-forest">{t('deals.rate')}</h2><p className="mt-2 text-center text-sm text-muted">{ratingDeal.partner_name || t('common.partner')}</p><div className="mt-5 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className="rating-star" disabled={workingId === ratingDeal.transaction_id} onClick={() => rate(value)} aria-label={`${value}/5`}><Icon name="star" size={30} filled /></button>)}</div></section></div> : null}
+      {ratingDeal ? <div className="modal-backdrop grid place-items-end sm:place-items-center"><section className="rating-dialog" role="dialog" aria-modal="true" aria-label={t('deals.rate')}><button type="button" className="icon-button ml-auto" onClick={() => setRatingDeal(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button><img className="rating-illustration" src={completedHandover} alt="" /><h2 className="font-display mt-2 text-center text-2xl text-forest">{t('deals.rate')}</h2><p className="mt-2 text-center text-sm text-muted">{ratingDeal.partner_name || t('common.partner')}</p><div className="mt-5 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className="rating-star" disabled={workingId === ratingDeal.transaction_id} onClick={() => rate(value)} aria-label={`${value}/5`}><Icon name="star" size={30} filled /></button>)}</div></section></div> : null}
     </div>
   );
 }
