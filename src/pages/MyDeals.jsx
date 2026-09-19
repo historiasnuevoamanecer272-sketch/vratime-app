@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cancelBooking, completeDeal, getMyDeals, submitReview } from '../lib/api';
 import { listingCategoryLabel } from '../lib/categories';
@@ -20,10 +20,20 @@ export default function MyDeals() {
   const [error, setError] = useState('');
   const [workingId, setWorkingId] = useState(null);
   const [ratingDeal, setRatingDeal] = useState(null);
+  const didChooseInitialRole = useRef(false);
 
   const loadDeals = useCallback(async () => {
     setLoading(true); setError('');
-    try { setDeals(await getMyDeals() || []); }
+    try {
+      const nextDeals = await getMyDeals() || [];
+      setDeals(nextDeals);
+      if (!didChooseInitialRole.current) {
+        const hasGiverDeals = nextDeals.some((deal) => deal.role === 'giver');
+        const hasTakerDeals = nextDeals.some((deal) => deal.role === 'taker');
+        if (!hasGiverDeals && hasTakerDeals) setRole('taker');
+        didChooseInitialRole.current = true;
+      }
+    }
     catch (loadError) { setError(loadError.message); }
     finally { setLoading(false); }
   }, []);

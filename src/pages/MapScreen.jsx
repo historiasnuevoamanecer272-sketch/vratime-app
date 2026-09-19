@@ -115,6 +115,7 @@ export default function MapScreen({ userId, onCreate }) {
         <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
         <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })}{location ? ` · ${kmBetween(location, [Number(item.lat), Number(item.lng)]).toFixed(1)} km` : ''}</p>
+        {item.description ? <p className="listing-description">{item.description}</p> : null}
         <button type="button" className="btn-primary mt-3 w-full min-h-10 text-sm" disabled={bookingId === item.id || item.user_id === userId} onClick={() => handleBook(item)}>{bookingId === item.id ? t('map.booking') : item.user_id === userId ? t('map.ownLabel') : t('map.book')}</button>
       </div>
     </article>
@@ -123,7 +124,7 @@ export default function MapScreen({ userId, onCreate }) {
   const listingPreview = (item) => (
     <div className="listing-preview">
       {item.image_url ? <img src={item.image_url} alt="" /> : <span><CategoryIcon category={item} size={26} /></span>}
-      <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{t('common.pieces', { count: item.quantity })} · {t('map.hoverHint')}</small></div>
+      <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{item.description || `${t('common.pieces', { count: item.quantity })} · ${t('map.hoverHint')}`}</small></div>
     </div>
   );
 
@@ -140,7 +141,7 @@ export default function MapScreen({ userId, onCreate }) {
           <div><p className="eyebrow text-sea">{t('map.eyebrow')}</p><h1 className="font-display mt-1 text-2xl text-forest">{t('map.title')}</h1></div>
           <button type="button" className="count-badge" onClick={() => setSheetOpen(true)}><strong>{filtered.length}</strong><span>{t('map.offers', { count: filtered.length }).replace(String(filtered.length), '').trim()}</span></button>
         </div>
-        <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('map.search')} aria-label={t('map.search')} /><button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
+        <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('map.search')} aria-label={t('map.search')} />{query ? <button type="button" className="icon-button compact" onClick={() => setQuery('')} aria-label={t('map.resetFilters')}><Icon name="close" size={16} /></button> : null}<button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
         <div className="scroll-row mt-3 flex gap-2 overflow-x-auto pb-1">
           <button type="button" className={`chip ${category === 'all' ? 'chip-active' : ''}`} onClick={() => setCategory('all')}>{t('map.all')}</button>
           {roots.map((item) => <button key={item.id} type="button" className={`chip ${category === rootPath(item) ? 'chip-active' : ''}`} onClick={() => setCategory(rootPath(item))}><CategoryIcon category={item} size={17} />{categoryLabel(item, language)}</button>)}
