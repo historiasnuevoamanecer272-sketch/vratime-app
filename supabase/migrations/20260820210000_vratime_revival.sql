@@ -319,7 +319,11 @@ exception when unique_violation then
 end;
 $$;
 
-create or replace function public.get_my_deals()
+-- PostgreSQL does not permit CREATE OR REPLACE to change OUT columns.
+-- Remove the legacy signature first; it is re-created immediately below.
+drop function if exists public.get_my_deals();
+
+create function public.get_my_deals()
 returns table (
   transaction_id uuid, listing_id uuid, role text, listing_type text, category text, category_path text,
   quantity integer, image_url text, status text, created_at timestamptz, completed_at timestamptz,
