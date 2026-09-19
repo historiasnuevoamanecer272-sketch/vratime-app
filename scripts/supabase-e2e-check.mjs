@@ -1,11 +1,25 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import process from 'node:process';
 import { createClient } from '@supabase/supabase-js';
 
-const url = process.env.SUPABASE_URL;
-const anonKey = process.env.SUPABASE_ANON_KEY;
-const secretKey = process.env.SUPABASE_SECRET_KEY;
-if (!url || !anonKey || !secretKey) throw new Error('Missing SUPABASE_URL, SUPABASE_ANON_KEY or SUPABASE_SECRET_KEY');
+const root = path.resolve(import.meta.dirname, '..');
+const localEnv = {};
+try {
+  const source = await fs.readFile(path.join(root, '.env'), 'utf8');
+  for (const line of source.split(/\r?\n/)) {
+    const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (match) localEnv[match[1]] = match[2].trim().replace(/^['"]|['"]$/g, '');
+  }
+} catch {
+  // CI may provide values directly instead of a local .env file.
+}
+
+const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || localEnv.VITE_SUPABASE_URL;
+const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || localEnv.VITE_SUPABASE_ANON_KEY;
+const secretKey = process.env.SUPABASE_SECRET_KEY || localEnv.SUPABASE_SECRET_KEY;
+if (!url || !anonKey || !secretKey) throw new Error('Missing public Supabase values or SUPABASE_SECRET_KEY for the isolated E2E test');
 
 const options = { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } };
 const admin = createClient(url, secretKey, options);
@@ -57,15 +71,15 @@ let passed = false;
 try {
   const stamp = `${Date.now()}-${randomUUID().slice(0, 8)}`;
   const password = `Vra!${randomUUID()}9`;
-  const credentials = ['a', 'b', 'c'].map((suffix) => ({ email: `vratime-e2e-${stamp}-${suffix}@example.com`, password }));
+  const credentials = ['a', 'b', 'c', 'd', 'e'].map((suffix) => ({ email: `vratime-e2e-${stamp}-${suffix}@example.com`, password }));
 
   for (const credential of credentials) {
     const user = requireData(await admin.auth.admin.createUser({ ...credential, email_confirm: true }), 'create test user').user;
     createdUsers.push(user);
   }
 
-  const [clientA, clientB, clientC] = await Promise.all(credentials.map(({ email, password: userPassword }) => signIn(email, userPassword)));
-  for (const [index, client] of [clientA, clientB, clientC].entries()) {
+  const [clientA, clientB, clientC, clientD, clientE] = await Promise.all(credentials.map(({ email, password: userPassword }) => signIn(email, userPassword)));
+  for (const [index, client] of [clientA, clientB, clientC, clientD, clientE].entries()) {
     requireData(await client.rpc('upsert_my_profile_v2', {
       profile_name: `VratiMe Test ${index + 1}`,
       profile_language: ['ru', 'me', 'en'][index],
@@ -73,7 +87,7 @@ try {
         ? [{ messenger_type: 'tg', contact_value: '@vratime_test' }, { messenger_type: 'wa', contact_value: '+38267000001' }]
         : index === 2
           ? [{ messenger_type: 'viber', contact_value: '+38267000002' }, { messenger_type: 'wa', contact_value: '+38267000003' }, { messenger_type: 'tg', contact_value: '+38267000004' }]
-          : [{ messenger_type: 'viber', contact_value: '+38267000000' }],
+          : [{ messenger_type: 'viber', contact_value: `+3826700000${index}` }],
     }), 'create test profile');
   }
 
@@ -136,11 +150,11 @@ try {
   if (!dealsA.find((deal) => deal.transaction_id === transactionId)?.contacts?.length || !dealsB.find((deal) => deal.transaction_id === transactionId)?.contacts?.length) {
     throw new Error('Participants did not receive partner contacts');
   }
-  const outsiderDeals = requireData(await clientC.rpc('get_my_deals'), 'outsider deals');
+  const outsiderDeals = requireData(await clientD.rpc('get_my_deals'), 'outsider deals');
   if (outsiderDeals.some((deal) => deal.transaction_id === transactionId)) throw new Error('Outsider received deal data');
-  const outsiderContacts = requireData(await clientC.from('profile_contacts').select('*').eq('user_id', createdUsers[0].id), 'outsider contact probe');
+  const outsiderContacts = requireData(await clientD.from('profile_contacts').select('*').eq('user_id', createdUsers[0].id), 'outsider contact probe');
   if (outsiderContacts.length) throw new Error('Outsider read another profile contact');
-  const outsiderTransactions = requireData(await clientC.from('transactions').select('id').eq('id', transactionId), 'outsider transaction probe');
+  const outsiderTransactions = requireData(await clientE.from('transactions').select('id').eq('id', transactionId), 'outsider transaction probe');
   if (outsiderTransactions.length) throw new Error('Outsider read another transaction');
 
   const completion = requireData(await clientA.rpc('complete_deal', { target_transaction_id: transactionId }), 'complete deal');
@@ -156,6 +170,18 @@ try {
   const profileA = requireData(await clientA.from('profiles').select('eco_points, rating').eq('id', createdUsers[0].id).single(), 'read giver profile');
   if (Number(profileA.eco_points) !== 50 || Number(profileA.rating) !== 4) throw new Error('Eco points or rating aggregate is incorrect');
 
+  const takeListing = requireData(await clientE.from('listings').insert({
+    ...listingPayload('take'), user_id: createdUsers[4].id, type: 'take', quantity: 1,
+  }).select('id').single(), 'create take listing');
+  const takeTransactionId = requireData(await clientD.rpc('book_listing', { target_listing_id: takeListing.id }), 'book take listing');
+  const dealsD = requireData(await clientD.rpc('get_my_deals'), 'giver role for take listing');
+  const dealsE = requireData(await clientE.rpc('get_my_deals'), 'taker role for take listing');
+  if (dealsD.find((deal) => deal.transaction_id === takeTransactionId)?.role !== 'giver' || dealsE.find((deal) => deal.transaction_id === takeTransactionId)?.role !== 'taker') {
+    throw new Error('Take listing roles are incorrect');
+  }
+  const takeCompletion = requireData(await clientD.rpc('complete_deal', { target_transaction_id: takeTransactionId }), 'complete take listing');
+  if (Number(takeCompletion.eco_reward) !== 50) throw new Error('Take listing giver did not receive the eco reward');
+
   passed = true;
 } finally {
   await cleanup();
@@ -164,4 +190,4 @@ try {
 const after = await counts();
 if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error(`Cleanup count mismatch: before=${JSON.stringify(before)} after=${JSON.stringify(after)}`);
 if (!passed) throw new Error('End-to-end check did not complete');
-process.stdout.write(`Live Supabase E2E passed and cleaned up. Counts: ${JSON.stringify(after)}\n`);
+process.stdout.write(`Live five-user Supabase E2E passed and cleaned up. Counts: ${JSON.stringify(after)}\n`);
