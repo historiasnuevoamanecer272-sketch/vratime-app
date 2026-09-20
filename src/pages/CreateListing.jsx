@@ -14,7 +14,7 @@ import { mapMarkerIcons } from '../lib/mapMarkers';
 const bucket = 'LISTING-PHOTOS';
 function LocationPicker({ position, type, onChange }) {
   useMapEvents({ click: ({ latlng }) => onChange([latlng.lat, latlng.lng]) });
-  return <Marker position={position} icon={mapMarkerIcons[type === 'take' ? 'take' : 'give']} />;
+  return <Marker position={position} icon={mapMarkerIcons[type === 'take' ? 'take' : 'give']} draggable eventHandlers={{ dragend: (event) => { const point = event.target.getLatLng(); onChange([point.lat, point.lng]); } }} />;
 }
 
 function MapMover({ position }) {
@@ -36,6 +36,9 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [form, setForm] = useState({ type: 'give', quantity: 1, description: '' });
+  const [address, setAddress] = useState('');
+  const [addressResults, setAddressResults] = useState([]);
+  const [addressLoading, setAddressLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -82,6 +85,29 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
     navigator.geolocation.getCurrentPosition(({ coords }) => setPosition([coords.latitude, coords.longitude]), () => showToast(t('map.locationDenied'), 'error'), { enableHighAccuracy: true, timeout: 10000 });
   };
 
+  const searchAddress = async () => {
+    if (address.trim().length < 3) return showToast(t('create.addressShort'), 'error');
+    setAddressLoading(true);
+    try {
+      const locale = language === 'me' ? 'sr' : language;
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=me&accept-language=${encodeURIComponent(locale)}&q=${encodeURIComponent(address.trim())}`);
+      if (!response.ok) throw new Error(String(response.status));
+      const results = await response.json();
+      setAddressResults(Array.isArray(results) ? results : []);
+      if (!results.length) showToast(t('create.addressNotFound'), 'error');
+    } catch {
+      showToast(t('create.addressError'), 'error');
+    } finally {
+      setAddressLoading(false);
+    }
+  };
+
+  const chooseAddress = (result) => {
+    setPosition([Number(result.lat), Number(result.lon)]);
+    setAddress(result.display_name || address);
+    setAddressResults([]);
+  };
+
   const publish = async () => {
     if (!selected || form.quantity < 1 || form.quantity > 10000) return;
     setLoading(true);
@@ -100,7 +126,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
         user_id: userId, type: form.type, status: 'active', category_id: selected.id,
         category: categoryLabel(selected, 'ru'), category_path: selected.category_path,
         description: form.description.trim() || null, image_url: imageUrl, quantity: Number(form.quantity),
-        lat: position[0], lng: position[1],
+        lat: position[0], lng: position[1], location_label: address.trim() || null,
       });
       if (error) throw error;
       showToast(t('create.published'), 'success');
@@ -148,8 +174,10 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.min(10000, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
             <label className="mt-4 block"><span className="field-label">{t('create.description')}</span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
+            <div className="address-search mt-4"><label className="block"><span className="field-label">{t('create.address')}</span><div className="address-search-row"><input className="field" value={address} placeholder={t('create.addressPlaceholder')} onChange={(event) => { setAddress(event.target.value); setAddressResults([]); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={() => chooseAddress(result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small className="address-hint">{t('create.addressHint')}</small></div>
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" onClick={useLocation}><Icon name="location" size={16} />{t('create.useLocation')}</button></div>
             <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={setPosition} /></MapContainer></div>
+            <p className="mt-2 text-xs font-semibold text-muted">{t('create.dragMarker')}</p>
           </section> : null}
         </main>
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { supabase } from '../supabaseClient';
-import { bookListing } from '../lib/api';
+import { bookListing, refreshExpiredDeals } from '../lib/api';
 import { categoryLabel, categorySearchText, listingCategoryLabel, normalizeSearch, rootPath } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
@@ -49,6 +49,7 @@ export default function MapScreen({ userId, onCreate }) {
 
   const fetchData = useCallback(async () => {
     setLoading(true); setLoadError('');
+    await refreshExpiredDeals().catch(() => null);
     const [listingsResult, categoriesResult] = await Promise.all([
       supabase.from('listings').select('*').eq('status', 'active').order('created_at', { ascending: false }),
       supabase.from('categories').select('*').order('id'),

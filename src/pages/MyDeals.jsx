@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { cancelBooking, completeDeal, getMyDeals, submitReview } from '../lib/api';
+import { acceptDeal, cancelBooking, confirmHandover, getMyDeals, submitReview } from '../lib/api';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
 import { contactHref } from '../lib/contacts';
@@ -59,7 +59,11 @@ export default function MyDeals() {
     setWorkingId(deal.transaction_id);
     try {
       if (action === 'cancel') { await cancelBooking(deal.transaction_id); showToast(t('deals.canceled'), 'success'); }
-      else { await completeDeal(deal.transaction_id); showToast(t('deals.completed'), 'success'); }
+      else if (action === 'accept') { await acceptDeal(deal.transaction_id); showToast(t('deals.accepted'), 'success'); }
+      else {
+        const result = await confirmHandover(deal.transaction_id);
+        showToast(t(result?.completed ? 'deals.completed' : 'deals.confirmedWaiting'), 'success');
+      }
       await loadDeals();
       window.dispatchEvent(new Event('listings-updated'));
       window.dispatchEvent(new Event('profile-updated'));
@@ -79,6 +83,8 @@ export default function MyDeals() {
 
   const statusOf = (deal) => deal.canceled_at ? 'canceled' : deal.completed_at ? 'completed' : deal.status || 'reserved';
   const contactsOf = (deal) => Array.isArray(deal.contacts) && deal.contacts.length ? deal.contacts : deal.contact_value ? [{ messenger_type: deal.messenger_type, contact_value: deal.contact_value, contact_href: deal.contact_href }] : [];
+  const hasConfirmed = (deal) => deal.role === 'giver' ? Boolean(deal.giver_confirmed_at) : Boolean(deal.taker_confirmed_at);
+  const deadlineText = (deal) => deal.expires_at ? new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(deal.expires_at)) : '';
 
   return (
     <div className="app-screen min-h-screen pb-28 pt-safe">
@@ -102,12 +108,15 @@ export default function MyDeals() {
                 <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 truncate text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div><span className={`status-pill status-${status}`}>{t(`status.${status}`)}</span></div><p className="mt-2 text-xs font-semibold text-muted">{t('common.pieces', { count: deal.quantity })} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</p></div>
               </div>
 
-              {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contactHref(contact) || contact.contact_href} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t('deals.contactHidden')}</p>}</div></div> : null}
+              {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contactHref(contact) || contact.contact_href} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t(deal.accepted_at ? 'deals.contactMissing' : 'deals.contactPending')}</p>}</div></div> : null}
 
-              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="check" size={12} /></span>{t('deals.flowReserved')}</li><li className={partnerContacts.length ? 'done' : ''}><span>{partnerContacts.length ? <Icon name="check" size={12} /> : 2}</span>{t('deals.flowContact')}</li><li className={deal.completed_at ? 'done' : ''}><span>{deal.completed_at ? <Icon name="check" size={12} /> : 3}</span>{t('deals.flowHandover')}</li></ol> : null}
+              {deal.accepted_at && !deal.completed_at && !deal.canceled_at ? <p className="deal-deadline"><Icon name="clock" size={16} />{t('deals.deadline', { date: deadlineText(deal) })}</p> : null}
+
+              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="check" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done' : ''}><span>{deal.accepted_at ? <Icon name="check" size={12} /> : 2}</span>{t('deals.flowAccepted')}</li><li className={deal.completed_at ? 'done' : ''}><span>{deal.completed_at ? <Icon name="check" size={12} /> : 3}</span>{t('deals.flowHandover')}</li></ol> : null}
 
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                {role === 'giver' ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'complete')}><Icon name="check" size={17} />{working ? t('deals.completing') : t('deals.complete')}</button> : null}
+                {!deal.accepted_at && deal.is_listing_owner ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'accept')}><Icon name="check" size={17} />{working ? t('deals.accepting') : t('deals.accept')}</button> : null}
+                {deal.accepted_at ? <button type="button" className="btn-primary w-full text-sm" disabled={working || hasConfirmed(deal)} onClick={() => runAction(deal, 'confirm')}><Icon name="check" size={17} />{working ? t('deals.completing') : hasConfirmed(deal) ? t('deals.confirmed') : t('deals.complete')}</button> : null}
                 <button type="button" className="btn-ghost w-full text-sm" disabled={working} onClick={() => runAction(deal, 'cancel')}><Icon name="close" size={17} />{working ? t('deals.canceling') : t('deals.cancel')}</button>
               </div> : null}
               {deal.completed_at && !deal.my_review_rating ? <button type="button" className="btn-secondary mt-4 w-full text-sm" onClick={() => setRatingDeal(deal)}><Icon name="star" size={17} />{t('deals.rate')}</button> : null}
