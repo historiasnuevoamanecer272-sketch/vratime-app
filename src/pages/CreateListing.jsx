@@ -104,8 +104,8 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
       });
       if (error) throw error;
       showToast(t('create.published'), 'success');
-      window.dispatchEvent(new Event('listings-updated'));
       onSuccess();
+      window.setTimeout(() => window.dispatchEvent(new Event('listings-updated')), 0);
     } catch (error) {
       if (uploadedPath) await supabase.storage.from(bucket).remove([uploadedPath]);
       showToast(`${t('errors.save')} ${error.message}`, 'error');

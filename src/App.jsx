@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from './supabaseClient';
 import i18n, { getAppLanguage, setAppLanguage } from './i18n';
@@ -16,6 +16,28 @@ const CreateListing = lazy(() => import('./pages/CreateListing'));
 
 const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
 const isIos = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+
+class AppScreenBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('VratiMe screen failed to render:', error);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <div className="app-screen grid min-h-screen place-items-center px-5"><div className="state-card text-center"><Icon name="close" size={28} /><strong>{this.props.message}</strong><button type="button" className="btn-secondary mt-4" onClick={() => window.location.reload()}>{this.props.retryLabel}</button></div></div>;
+    }
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const { t } = useTranslation();
@@ -174,29 +196,31 @@ export default function App() {
 
   return (
     <div className="app-shell relative min-h-screen">
-      <div inert={isCreating || undefined} aria-hidden={isCreating || undefined}>
-        <Suspense fallback={loadingView}>
-          {activeTab === 'map' ? <MapScreen userId={session.user.id} onCreate={() => setIsCreating(true)} /> : null}
-          {activeTab === 'deals' ? <MyDeals /> : null}
-          {activeTab === 'profile' ? <Profile userId={session.user.id} /> : null}
-        </Suspense>
+      <AppScreenBoundary message={t('errors.load')} retryLabel={t('common.retry')}>
+        <div inert={isCreating || undefined} aria-hidden={isCreating || undefined}>
+          <Suspense fallback={loadingView}>
+            {activeTab === 'map' ? <MapScreen userId={session.user.id} onCreate={() => setIsCreating(true)} /> : null}
+            {activeTab === 'deals' ? <MyDeals /> : null}
+            {activeTab === 'profile' ? <Profile userId={session.user.id} /> : null}
+          </Suspense>
 
-        <nav className="bottom-nav" aria-label={t('nav.label')}>
-          <div className="bottom-nav-inner">
-            {tabs.map((tab) => tab.action ? (
-              <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => setIsCreating(true)} aria-label={t('nav.create')}>
-                <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
-              </button>
-            ) : (
-              <button key={tab.id} type="button" className={`bottom-nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
-                <Icon name={tab.icon} size={22} /><span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </nav>
-      </div>
+          <nav className="bottom-nav" aria-label={t('nav.label')}>
+            <div className="bottom-nav-inner">
+              {tabs.map((tab) => tab.action ? (
+                <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => setIsCreating(true)} aria-label={t('nav.create')}>
+                  <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
+                </button>
+              ) : (
+                <button key={tab.id} type="button" className={`bottom-nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
+                  <Icon name={tab.icon} size={22} /><span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        </div>
 
-      {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
+        {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
+      </AppScreenBoundary>
       {toastStack}
     </div>
   );
