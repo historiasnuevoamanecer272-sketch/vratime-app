@@ -10,6 +10,7 @@ import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
 import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import { mapMarkerIcons } from '../lib/mapMarkers';
+import { baseMap } from '../lib/basemap';
 const distances = ['all', '1', '5', '10'];
 
 const kmBetween = (from, to) => {
@@ -42,6 +43,8 @@ export default function MapScreen({ userId, onCreate }) {
   const [location, setLocation] = useState(null);
   const [locationMessage, setLocationMessage] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
+  const [bookingListing, setBookingListing] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -67,6 +70,7 @@ export default function MapScreen({ userId, onCreate }) {
 
   const roots = useMemo(() => categories.filter((item) => item.parent_id === null), [categories]);
   const filtered = useMemo(() => listings.filter((item) => {
+    if (item.user_id === userId) return false;
     if (category !== 'all' && rootPath(item) !== category) return false;
     if (type !== 'all' && item.type !== type) return false;
     if (query.trim() && !categorySearchText(item, categories).includes(normalizeSearch(query))) return false;
@@ -93,11 +97,12 @@ export default function MapScreen({ userId, onCreate }) {
   };
 
   const handleBook = async (item) => {
-    if (item.user_id === userId) return showToast(t('map.own'), 'error');
     setBookingId(item.id);
     try {
       await bookListing(item.id);
       showToast(t('map.booked'), 'success');
+      setBookingListing(null);
+      setSelectedListing(null);
       await fetchData();
       window.dispatchEvent(new Event('deals-updated'));
     } catch (error) {
@@ -108,15 +113,20 @@ export default function MapScreen({ userId, onCreate }) {
   };
 
   const distanceLabel = { all: t('map.anyDistance'), 1: t('map.km1'), 5: t('map.km5'), 10: t('map.km10') };
+  const distanceText = (item) => {
+    if (!location) return t('map.distanceUnknown');
+    const value = kmBetween(location, [Number(item.lat), Number(item.lng)]);
+    return value === null ? t('map.distanceUnknown') : t('map.distance', { value: value.toFixed(1) });
+  };
   const listingCard = (item, compact = false) => (
     <article key={`${compact ? 'sheet' : 'popup'}-${item.id}`} className={`listing-card ${compact ? 'listing-card-row' : ''}`}>
       {item.image_url ? <img src={item.image_url} alt="" className="listing-image" /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
       <div className="min-w-0 flex-1">
         <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
-        <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })}{location ? ` · ${kmBetween(location, [Number(item.lat), Number(item.lng)]).toFixed(1)} km` : ''}</p>
+        <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })} · {distanceText(item)}</p>
         {item.description ? <p className="listing-description">{item.description}</p> : null}
-        <button type="button" className="btn-primary mt-3 w-full min-h-10 text-sm" disabled={bookingId === item.id || item.user_id === userId} onClick={() => handleBook(item)}>{bookingId === item.id ? t('map.booking') : item.user_id === userId ? t('map.ownLabel') : t('map.book')}</button>
+        <button type="button" className="btn-primary mt-3 w-full min-h-10 text-sm" onClick={() => setSelectedListing(item)}>{t('map.details')}</button>
       </div>
     </article>
   );
@@ -131,7 +141,7 @@ export default function MapScreen({ userId, onCreate }) {
   return (
     <div className="map-page relative h-[100svh] overflow-hidden">
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
-        <TileLayer attribution="&copy; OpenStreetMap &copy; CARTO" url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+        <TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} />
         <FlyToLocation location={location} />
         {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={mapMarkerIcons[item.type === 'give' ? 'give' : 'take']} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
       </MapContainer>
@@ -162,6 +172,26 @@ export default function MapScreen({ userId, onCreate }) {
         <div className="listing-sheet-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('map.listTitle')}</h2></div><button type="button" className="icon-button" onClick={() => setSheetOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div>
         <div className="listing-sheet-list space-y-3 px-4 pb-28">{filtered.map((item) => listingCard(item, true))}</div>
       </section> : null}
+
+      {selectedListing ? <div className="listing-dialog-backdrop" role="presentation" onMouseDown={() => setSelectedListing(null)}>
+        <section className="listing-dialog card" role="dialog" aria-modal="true" aria-label={t('map.details')} onMouseDown={(event) => event.stopPropagation()}>
+          <button type="button" className="icon-button listing-dialog-close" onClick={() => setSelectedListing(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button>
+          {selectedListing.image_url ? <img src={selectedListing.image_url} alt="" className="listing-dialog-image" /> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
+          <div className={`listing-kind mt-4 ${selectedListing.type === 'take' ? 'take' : ''}`}><Icon name={selectedListing.type === 'give' ? 'gift' : 'truck'} size={14} />{t(selectedListing.type === 'give' ? 'map.give' : 'map.take')}</div>
+          <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>
+          <div className="listing-dialog-meta"><span>{t('common.pieces', { count: selectedListing.quantity })}</span><span>{distanceText(selectedListing)}</span><span>{new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short' }).format(new Date(selectedListing.created_at))}</span></div>
+          <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>
+          <p className="listing-dialog-note"><Icon name="message" size={16} />{t('map.contactNote')}</p>
+          <button type="button" className="btn-primary mt-5 w-full" disabled={bookingId === selectedListing.id} onClick={() => setBookingListing(selectedListing)}>{bookingId === selectedListing.id ? t('map.booking') : t('map.book')}</button>
+        </section>
+      </div> : null}
+
+      {bookingListing ? <div className="listing-dialog-backdrop" role="presentation" onMouseDown={() => !bookingId && setBookingListing(null)}>
+        <section className="booking-confirm card" role="dialog" aria-modal="true" aria-label={t('map.confirmTitle')} onMouseDown={(event) => event.stopPropagation()}>
+          <Icon name="check" size={30} /><h2 className="font-display mt-3 text-3xl text-forest">{t('map.confirmTitle')}</h2><p>{t('map.confirmText')}</p>
+          <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" className="btn-secondary" disabled={Boolean(bookingId)} onClick={() => setBookingListing(null)}>{t('common.cancel')}</button><button type="button" className="btn-primary" disabled={Boolean(bookingId)} onClick={() => handleBook(bookingListing)}>{bookingId ? t('map.booking') : t('map.confirmYes')}</button></div>
+        </section>
+      </div> : null}
     </div>
   );
 }
