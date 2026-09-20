@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:quality",
-    "test:quality": "npm run lint && npm run test:i18n && npm run test:search && npm run test:contacts && npm run test:migrations && npm run build && npm run test:static",
+    "test:quality": "npm run lint && npm run test:i18n && npm run test:search && npm run test:contacts && npm run test:webhook && npm run test:migrations && npm run build && npm run test:static",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
@@ -20,6 +20,7 @@
     "test:static": "node scripts/static-check.mjs",
     "test:search": "node scripts/category-search-check.mjs",
     "test:contacts": "node scripts/contacts-check.mjs",
+    "test:webhook": "node --experimental-strip-types scripts/tribute-webhook-check.mjs",
     "test:migrations": "node scripts/migration-check.mjs"
   },
   "dependencies": {

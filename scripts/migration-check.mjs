@@ -18,7 +18,7 @@ const requireText = (source, text, label) => {
   if (!source.includes(text)) throw new Error(`Migration security check failed: ${label}`);
 };
 
-for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews']) {
+for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'funding_settings', 'support_contributions']) {
   requireText(combined, `alter table public.${table} enable row level security`, `RLS for ${table}`);
 }
 requireText(combined, 'revoke all on public.profiles from anon', 'anonymous profile access revoked');
@@ -29,6 +29,9 @@ requireText(combined, 'create unique index if not exists transactions_one_open_p
 requireText(combined, 'create unique index if not exists reviews_one_per_participant', 'one review per participant');
 requireText(combined, 'revoke update on public.listings from anon, authenticated', 'server-only listing status changes');
 requireText(combined, 'revoke insert on public.reviews from anon, authenticated', 'server-only reviews');
+requireText(combined, 'revoke all on public.funding_settings from public, anon, authenticated', 'funding settings protected');
+requireText(combined, 'revoke all on public.support_contributions from public, anon, authenticated', 'contributions protected');
+requireText(combined, 'grant execute on function public.get_funding_progress() to anon, authenticated', 'public aggregate funding progress RPC');
 
 const multiContacts = sources.get('20260820233000_multi_messenger_contacts.sql') || '';
 requireText(multiContacts, 'primary key (user_id, messenger_type)', 'one protected contact per messenger');

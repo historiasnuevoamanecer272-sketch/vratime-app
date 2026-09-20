@@ -9,6 +9,7 @@ import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
 import ContactChannelsFields from '../components/ContactChannelsFields';
+import SupportFund from '../components/SupportFund';
 import logo from '../assets/images/app-logo.png';
 let profileCache = null;
 
@@ -126,6 +127,8 @@ export default function Profile({ userId }) {
         </section> : null}
 
         <section className="impact-grid mt-4"><div className="impact-card"><span><Icon name="deals" size={21} /></span><strong>{completedDeals.length}</strong><small>{t('profile.deals')}</small></div><div className="impact-card"><span><Icon name="leaf" size={21} /></span><strong>{itemCount}</strong><small>{t('profile.items')}</small></div></section>
+
+        <SupportFund />
 
         <section className="card mt-4 p-5"><div className="flex items-center justify-between"><div><p className="eyebrow text-sea">{t('profile.level')}</p><h2 className="font-display mt-1 text-2xl text-forest">{levels[levelIndex]}</h2></div><span className="level-emblem" style={{ '--level-progress': `${levelProgress}%` }}><img src={logo} alt="" /><b>{levelIndex + 1}</b></span></div><div className="level-track mt-5"><span style={{ width: `${levelProgress}%` }} /></div><p className="mt-2 text-xs font-semibold text-muted">{nextThreshold ? t('profile.nextLevel', { count: nextThreshold - ecoPoints }) : t('profile.maxLevel')}</p></section>
 

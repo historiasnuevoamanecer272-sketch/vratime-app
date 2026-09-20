@@ -6,6 +6,7 @@ import { subscribeToasts } from './lib/toast';
 import Icon from './components/Icon';
 import logo from './assets/images/app-logo.png';
 import { OfferPage, PrivacyPage } from './pages/LegalPage';
+import SupportPage from './pages/SupportPage';
 
 const Login = lazy(() => import('./pages/Login'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
@@ -175,6 +176,7 @@ export default function App() {
 
   if (window.location.pathname === '/privacy') return <><PrivacyPage />{toastStack}</>;
   if (window.location.pathname === '/offer') return <><OfferPage />{toastStack}</>;
+  if (window.location.pathname === '/support') return <><SupportPage />{toastStack}</>;
 
   if (loading) return <>{installBanner}{loadingView}{toastStack}</>;
   if (!session) return <>{installBanner}<Suspense fallback={loadingView}><Login /></Suspense>{toastStack}</>;

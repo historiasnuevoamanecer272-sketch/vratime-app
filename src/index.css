@@ -341,6 +341,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .review-row small { margin-top: 3px; color: var(--muted); font-size: .65rem; }
 .review-row > span { display: flex; align-items: center; gap: 4px; color: #c98928; font-weight: 850; }
 
+.support-page { padding: max(24px, env(safe-area-inset-top)) 16px max(48px, env(safe-area-inset-bottom)); }
+.support-page-shell { width: min(100%, 680px); margin-inline: auto; }
+.support-back { width: fit-content; min-height: 42px; display: inline-flex; align-items: center; gap: 7px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 14px; padding: 0 13px; color: var(--forest); background: rgba(251,255,255,.88); font-size: .78rem; font-weight: 800; text-decoration: none; }
+.support-fund { padding: 20px; overflow: hidden; background: radial-gradient(circle at 100% 0, rgba(34,168,187,.16), transparent 17rem), rgba(251,255,255,.97); }
+.support-fund-page { border: 1px solid rgba(203,227,227,.95); border-radius: 30px; padding: clamp(22px, 5vw, 42px); box-shadow: var(--shadow); }
+.support-fund-head { display: flex; align-items: center; gap: 12px; }
+.support-fund-head h2 { margin-top: 2px; }
+.support-heart { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 16px; color: #fff; background: linear-gradient(145deg, #17aa9a, #08768a); box-shadow: 0 11px 24px rgba(5,108,121,.2); }
+.support-fund-copy { margin: 15px 0 0; color: var(--muted); font-size: .82rem; font-weight: 620; line-height: 1.55; }
+.support-goals { display: grid; gap: 12px; margin-top: 19px; }
+.support-goal { padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: rgba(239,250,250,.76); }
+.support-goal-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--forest); font-size: .78rem; font-weight: 830; }
+.support-goal-label strong { color: var(--sea); font-size: 1rem; font-variant-numeric: tabular-nums; }
+.support-track { height: 11px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: #d6e9e9; }
+.support-track span { min-width: 0; height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, #2ac0a9, #0a8ea5); transition: width .35s ease; }
+.support-track-year span { background: linear-gradient(90deg, #27aeba, #087281); }
+.support-goal p { margin: 7px 0 0; color: var(--muted); font-size: .7rem; font-weight: 720; font-variant-numeric: tabular-nums; }
+.support-reserve { display: flex; align-items: flex-start; gap: 8px; margin-top: 13px; border-radius: 14px; padding: 10px 12px; color: var(--forest); background: var(--sage); font-size: .73rem; font-weight: 770; line-height: 1.4; }
+.support-reserve svg { flex: 0 0 auto; margin-top: 1px; }
+.support-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 14px; margin-top: 13px; color: var(--muted); font-size: .67rem; font-weight: 720; }
+.support-action { width: 100%; margin-top: 18px; text-decoration: none; }
+.support-note { margin: 12px 2px 0; color: var(--muted); font-size: .66rem; line-height: 1.5; text-align: center; }
+.support-login-link { width: fit-content; min-height: 38px; margin: 18px auto 0; display: flex; align-items: center; justify-content: center; gap: 7px; color: var(--sea); font-size: .75rem; font-weight: 820; text-decoration: none; }
+
 .toast-stack { pointer-events: none; position: fixed; z-index: 9500; top: max(1rem, env(safe-area-inset-top)); right: 1rem; width: min(calc(100vw - 2rem), 360px); display: flex; flex-direction: column; gap: 8px; }
 .toast { border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; color: var(--ink); background: rgba(249,255,255,.97); box-shadow: var(--shadow); font-size: .8rem; font-weight: 700; }
 .toast-success { border-color: var(--sage-2); background: #e9faf4; }
@@ -355,6 +379,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 @media (min-width: 640px) {
   .rating-dialog { border-radius: 28px; }
   .map-toolbar { top: 1rem; }
+  .support-goals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (min-width: 900px) {

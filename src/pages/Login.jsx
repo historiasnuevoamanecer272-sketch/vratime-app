@@ -70,7 +70,8 @@ export default function Login() {
             </form>
           )}
         </section>
-        <p className="mt-5 text-center text-xs font-bold tracking-wide text-muted">VratiMe · NVO LUNA</p>
+        <a className="support-login-link" href="/support"><Icon name="heart" size={16} />{t('support.action')}</a>
+        <p className="mt-3 text-center text-xs font-bold tracking-wide text-muted">VratiMe · NVO LUNA</p>
       </main>
     </div>
   );

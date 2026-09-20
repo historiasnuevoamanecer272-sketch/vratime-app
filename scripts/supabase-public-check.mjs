@@ -29,11 +29,20 @@ const listings = await anonymous.from('listings').select('id, status, category_p
 if (listings.error) throw new Error(`Active listings are not publicly readable: ${listings.error.message}`);
 if (listings.data.some((item) => item.status !== 'active')) throw new Error('Anonymous listing response contains a non-active listing');
 
-for (const table of ['profiles', 'profile_contacts', 'transactions', 'reviews']) {
+for (const table of ['profiles', 'profile_contacts', 'transactions', 'reviews', 'funding_settings', 'support_contributions']) {
   const probe = await anonymous.from(table).select('*').limit(1);
   if (!probe.error || ![401, 403].includes(probe.status)) throw new Error(`Anonymous access to ${table} was not blocked`);
   if (Array.isArray(probe.data) && probe.data.length) throw new Error(`Anonymous access leaked rows from ${table}`);
 }
+
+const funding = await anonymous.rpc('get_funding_progress');
+if (funding.error) throw new Error(`Public funding progress is unavailable: ${funding.error.message}`);
+if (!Array.isArray(funding.data) || funding.data.length !== 1) throw new Error('Funding progress must return one aggregate row');
+const fundingRow = funding.data[0];
+for (const key of ['monthly_target_eur_cents', 'annual_target_eur_cents', 'month_covered_eur_cents', 'year_collected_eur_cents', 'reserve_eur_cents', 'supporters_count']) {
+  if (!(key in fundingRow)) throw new Error(`Funding progress is missing ${key}`);
+}
+if ('supporter_hash' in fundingRow || 'external_event_id' in fundingRow) throw new Error('Funding progress leaked private contribution identifiers');
 
 const privateRpc = await anonymous.rpc('get_my_deals');
 if (!privateRpc.error || ![401, 403].includes(privateRpc.status)) {
@@ -41,4 +50,4 @@ if (!privateRpc.error || ![401, 403].includes(privateRpc.status)) {
   throw new Error(`Anonymous execution of get_my_deals was not blocked (status ${privateRpc.status}, rows ${rowCount}, active listings ${listings.data.length})`);
 }
 
-process.stdout.write(`Live public/privacy check passed: 20 translated categories, ${listings.data.length} active listings, protected profile/contact/deal tables.\n`);
+process.stdout.write(`Live public/privacy check passed: 20 translated categories, ${listings.data.length} active listings, protected profile/contact/deal/funding tables.\n`);
