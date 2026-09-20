@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Component, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from './supabaseClient';
 import i18n, { getAppLanguage, setAppLanguage } from './i18n';
@@ -6,6 +6,7 @@ import { subscribeToasts } from './lib/toast';
 import Icon from './components/Icon';
 import logo from './assets/images/app-logo.png';
 import { OfferPage, PrivacyPage } from './pages/LegalPage';
+import SupportPage from './pages/SupportPage';
 
 const Login = lazy(() => import('./pages/Login'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
@@ -17,6 +18,28 @@ const CreateListing = lazy(() => import('./pages/CreateListing'));
 const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
 const isIos = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 
+class AppScreenBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error) {
+    console.error('VratiMe screen failed to render:', error);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return <div className="app-screen grid min-h-screen place-items-center px-5"><div className="state-card text-center"><Icon name="close" size={28} /><strong>{this.props.message}</strong><button type="button" className="btn-secondary mt-4" onClick={() => window.location.reload()}>{this.props.retryLabel}</button></div></div>;
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   const { t } = useTranslation();
   const [session, setSession] = useState(null);
@@ -27,9 +50,7 @@ export default function App() {
   const [isCreating, setIsCreating] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [installPrompt, setInstallPrompt] = useState(null);
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
-  const [installDismissed, setInstallDismissed] = useState(() => localStorage.getItem('vratimeInstallDismissed') === '1');
-  const [isIosInstallCandidate] = useState(() => isIos() && !isStandalone());
+  const [showInstallHelp, setShowInstallHelp] = useState(() => !isStandalone());
   const profileUserRef = useRef(null);
   const profileRequestRef = useRef(0);
 
@@ -107,22 +128,18 @@ export default function App() {
   useEffect(() => subscribeToasts((toast) => pushToast(toast.message, toast.type)), [pushToast]);
 
   useEffect(() => {
-    if (isStandalone() || installDismissed) return undefined;
+    if (isStandalone()) return undefined;
     const ready = (event) => { event.preventDefault(); setInstallPrompt(event); setShowInstallHelp(true); };
     const installed = () => {
-      setInstallPrompt(null); setShowInstallHelp(false); setInstallDismissed(true);
-      localStorage.setItem('vratimeInstallDismissed', '1');
+      setInstallPrompt(null); setShowInstallHelp(false);
       pushToast(t('install.done'), 'success');
     };
     window.addEventListener('beforeinstallprompt', ready);
     window.addEventListener('appinstalled', installed);
     return () => { window.removeEventListener('beforeinstallprompt', ready); window.removeEventListener('appinstalled', installed); };
-  }, [installDismissed, pushToast, t]);
+  }, [pushToast, t]);
 
-  const dismissInstall = () => {
-    setShowInstallHelp(false); setInstallDismissed(true);
-    localStorage.setItem('vratimeInstallDismissed', '1');
-  };
+  const dismissInstall = () => setShowInstallHelp(false);
 
   const retryProfile = () => {
     const userId = session?.user?.id;
@@ -143,12 +160,12 @@ export default function App() {
     </div>
   );
 
-  const installBanner = !installDismissed && !isStandalone() && (showInstallHelp || isIosInstallCandidate) ? (
+  const installBanner = !isStandalone() && showInstallHelp ? (
     <aside className="install-banner" aria-live="polite">
       <span className="icon-tile"><Icon name="install" size={22} /></span>
       <div className="min-w-0 flex-1">
         <p className="font-extrabold text-forest">{t('install.title')}</p>
-        <p className="mt-1 text-xs leading-5 text-muted">{installPrompt ? t('install.android') : t('install.ios')}</p>
+        <p className="mt-1 text-xs leading-5 text-muted">{installPrompt ? t('install.android') : isIos() ? t('install.ios') : t('install.manual')}</p>
         {installPrompt ? <button type="button" className="btn-primary mt-2 min-h-9 px-4 text-sm" onClick={async () => { installPrompt.prompt(); await installPrompt.userChoice; setInstallPrompt(null); setShowInstallHelp(false); }}>{t('install.action')}</button> : null}
       </div>
       <button type="button" className="icon-button" onClick={dismissInstall} aria-label={t('common.close')}><Icon name="close" size={17} /></button>
@@ -159,6 +176,7 @@ export default function App() {
 
   if (window.location.pathname === '/privacy') return <><PrivacyPage />{toastStack}</>;
   if (window.location.pathname === '/offer') return <><OfferPage />{toastStack}</>;
+  if (window.location.pathname === '/support') return <><SupportPage />{toastStack}</>;
 
   if (loading) return <>{installBanner}{loadingView}{toastStack}</>;
   if (!session) return <>{installBanner}<Suspense fallback={loadingView}><Login /></Suspense>{toastStack}</>;
@@ -174,29 +192,31 @@ export default function App() {
 
   return (
     <div className="app-shell relative min-h-screen">
-      <div inert={isCreating || undefined} aria-hidden={isCreating || undefined}>
-        <Suspense fallback={loadingView}>
-          {activeTab === 'map' ? <MapScreen userId={session.user.id} onCreate={() => setIsCreating(true)} /> : null}
-          {activeTab === 'deals' ? <MyDeals /> : null}
-          {activeTab === 'profile' ? <Profile userId={session.user.id} /> : null}
-        </Suspense>
+      <AppScreenBoundary message={t('errors.load')} retryLabel={t('common.retry')}>
+        <div inert={isCreating || undefined} aria-hidden={isCreating || undefined}>
+          <Suspense fallback={loadingView}>
+            {activeTab === 'map' ? <MapScreen userId={session.user.id} onCreate={() => setIsCreating(true)} /> : null}
+            {activeTab === 'deals' ? <MyDeals /> : null}
+            {activeTab === 'profile' ? <Profile userId={session.user.id} /> : null}
+          </Suspense>
 
-        <nav className="bottom-nav" aria-label={t('nav.label')}>
-          <div className="bottom-nav-inner">
-            {tabs.map((tab) => tab.action ? (
-              <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => setIsCreating(true)} aria-label={t('nav.create')}>
-                <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
-              </button>
-            ) : (
-              <button key={tab.id} type="button" className={`bottom-nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
-                <Icon name={tab.icon} size={22} /><span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-        </nav>
-      </div>
+          <nav className="bottom-nav" aria-label={t('nav.label')}>
+            <div className="bottom-nav-inner">
+              {tabs.map((tab) => tab.action ? (
+                <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => setIsCreating(true)} aria-label={t('nav.create')}>
+                  <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
+                </button>
+              ) : (
+                <button key={tab.id} type="button" className={`bottom-nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
+                  <Icon name={tab.icon} size={22} /><span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        </div>
 
-      {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
+        {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
+      </AppScreenBoundary>
       {toastStack}
     </div>
   );

@@ -8,11 +8,19 @@ const rpc = async (name, params = {}) => {
 };
 
 export const bookListing = (listingId) => rpc('book_listing', { target_listing_id: listingId });
+export const acceptDeal = (transactionId) => rpc('accept_deal', { target_transaction_id: transactionId });
 export const cancelBooking = (transactionId) => rpc('cancel_booking', { target_transaction_id: transactionId });
-export const completeDeal = (transactionId) => rpc('complete_deal', { target_transaction_id: transactionId });
+export const confirmHandover = (transactionId) => rpc('confirm_handover', { target_transaction_id: transactionId });
 export const submitReview = (transactionId, rating) => rpc('submit_review', { target_transaction_id: transactionId, target_rating: rating });
 export const deactivateListing = (listingId) => rpc('deactivate_listing', { target_listing_id: listingId });
 export const getMyDeals = () => rpc('get_my_deals');
+export const refreshExpiredDeals = () => rpc('refresh_expired_deals');
+export const getEcoLeaderboard = (limit = 20) => rpc('get_eco_leaderboard', { limit_count: limit });
+export const getFundingProgress = async () => {
+  const data = await rpc('get_funding_progress');
+  return Array.isArray(data) ? data[0] || null : data;
+};
+export const setRankingParticipation = (enabled) => rpc('set_ranking_participation', { enabled });
 export const saveMyProfile = async (profile) => {
   const contacts = normalizeContacts(profile.contacts);
   try {
