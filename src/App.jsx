@@ -49,9 +49,7 @@ export default function App() {
   const [isCreating, setIsCreating] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [installPrompt, setInstallPrompt] = useState(null);
-  const [showInstallHelp, setShowInstallHelp] = useState(false);
-  const [installDismissed, setInstallDismissed] = useState(() => localStorage.getItem('vratimeInstallDismissed') === '1');
-  const [isIosInstallCandidate] = useState(() => isIos() && !isStandalone());
+  const [showInstallHelp, setShowInstallHelp] = useState(() => !isStandalone());
   const profileUserRef = useRef(null);
   const profileRequestRef = useRef(0);
 
@@ -129,22 +127,18 @@ export default function App() {
   useEffect(() => subscribeToasts((toast) => pushToast(toast.message, toast.type)), [pushToast]);
 
   useEffect(() => {
-    if (isStandalone() || installDismissed) return undefined;
+    if (isStandalone()) return undefined;
     const ready = (event) => { event.preventDefault(); setInstallPrompt(event); setShowInstallHelp(true); };
     const installed = () => {
-      setInstallPrompt(null); setShowInstallHelp(false); setInstallDismissed(true);
-      localStorage.setItem('vratimeInstallDismissed', '1');
+      setInstallPrompt(null); setShowInstallHelp(false);
       pushToast(t('install.done'), 'success');
     };
     window.addEventListener('beforeinstallprompt', ready);
     window.addEventListener('appinstalled', installed);
     return () => { window.removeEventListener('beforeinstallprompt', ready); window.removeEventListener('appinstalled', installed); };
-  }, [installDismissed, pushToast, t]);
+  }, [pushToast, t]);
 
-  const dismissInstall = () => {
-    setShowInstallHelp(false); setInstallDismissed(true);
-    localStorage.setItem('vratimeInstallDismissed', '1');
-  };
+  const dismissInstall = () => setShowInstallHelp(false);
 
   const retryProfile = () => {
     const userId = session?.user?.id;
@@ -165,12 +159,12 @@ export default function App() {
     </div>
   );
 
-  const installBanner = !installDismissed && !isStandalone() && (showInstallHelp || isIosInstallCandidate) ? (
+  const installBanner = !isStandalone() && showInstallHelp ? (
     <aside className="install-banner" aria-live="polite">
       <span className="icon-tile"><Icon name="install" size={22} /></span>
       <div className="min-w-0 flex-1">
         <p className="font-extrabold text-forest">{t('install.title')}</p>
-        <p className="mt-1 text-xs leading-5 text-muted">{installPrompt ? t('install.android') : t('install.ios')}</p>
+        <p className="mt-1 text-xs leading-5 text-muted">{installPrompt ? t('install.android') : isIos() ? t('install.ios') : t('install.manual')}</p>
         {installPrompt ? <button type="button" className="btn-primary mt-2 min-h-9 px-4 text-sm" onClick={async () => { installPrompt.prompt(); await installPrompt.userChoice; setInstallPrompt(null); setShowInstallHelp(false); }}>{t('install.action')}</button> : null}
       </div>
       <button type="button" className="icon-button" onClick={dismissInstall} aria-label={t('common.close')}><Icon name="close" size={17} /></button>
