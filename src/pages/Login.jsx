@@ -14,7 +14,6 @@ export default function Login() {
   const [sentEmail, setSentEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
-  const googleEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
 
   const sendMagicLink = async (event) => {
     event?.preventDefault();
@@ -31,7 +30,6 @@ export default function Login() {
   };
 
   const continueWithGoogle = async () => {
-    if (!googleEnabled) return showToast(t('auth.googleUnavailable'), 'info');
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
     if (error) { showToast(error.message, 'error'); setLoading(false); }
