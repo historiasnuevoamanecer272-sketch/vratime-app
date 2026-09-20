@@ -5,6 +5,7 @@ import i18n, { getAppLanguage, setAppLanguage } from './i18n';
 import { subscribeToasts } from './lib/toast';
 import Icon from './components/Icon';
 import logo from './assets/images/app-logo.png';
+import { OfferPage, PrivacyPage } from './pages/LegalPage';
 
 const Login = lazy(() => import('./pages/Login'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
@@ -155,6 +156,9 @@ export default function App() {
   ) : null;
 
   const toastStack = <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`}><p>{toast.message}</p></div>)}</div>;
+
+  if (window.location.pathname === '/privacy') return <><PrivacyPage />{toastStack}</>;
+  if (window.location.pathname === '/offer') return <><OfferPage />{toastStack}</>;
 
   if (loading) return <>{installBanner}{loadingView}{toastStack}</>;
   if (!session) return <>{installBanner}<Suspense fallback={loadingView}><Login /></Suspense>{toastStack}</>;

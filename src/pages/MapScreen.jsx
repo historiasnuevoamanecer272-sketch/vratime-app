@@ -79,7 +79,7 @@ export default function MapScreen({ userId, onCreate }) {
       if (itemDistance === null || itemDistance > Number(distance)) return false;
     }
     return Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng));
-  }), [categories, category, distance, listings, location, query, type]);
+  }), [categories, category, distance, listings, location, query, type, userId]);
 
   const hasFilters = Boolean(query.trim() || category !== 'all' || type !== 'all' || distance !== 'all');
   const resetFilters = () => {

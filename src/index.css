@@ -187,6 +187,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .booking-confirm { align-self: center; max-width: 400px; text-align: center; }
 .booking-confirm > svg { color: var(--sea); }
 .booking-confirm p { margin-top: 10px; color: var(--muted); line-height: 1.5; }
+.legal-page { min-height: 100svh; padding: 32px 16px 56px; color: var(--ink); background: linear-gradient(145deg, #e7f7f5, #f8fcfb 48%, #d9eff2); }
+.legal-card { width: min(100%, 820px); margin: 0 auto; padding: clamp(24px, 5vw, 56px); border: 1px solid var(--line); border-radius: 30px; background: rgba(251,255,255,.94); box-shadow: 0 20px 70px rgba(4,91,99,.12); }
+.legal-brand { display: inline-flex; align-items: center; gap: 10px; color: var(--forest); font-weight: 900; text-decoration: none; }
+.legal-brand img { width: 44px; height: 44px; border-radius: 14px; }
+.legal-intro { max-width: 680px; margin-top: 14px; color: var(--muted); font-size: 1.05rem; line-height: 1.6; }
+.legal-updated { margin-top: 10px; color: var(--muted); font-size: .8rem; font-weight: 700; }
+.legal-section { margin-top: 28px; }
+.legal-section h2 { color: var(--forest); font-size: 1.12rem; font-weight: 900; }
+.legal-section p { margin-top: 9px; color: var(--ink); line-height: 1.68; }
+.legal-section a { color: var(--sea); font-weight: 800; }
+.legal-footer { display: flex; flex-wrap: wrap; gap: 14px 22px; margin-top: 42px; padding-top: 20px; border-top: 1px solid var(--line); font-size: .82rem; font-weight: 800; }
+.legal-footer a { color: var(--sea); }
 .listing-preview .listing-kind { font-size: .55rem; }
 
 .modal-backdrop { position: fixed; z-index: 7000; inset: 0; background: rgba(4,54,65,.48); backdrop-filter: blur(4px); }
