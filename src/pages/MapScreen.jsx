@@ -123,7 +123,7 @@ export default function MapScreen({ userId, onCreate }) {
     <article key={`${compact ? 'sheet' : 'popup'}-${item.id}`} className={`listing-card ${compact ? 'listing-card-row' : ''}`}>
       {item.image_url ? <img src={item.image_url} alt="" className="listing-image" /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
       <div className="min-w-0 flex-1">
-        <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
+        <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'search'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
         <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })} · {distanceText(item)}</p>
         {item.description ? <p className="listing-description">{item.description}</p> : null}
@@ -135,7 +135,7 @@ export default function MapScreen({ userId, onCreate }) {
   const listingPreview = (item) => (
     <div className="listing-preview">
       {item.image_url ? <img src={item.image_url} alt="" /> : <span><CategoryIcon category={item} size={26} /></span>}
-      <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'truck'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{item.description || `${t('common.pieces', { count: item.quantity })} · ${t('map.hoverHint')}`}</small></div>
+      <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'search'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{item.description || `${t('common.pieces', { count: item.quantity })} · ${t('map.hoverHint')}`}</small></div>
     </div>
   );
 
@@ -180,7 +180,7 @@ export default function MapScreen({ userId, onCreate }) {
         <section className="listing-dialog card" role="dialog" aria-modal="true" aria-label={t('map.details')} onMouseDown={(event) => event.stopPropagation()}>
           <button type="button" className="icon-button listing-dialog-close" onClick={() => setSelectedListing(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button>
           {selectedListing.image_url ? <img src={selectedListing.image_url} alt="" className="listing-dialog-image" /> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
-          <div className={`listing-kind mt-4 ${selectedListing.type === 'take' ? 'take' : ''}`}><Icon name={selectedListing.type === 'give' ? 'gift' : 'truck'} size={14} />{t(selectedListing.type === 'give' ? 'map.give' : 'map.take')}</div>
+          <div className={`listing-kind mt-4 ${selectedListing.type === 'take' ? 'take' : ''}`}><Icon name={selectedListing.type === 'give' ? 'gift' : 'search'} size={14} />{t(selectedListing.type === 'give' ? 'map.give' : 'map.take')}</div>
           <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>
           <div className="listing-dialog-meta"><span>{t('common.pieces', { count: selectedListing.quantity })}</span><span>{distanceText(selectedListing)}</span><span>{new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short' }).format(new Date(selectedListing.created_at))}</span></div>
           <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>

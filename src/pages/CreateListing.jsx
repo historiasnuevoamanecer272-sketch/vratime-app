@@ -153,7 +153,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
           </section> : null}
         </main>
 
-        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'truck'} size={19} />{loading ? t('create.publishing') : t(form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
+        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'search'} size={19} />{loading ? t('create.publishing') : t(form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
       </div>
     </div>
   );
