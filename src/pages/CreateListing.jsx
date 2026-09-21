@@ -19,7 +19,9 @@ function LocationPicker({ position, type, onChange }) {
 
 function MapMover({ position }) {
   const map = useMap();
-  useEffect(() => map.flyTo(position, 14, { duration: 0.7 }), [map, position]);
+  useEffect(() => {
+    map.flyTo(position, 14, { duration: 0.7 });
+  }, [map, position]);
   return null;
 }
 
