@@ -1,6 +1,6 @@
 # VratiMe
 
-Mobile-first C2C exchange for reusable packaging, clothes and materials in Montenegro. The interface supports Russian, Montenegrin and English, Magic Link authentication, optional Google OAuth, a map-based catalogue, transactional booking, private partner contacts, ratings and eco points.
+Mobile-first C2C exchange for reusable packaging, clothes and materials in Montenegro. The interface supports Russian, Montenegrin and English, Magic Link authentication, optional Google OAuth, a map-based catalogue, multiple listing photos, transactional booking, private partner contacts, ratings, eco points and a ten-level achievement system.
 
 ## Project documentation
 

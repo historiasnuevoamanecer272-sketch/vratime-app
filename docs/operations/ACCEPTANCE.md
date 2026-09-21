@@ -11,7 +11,7 @@
 ## Full two-user journey
 
 1. Sign in with Magic Link or Google and complete a profile.
-2. User A creates a listing with quantity, optional photo and map pin.
+2. User A creates a listing with quantity, one or more optional photos and a map pin; choosing a found address or clicking the map must not close the wizard.
 3. User B books it; a second simultaneous booking must fail.
 4. Both users see the deal and the partner contact; other users do not.
 5. Either participant can cancel before completion while the history remains, or the giver completes the handover.
@@ -20,7 +20,7 @@
 
 ## Interface and release
 
-- Repeat the flow in Russian, Montenegrin and English; reload and confirm the language persists.
+- Repeat the flow in Russian, Montenegrin and English; reload and confirm the language persists and the current hashed production asset is loaded after the service worker update.
 - Check widths 360, 390, 768 and 1440 px; keyboard navigation; safe areas; reduced motion; location denied; offline/network errors; 5 MB photo limit.
 - Run `npm test`, `npm audit`, `npm run db:public`, `npm run db:test`, and `npm run db:e2e`.
 - Preview locally before pushing. Push/deploy only after explicit approval.
