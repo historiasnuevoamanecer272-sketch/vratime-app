@@ -19,6 +19,8 @@ npm test
 npm audit
 ```
 
+After a production deployment, run `npm run test:production`. It rebuilds the application and verifies that the public domain, service worker, `RELEASE.txt`, and hashed JS/CSS assets all point to that exact build.
+
 ## Supabase
 
 The schema is versioned in `supabase/migrations`. The current migration protects contact details, tightens RLS and Storage policies, translates categories, and adds server-side RPC for booking, cancellation, completion and reviews.

@@ -19,10 +19,11 @@ GitHub Pages stays online as a fallback until the custom-domain release is fully
 2. Build with the production root base: `npm run build`.
 3. Archive the *contents* of `dist` (the archive must contain `index.html` and `manifest.webmanifest` at its root).
 4. Copy the archive and `scripts/server/vratime-deploy-static-v1.sh` to the server.
-5. Run the script with the archive path and a unique release id, for example a commit hash plus date.
-6. Verify `https://vratime.vzdigital.online/`, the service worker, and the authentication redirect flow.
+5. Run the script with the archive path and a unique release id, for example a commit hash plus date. The script switches `current`, then verifies the public `RELEASE.txt` and hashed JS/CSS; it restores the previous release on any verification failure.
+6. Run `npm run test:production` from the same built commit for an independent domain/service-worker/build comparison.
+7. Verify the authentication redirect flow in a browser.
 
-The script unpacks a new immutable release and only then switches the `current` symlink, so visitors never receive a half-copied build.
+The script unpacks a new immutable release and only then switches the `current` symlink, so visitors never receive a half-copied build. A failed HTTP or asset verification automatically restores the previous `current` target without deleting either immutable release.
 
 ## Authentication URLs
 

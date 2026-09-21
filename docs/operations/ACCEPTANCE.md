@@ -22,5 +22,5 @@
 
 - Repeat the flow in Russian, Montenegrin and English; reload and confirm the language persists and the current hashed production asset is loaded after the service worker update.
 - Check widths 360, 390, 768 and 1440 px; keyboard navigation; safe areas; reduced motion; location denied; offline/network errors; 5 MB photo limit.
-- Run `npm test`, `npm audit`, `npm run db:public`, `npm run db:test`, and `npm run db:e2e`.
+- Run `npm test`, `npm audit`, `npm run db:public`, `npm run db:test`, and `npm run db:e2e`; after deployment run `npm run test:production`.
 - Preview locally before pushing. Push/deploy only after explicit approval.
