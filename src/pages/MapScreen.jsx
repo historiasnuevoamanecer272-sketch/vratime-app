@@ -12,6 +12,10 @@ import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import { mapMarkerIcons } from '../lib/mapMarkers';
 import { baseMap } from '../lib/basemap';
 const distances = ['all', '1', '5', '10'];
+const listingImages = (listing) => [...new Set([
+  ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
+  listing.image_url,
+].filter(Boolean))];
 
 const kmBetween = (from, to) => {
   if (!from || !to) return null;
@@ -129,7 +133,7 @@ export default function MapScreen({ userId, onCreate }) {
   };
   const listingCard = (item, compact = false) => (
     <article key={`${compact ? 'sheet' : 'popup'}-${item.id}`} className={`listing-card ${compact ? 'listing-card-row' : ''} ${requestedListingIds.has(item.id) ? 'is-requested' : ''}`}>
-      {item.image_url ? <img src={item.image_url} alt="" className="listing-image" /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
+      {listingImages(item)[0] ? <img src={listingImages(item)[0]} alt="" className="listing-image" /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
       <div className="min-w-0 flex-1">
         <div className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'search'} size={13} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</div>
         {requestedListingIds.has(item.id) ? <div className="listing-requested"><Icon name="check" size={13} />{t('map.requested')}</div> : null}
@@ -143,7 +147,7 @@ export default function MapScreen({ userId, onCreate }) {
 
   const listingPreview = (item) => (
     <div className={`listing-preview ${requestedListingIds.has(item.id) ? 'is-requested' : ''}`}>
-      {item.image_url ? <img src={item.image_url} alt="" /> : <span><CategoryIcon category={item} size={26} /></span>}
+      {listingImages(item)[0] ? <img src={listingImages(item)[0]} alt="" /> : <span><CategoryIcon category={item} size={26} /></span>}
       <div className="min-w-0"><p className={`listing-kind ${item.type === 'take' ? 'take' : ''}`}><Icon name={item.type === 'give' ? 'gift' : 'search'} size={12} />{t(item.type === 'give' ? 'map.give' : 'map.take')}</p><strong>{listingCategoryLabel(item, language)}</strong><small>{requestedListingIds.has(item.id) ? t('map.requested') : item.description || `${t('common.pieces', { count: item.quantity })} · ${t('map.hoverHint')}`}</small></div>
     </div>
   );
@@ -188,7 +192,7 @@ export default function MapScreen({ userId, onCreate }) {
       {selectedListing ? <div className="listing-dialog-backdrop" role="presentation" onMouseDown={() => setSelectedListing(null)}>
         <section className="listing-dialog card" role="dialog" aria-modal="true" aria-label={t('map.details')} onMouseDown={(event) => event.stopPropagation()}>
           <button type="button" className="icon-button listing-dialog-close" onClick={() => setSelectedListing(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button>
-          {selectedListing.image_url ? <img src={selectedListing.image_url} alt="" className="listing-dialog-image" /> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
+          {listingImages(selectedListing).length ? <div className="listing-dialog-gallery">{listingImages(selectedListing).map((imageUrl) => <img key={imageUrl} src={imageUrl} alt="" className="listing-dialog-image" />)}</div> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
           <div className={`listing-kind mt-4 ${selectedListing.type === 'take' ? 'take' : ''}`}><Icon name={selectedListing.type === 'give' ? 'gift' : 'search'} size={14} />{t(selectedListing.type === 'give' ? 'map.give' : 'map.take')}</div>
           <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>
           <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span><span><Icon name="calendar" size={13} />{new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short' }).format(new Date(selectedListing.created_at))}</span></div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { supabase } from '../supabaseClient';
@@ -33,8 +33,8 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
   const [trail, setTrail] = useState([]);
   const [selected, setSelected] = useState(null);
   const [position, setPosition] = useState([42.441, 19.263]);
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState('');
+  const [photos, setPhotos] = useState([]);
+  const previewUrls = useRef(new Set());
   const [form, setForm] = useState({ type: 'give', quantity: 1, description: '' });
   const [address, setAddress] = useState('');
   const [addressResults, setAddressResults] = useState([]);
@@ -50,7 +50,10 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
     return () => { active = false; };
   }, [t]);
 
-  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
+  useEffect(() => () => {
+    previewUrls.current.forEach((preview) => URL.revokeObjectURL(preview));
+    previewUrls.current.clear();
+  }, []);
 
   const parent = trail.at(-1);
   const visibleCategories = useMemo(() => categories.filter((item) => parent ? item.parent_id === parent.id : item.parent_id === null), [categories, parent]);
@@ -70,14 +73,23 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
     onBack();
   };
 
-  const selectPhoto = (event) => {
-    const file = event.target.files?.[0];
+  const selectPhotos = (event) => {
+    const files = Array.from(event.target.files || []);
     event.target.value = '';
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return showToast(t('create.badFile'), 'error');
-    if (file.size > 5 * 1024 * 1024) return showToast(t('create.tooLarge'), 'error');
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
-    setPhoto(file); setPhotoPreview(URL.createObjectURL(file));
+    if (!files.length) return;
+    if (files.some((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) return showToast(t('create.badFile'), 'error');
+    if (files.some((file) => file.size > 5 * 1024 * 1024)) return showToast(t('create.tooLarge'), 'error');
+    setPhotos((current) => [...current, ...files.map((file) => {
+      const preview = URL.createObjectURL(file);
+      previewUrls.current.add(preview);
+      return { file, preview };
+    })]);
+  };
+
+  const removePhoto = (preview) => {
+    URL.revokeObjectURL(preview);
+    previewUrls.current.delete(preview);
+    setPhotos((current) => current.filter((photo) => photo.preview !== preview));
   };
 
   const useLocation = () => {
@@ -102,7 +114,9 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
     }
   };
 
-  const chooseAddress = (result) => {
+  const chooseAddress = (event, result) => {
+    event.preventDefault();
+    event.stopPropagation();
     setPosition([Number(result.lat), Number(result.lon)]);
     setAddress(result.display_name || address);
     setAddressResults([]);
@@ -111,21 +125,22 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
   const publish = async () => {
     if (!selected || form.quantity < 1 || form.quantity > 10000) return;
     setLoading(true);
-    let uploadedPath = '';
+    const uploadedPaths = [];
     try {
       if (!userId) throw new Error('No user');
-      let imageUrl = null;
-      if (photo) {
-        const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
-        uploadedPath = `${userId}/listings/${crypto.randomUUID()}.${extension}`;
-        const { error: uploadError } = await supabase.storage.from(bucket).upload(uploadedPath, photo, { contentType: photo.type, upsert: false, cacheControl: '3600' });
+      const imageUrls = [];
+      for (const { file } of photos) {
+        const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const uploadedPath = `${userId}/listings/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(uploadedPath, file, { contentType: file.type, upsert: false, cacheControl: '3600' });
         if (uploadError) throw uploadError;
-        imageUrl = supabase.storage.from(bucket).getPublicUrl(uploadedPath).data.publicUrl;
+        uploadedPaths.push(uploadedPath);
+        imageUrls.push(supabase.storage.from(bucket).getPublicUrl(uploadedPath).data.publicUrl);
       }
       const { error } = await supabase.from('listings').insert({
         user_id: userId, type: form.type, status: 'active', category_id: selected.id,
         category: categoryLabel(selected, 'ru'), category_path: selected.category_path,
-        description: form.description.trim() || null, image_url: imageUrl, quantity: Number(form.quantity),
+        description: form.description.trim() || null, image_url: imageUrls[0] || null, image_urls: imageUrls, quantity: Number(form.quantity),
         lat: position[0], lng: position[1], location_label: address.trim() || null,
       });
       if (error) throw error;
@@ -133,7 +148,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
       onSuccess();
       window.setTimeout(() => window.dispatchEvent(new Event('listings-updated')), 0);
     } catch (error) {
-      if (uploadedPath) await supabase.storage.from(bucket).remove([uploadedPath]);
+      if (uploadedPaths.length) await supabase.storage.from(bucket).remove(uploadedPaths);
       showToast(`${t('errors.save')} ${error.message}`, 'error');
     } finally {
       setLoading(false);
@@ -169,12 +184,12 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
           {step === 3 ? <section className="pb-28">
             <p className="eyebrow text-sea">{t('create.publishEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.publishTitle')}</h1><p className="mt-3 text-sm leading-6 text-muted">{t('create.publishText')}</p>
             <div className="detail-card mt-5">
-              <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}</strong><small className="block truncate text-muted">{photo?.name || t('common.optional')}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={selectPhoto} /></label></div>
-              {photoPreview ? <div className="photo-preview"><img src={photoPreview} alt="" /><button type="button" className="btn-link" onClick={() => { URL.revokeObjectURL(photoPreview); setPhoto(null); setPhotoPreview(''); }}>{t('common.remove')}</button></div> : null}
+              <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}</strong><small className="block truncate text-muted">{photos[0]?.file.name || t('common.optional')}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={selectPhotos} /></label></div>
+              {photos.length ? <div className="photo-preview-grid">{photos.map(({ file, preview }) => <div key={preview} className="photo-preview"><img src={preview} alt={file.name} /><button type="button" className="btn-link" onClick={() => removePhoto(preview)}>{t('common.remove')}</button></div>)}</div> : null}
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.min(10000, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
             <label className="mt-4 block"><span className="field-label">{t('create.description')}</span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
-            <div className="address-search mt-4"><label className="block"><span className="field-label">{t('create.address')}</span><div className="address-search-row"><input className="field" value={address} placeholder={t('create.addressPlaceholder')} onChange={(event) => { setAddress(event.target.value); setAddressResults([]); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={() => chooseAddress(result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small className="address-hint">{t('create.addressHint')}</small></div>
+            <div className="address-search mt-4"><label className="block"><span className="field-label">{t('create.address')}</span><div className="address-search-row"><input className="field" value={address} placeholder={t('create.addressPlaceholder')} onChange={(event) => { setAddress(event.target.value); setAddressResults([]); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={(event) => chooseAddress(event, result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small className="address-hint">{t('create.addressHint')}</small></div>
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" onClick={useLocation}><Icon name="location" size={16} />{t('create.useLocation')}</button></div>
             <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={setPosition} /></MapContainer></div>
             <p className="mt-2 text-xs font-semibold text-muted">{t('create.dragMarker')}</p>
