@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import logo from '../assets/images/app-logo.png';
+import montenegroHero from '../assets/visuals/v2/montenegro-adriatic-hero-v1.webp';
 import Icon from '../components/Icon';
 
 const languages = [{ id: 'ru', label: 'RU' }, { id: 'me', label: 'ME' }, { id: 'en', label: 'EN' }];
@@ -48,6 +49,7 @@ export default function Login() {
             <p className="eyebrow text-sea"><Icon name="leaf" size={14} />{t('auth.eyebrow')}</p>
             <h1 className="font-display mt-3 text-[2.65rem] leading-[1.02] text-forest">{t('auth.title')}</h1>
             <p className="mt-4 text-[0.94rem] font-medium leading-6 text-muted">{t('auth.subtitle')}</p>
+            <img className="auth-landscape" src={montenegroHero} alt="" />
           </div>
 
           {sentEmail ? (

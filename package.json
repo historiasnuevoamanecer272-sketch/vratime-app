@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:quality",
-    "test:quality": "npm run lint && npm run test:i18n && npm run test:search && npm run test:contacts && npm run test:webhook && npm run test:migrations && npm run build && npm run test:static",
+    "test:quality": "npm run lint && npm run test:docs && npm run test:i18n && npm run test:search && npm run test:contacts && npm run test:webhook && npm run test:migrations && npm run build && npm run test:static",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
@@ -17,6 +17,7 @@
     "db:test": "node scripts/supabase-integration-check.mjs",
     "db:e2e": "node scripts/supabase-e2e-check.mjs",
     "test:i18n": "node scripts/i18n-check.mjs",
+    "test:docs": "node scripts/docs-check.mjs",
     "test:static": "node scripts/static-check.mjs",
     "test:search": "node scripts/category-search-check.mjs",
     "test:contacts": "node scripts/contacts-check.mjs",

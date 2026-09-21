@@ -7,6 +7,7 @@ import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contact
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import ContactChannelsFields from '../components/ContactChannelsFields';
+import montenegroHero from '../assets/visuals/v2/montenegro-adriatic-hero-v1.webp';
 
 export default function Onboarding({ userId, onComplete }) {
   const { t } = useTranslation();
@@ -73,6 +74,7 @@ export default function Onboarding({ userId, onComplete }) {
             <p className="eyebrow mt-5 text-white/70">{t('onboarding.eyebrow')}</p>
             <h1 className="font-display mt-2 text-4xl text-white">{t('onboarding.title')}</h1>
             <p className="mt-3 max-w-sm text-sm font-medium leading-6 text-white/75">{t('onboarding.text')}</p>
+            <img className="onboarding-landscape" src={montenegroHero} alt="" />
           </div>
           <form className="space-y-4 p-5" onSubmit={handleSave}>
             <label className="block"><span className="field-label">{t('onboarding.name')}</span><input className="field" type="text" value={form.full_name} onChange={(event) => update('full_name', event.target.value)} placeholder={t('onboarding.namePlaceholder')} autoComplete="name" required minLength={2} /></label>

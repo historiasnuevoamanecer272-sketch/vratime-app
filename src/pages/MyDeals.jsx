@@ -10,6 +10,15 @@ import CategoryIcon from '../components/CategoryIcon';
 import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import completedHandover from '../assets/visuals/v1/deal-complete-v1.webp';
 
+const statusIcons = {
+  pending: 'clock',
+  reserved: 'calendar',
+  confirming: 'handshake',
+  completed: 'check',
+  canceled: 'close',
+  expired: 'history',
+};
+
 export default function MyDeals() {
   const { t } = useTranslation();
   const language = getAppLanguage();
@@ -89,9 +98,9 @@ export default function MyDeals() {
   return (
     <div className="app-screen min-h-screen pb-28 pt-safe">
       <main className="app-container px-4 py-5">
-        <header className="page-heading"><p className="eyebrow text-sea">{t('deals.eyebrow')}</p><h1 className="font-display mt-1 text-4xl text-forest">{t('deals.title')}</h1></header>
-        <div className="segmented mt-5">{[['giver', 'deals.giving', 'gift'], ['taker', 'deals.taking', 'truck']].map(([value, label, icon]) => <button key={value} type="button" className={role === value ? 'active' : ''} onClick={() => setRole(value)}><Icon name={icon} size={17} />{t(label)}</button>)}</div>
-        <div className="subtabs mt-3">{[['active', 'deals.active'], ['history', 'deals.history']].map(([value, label]) => <button key={value} type="button" className={view === value ? 'active' : ''} onClick={() => setView(value)}>{t(label)}</button>)}</div>
+        <header className="page-heading"><p className="eyebrow text-sea"><Icon name="waves" size={14} />{t('deals.eyebrow')}</p><h1 className="font-display mt-1 text-4xl text-forest">{t('deals.title')}</h1></header>
+        <div className="segmented mt-5">{[['giver', 'deals.giving', 'gift'], ['taker', 'deals.taking', 'search']].map(([value, label, icon]) => <button key={value} type="button" className={role === value ? 'active' : ''} onClick={() => setRole(value)}><Icon name={icon} size={17} />{t(label)}</button>)}</div>
+        <div className="subtabs mt-3">{[['active', 'deals.active', 'activity'], ['history', 'deals.history', 'history']].map(([value, label, icon]) => <button key={value} type="button" className={view === value ? 'active' : ''} onClick={() => setView(value)}><Icon name={icon} size={14} />{t(label)}</button>)}</div>
 
         {loading ? <div className="state-card mt-5"><span className="spinner" />{t('common.loading')}</div> : null}
         {error ? <div className="state-card mt-5"><Icon name="close" size={26} /><strong>{t('errors.load')}</strong><button type="button" className="btn-secondary" onClick={loadDeals}>{t('common.retry')}</button></div> : null}
@@ -102,17 +111,17 @@ export default function MyDeals() {
             const status = statusOf(deal);
             const working = workingId === deal.transaction_id;
             const partnerContacts = contactsOf(deal);
-            return <article key={deal.transaction_id} className="deal-card">
+            return <article key={deal.transaction_id} className={`deal-card deal-card-${status}`}>
               <div className="flex gap-3">
                 {deal.image_url ? <img src={deal.image_url} alt="" className="deal-thumb" /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
-                <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 truncate text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div><span className={`status-pill status-${status}`}>{t(`status.${status}`)}</span></div><p className="mt-2 text-xs font-semibold text-muted">{t('common.pieces', { count: deal.quantity })} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</p></div>
+                <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 truncate text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div><span className={`status-pill status-${status}`}><Icon name={statusIcons[status] || 'clock'} size={12} />{t(`status.${status}`)}</span></div><p className="mt-2 flex items-center gap-1 text-xs font-semibold text-muted"><Icon name="box" size={13} />{t('common.pieces', { count: deal.quantity })}<span aria-hidden="true">·</span><Icon name="calendar" size={13} />{new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</p></div>
               </div>
 
               {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contactHref(contact) || contact.contact_href} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t('deals.contactMissing')}</p>}</div></div> : null}
 
               {deal.accepted_at && !deal.completed_at && !deal.canceled_at ? <p className="deal-deadline"><Icon name="clock" size={16} />{t('deals.deadline', { date: deadlineText(deal) })}</p> : null}
 
-              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="check" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done' : ''}><span>{deal.accepted_at ? <Icon name="check" size={12} /> : 2}</span>{t('deals.flowAccepted')}</li><li className={deal.completed_at ? 'done' : ''}><span>{deal.completed_at ? <Icon name="check" size={12} /> : 3}</span>{t('deals.flowHandover')}</li></ol> : null}
+              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="message" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done reserved' : ''}><span><Icon name="clock" size={12} /></span>{t('deals.flowAccepted')}</li><li className={deal.completed_at ? 'done completed' : ''}><span><Icon name="handshake" size={12} /></span>{t('deals.flowHandover')}</li></ol> : null}
 
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {!deal.accepted_at && deal.is_listing_owner ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'accept')}><Icon name="check" size={17} />{working ? t('deals.accepting') : t('deals.accept')}</button> : null}

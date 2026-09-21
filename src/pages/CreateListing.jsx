@@ -153,7 +153,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
           {step === 1 ? <section>
             <p className="eyebrow text-sea">{t('create.typeEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.typeTitle')}</h1>
             <div className="mt-7 space-y-3">
-              {[['give', 'gift'], ['take', 'truck']].map(([value, icon]) => <button key={value} type="button" className={`choice-card ${value}`} onClick={() => { setForm((current) => ({ ...current, type: value })); setStep(2); }}><span className="choice-icon"><Icon name={icon} size={29} /></span><span><strong>{t(`create.${value}`)}</strong><small>{t(`create.${value}Text`)}</small></span><Icon name="arrowRight" size={20} /></button>)}
+              {[['give', 'gift'], ['take', 'search']].map(([value, icon]) => <button key={value} type="button" className={`choice-card ${value}`} onClick={() => { setForm((current) => ({ ...current, type: value })); setStep(2); }}><span className="choice-icon"><Icon name={icon} size={29} /></span><span><strong>{t(`create.${value}`)}</strong><small>{t(`create.${value}Text`)}</small></span><Icon name="arrowRight" size={20} /></button>)}
             </div>
           </section> : null}
 
@@ -181,7 +181,7 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
           </section> : null}
         </main>
 
-        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'search'} size={19} />{loading ? t('create.publishing') : t(form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
+        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'handover'} size={19} />{loading ? t('create.publishing') : t(form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
       </div>
     </div>
   );

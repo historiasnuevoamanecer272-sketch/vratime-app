@@ -13,7 +13,7 @@ VratiMe — тёплый сервис повторного использова�
 - Фон: настоящий прозрачный, без белой или цветной плашки.
 - Манера: refined editorial semi-flat 3D / paper-cut illustration; мягкие объёмы, чистые края, ненавязчивые тени.
 - Настроение: спокойный средиземноморский день, чистый воздух, человечность без персонажей крупным планом.
-- Палитра: морская бирюза `#0B8FA5`, тёмная бирюза `#075D63`, свежий зелёный `#78B97A`, светлая аква, натуральный крафт/дерево только как акцент материала.
+- Палитра: морская бирюза `#0B8FA5`, тёмная бирюза `#075D63`, адриатический синий `#176B87`, свежий зелёный `#78B97A`, известняковый `#F4F0E7`, светлая аква; терракота `#C9724A`, олива и натуральный крафт используются только как акценты.
 - Композиция: один главный предмет или компактная группа из 2–4 предметов, центр кадра, широкие прозрачные поля по краям.
 - Детали: материал должен быть узнаваем в размере 56–96 px. Лучше меньше объектов, чем мелкая «каша».
 - Текст: никогда не генерировать. Все подписи живут в интерфейсе и переводятся через i18n.
@@ -37,8 +37,11 @@ VratiMe — тёплый сервис повторного использова�
 | Пустой список | Оптимистичный предметный сюжет | 84–112 px |
 | Завершённая сделка/оценка | Передача предмета без лиц | 96–118 px |
 | Награда | Нативная иконка в единой плитке | 42 px |
+| Региональный hero | Бухта, горы, известняк, зелень и сдержанная терракота | 280–768 px |
 
 Не использовать предметные иллюстрации в мелких чипах, маркерах карты или нижней навигации: там остаются нативные line‑icons.
+
+Региональный hero используется только как декоративный слой с пустым `alt`. Он не должен содержать текст, заменять карту, конкурировать с пользовательским фото или изображать конкретное частное объявление.
 
 ## Шаблон промпта
 
@@ -50,7 +53,8 @@ Scene/backdrop: genuine transparent background, no tile, no card, no frame.
 Style/medium: refined editorial semi-flat 3D paper-cut illustration;
 soft rounded forms, fine contours, recognisable at small size.
 Color palette: sea teal #0B8FA5, forest teal #075D63,
-fresh green #78B97A, pale aqua highlights, restrained natural kraft/wood accent if appropriate.
+Adriatic blue #176B87, fresh green #78B97A, limestone cream #F4F0E7,
+pale aqua highlights, restrained terracotta #C9724A and natural kraft/wood accent if appropriate.
 Lighting/mood: calm Mediterranean daylight, clean, optimistic, trustworthy.
 Composition/framing: centered compact still life with generous transparent margins.
 Constraints: no text, no letters, no logos, no watermark, no dark background,
@@ -70,6 +74,10 @@ no UI mockup, no clip-art, no photorealistic people.
 - `category-pallet-v1.webp`
 - `empty-listings-v1.webp`
 - `deal-complete-v1.webp`
+
+Региональный эталон находится в `src/assets/visuals/v2/`:
+
+- `montenegro-adriatic-hero-v1.webp`
 
 Новый визуал сначала сохраняется новой версией (`*-v2.webp`), не заменяя эталон. После приёмки его оптимизируют до WebP, максимум 384 px по длинной стороне, и проверяют на прозрачность, читаемость на мобильном экране и отсутствие текста.
 

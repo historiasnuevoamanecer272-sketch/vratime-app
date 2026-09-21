@@ -171,6 +171,52 @@ const paths = {
       <path d="M12 7v5l3 2" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M8 3v4M16 3v4M3 10h18" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" />
+    </>
+  ),
+  activity: (
+    <>
+      <path d="M3 12h4l2.2-5 4.2 10 2.1-5H21" />
+    </>
+  ),
+  history: (
+    <>
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5M12 7v5l3 2" />
+    </>
+  ),
+  handover: (
+    <>
+      <path d="M3 15h4l3 3h5l6-5a2 2 0 0 0-3-2l-3 2" />
+      <path d="M7 15l3-5h4a2 2 0 0 1 0 4h-3" />
+      <path d="M3 12v6" />
+    </>
+  ),
+  handshake: (
+    <>
+      <path d="M8 12l3-3a2 2 0 0 1 3 0l2 2" />
+      <path d="M3 10l3-3 4 2M21 10l-3-3-3 2" />
+      <path d="M6 13l5 5a2 2 0 0 0 3 0l4-4" />
+      <path d="M9 16l2-2M12 18l2-2" />
+    </>
+  ),
+  mountain: (
+    <>
+      <path d="M3 20l6-10 3 5 3-8 6 13z" />
+      <path d="M7.8 12l1.2 2 1.2-2M13.7 10l1.3 2 1.4-2" />
+    </>
+  ),
+  waves: (
+    <>
+      <path d="M3 8c2 2 4 2 6 0s4-2 6 0 4 2 6 0" />
+      <path d="M3 13c2 2 4 2 6 0s4-2 6 0 4 2 6 0" />
+      <path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0" />
+    </>
+  ),
   bottle: (
     <>
       <path d="M9 3h6" />

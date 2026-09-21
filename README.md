@@ -2,6 +2,10 @@
 
 Mobile-first C2C exchange for reusable packaging, clothes and materials in Montenegro. The interface supports Russian, Montenegrin and English, Magic Link authentication, optional Google OAuth, a map-based catalogue, transactional booking, private partner contacts, ratings and eco points.
 
+## Project documentation
+
+The canonical documentation index is [`docs/README.md`](docs/README.md). Product intent, current production state, decisions, roadmap, release history, visual rules and operational instructions live there. Dated handoff files are archival snapshots and must not override the canonical documents.
+
 ## Local development
 
 1. Copy `.env.example` to `.env` and fill in the public Supabase URL and publishable/anon key.
@@ -35,6 +39,6 @@ npm run db:migrate
 
 GitHub Actions reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from repository secrets. It deploys GitHub Pages only from `main`; the revival branch is meant for local acceptance first.
 
-- OAuth setup: `docs/GOOGLE_OAUTH_SETUP.md`
-- Acceptance checklist: `docs/ACCEPTANCE.md`
-- Future server deployment: `docs/SELF_HOSTING.md`
+- OAuth setup: `docs/operations/GOOGLE_OAUTH_SETUP.md`
+- Acceptance checklist: `docs/operations/ACCEPTANCE.md`
+- Server deployment: `docs/operations/SELF_HOSTING.md`
