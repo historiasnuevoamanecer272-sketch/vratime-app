@@ -22,7 +22,8 @@
     "test:search": "node scripts/category-search-check.mjs",
     "test:contacts": "node scripts/contacts-check.mjs",
     "test:webhook": "node --experimental-strip-types scripts/tribute-webhook-check.mjs",
-    "test:migrations": "node scripts/migration-check.mjs"
+    "test:migrations": "node scripts/migration-check.mjs",
+    "test:production": "npm run build && node scripts/production-release-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
