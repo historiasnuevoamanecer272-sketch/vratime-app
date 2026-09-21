@@ -57,7 +57,10 @@ export default function App() {
   const pushToast = useCallback((message, type = 'info') => {
     const toast = { id: `${Date.now()}-${Math.random()}`, message, type };
     setToasts((current) => [...current, toast]);
-    window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), 3600);
+  }, []);
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((current) => current.filter((item) => item.id !== toastId));
   }, []);
 
   const checkProfile = useCallback(async (userId) => {
@@ -172,7 +175,7 @@ export default function App() {
     </aside>
   ) : null;
 
-  const toastStack = <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`}><p>{toast.message}</p></div>)}</div>;
+  const toastStack = <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`} role="status"><p>{toast.message}</p><button type="button" onClick={() => dismissToast(toast.id)}>{t('common.ok')}</button></div>)}</div>;
 
   if (window.location.pathname === '/privacy') return <><PrivacyPage />{toastStack}</>;
   if (window.location.pathname === '/offer') return <><OfferPage />{toastStack}</>;

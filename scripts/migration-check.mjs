@@ -49,6 +49,12 @@ const telegramDeepLink = sources.get('20260919000000_fix_telegram_phone_deep_lin
 requireText(telegramDeepLink, "'tg://resolve?phone='", 'Telegram phone deep link');
 requireText(telegramDeepLink, 'revoke all on function public.get_my_deals() from public, anon', 'protected refreshed deal RPC');
 
+const immediateContacts = sources.get('20260921010000_immediate_contacts_and_24h_reservations.sql') || '';
+requireText(immediateContacts, "expires_at = now() + interval '24 hours'", '24-hour accepted reservation');
+requireText(immediateContacts, 'l.type::text', 'listing enum cast in deal RPC');
+requireText(immediateContacts, 'where contact.user_id = partner.id\n      and t.canceled_at is null', 'contacts visible immediately to request participants');
+requireText(immediateContacts, 'revoke execute on function public.get_my_deals() from public, anon', 'immediate contacts RPC remains private');
+
 const rpcHardening = sources.get('20260821002000_restrict_rpc_execution.sql') || '';
 for (const signature of ['book_listing(uuid)', 'cancel_booking(uuid)', 'complete_deal(uuid)', 'get_my_deals()']) {
   requireText(rpcHardening, `revoke execute on function public.${signature} from public, anon`, `anonymous RPC revoke for ${signature}`);
