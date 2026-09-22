@@ -40,7 +40,7 @@ const signIn = async (email, password) => {
 
 const counts = async () => {
   const result = {};
-  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews']) {
+  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback']) {
     const response = await admin.from(table).select('*', { count: 'exact', head: true });
     if (response.error) throw response.error;
     result[table] = response.count;
@@ -55,6 +55,10 @@ const cleanup = async () => {
   const ids = createdUsers.map((user) => user.id);
   if (uploadedPaths.length) await admin.storage.from('LISTING-PHOTOS').remove(uploadedPaths);
   if (ids.length) {
+    await admin.from('reputation_penalties').delete().in('user_id', ids);
+    await admin.from('reports').delete().in('reporter_id', ids);
+    await admin.from('user_feedback').delete().in('user_id', ids);
+    await admin.from('moderation_actions').delete().in('moderator_id', ids);
     await admin.from('reviews').delete().in('from_user_id', ids);
     await admin.from('reviews').delete().in('to_user_id', ids);
     await admin.from('transactions').delete().in('giver_id', ids);
@@ -90,6 +94,8 @@ try {
           : [{ messenger_type: 'viber', contact_value: `+3826700000${index}` }],
     }), 'create test profile');
   }
+  requireData(await admin.from('profiles').update({ app_role: 'admin' }).eq('id', createdUsers[0].id).select('id').single(), 'bootstrap test admin');
+  requireData(await clientA.rpc('set_user_role', { target_user_id: createdUsers[2].id, target_role: 'moderator' }), 'assign test moderator');
 
   const profileCContacts = requireData(await clientC.from('profile_contacts').select('messenger_type, contact_value'), 'read three own contacts');
   if (profileCContacts.length !== 3 || !profileCContacts.some((contact) => contact.messenger_type === 'tg' && contact.contact_value === '+38267000004')) {
@@ -120,18 +126,30 @@ try {
     user_id: createdUsers[0].id,
     type: 'give', status: 'active', category_id: category.id, category: category.name,
     category_path: category.category_path, description: `E2E ${suffix}`, quantity: 2,
-    lat: 42.441, lng: 19.263,
+    lat: 42.441, lng: 19.263, location_label: 'E2E Podgorica, Montenegro', location_verified_at: new Date().toISOString(), moderation_status: 'pending',
   });
 
+  const invalidAddress = await clientA.from('listings').insert({ ...listingPayload('invalid-address'), location_label: null, location_verified_at: null });
+  if (!invalidAddress.error) throw new Error('Listing without a verified address was accepted');
+
   const raceListing = requireData(await clientA.from('listings').insert(listingPayload('race')).select('id').single(), 'create race listing');
-  const race = await Promise.allSettled([
-    clientB.rpc('book_listing', { target_listing_id: raceListing.id }),
-    clientC.rpc('book_listing', { target_listing_id: raceListing.id }),
+  const hiddenPending = requireData(await anonymous.from('listings').select('id').eq('id', raceListing.id), 'pending visibility probe');
+  if (hiddenPending.length) throw new Error('Pending listing was visible anonymously');
+  requireData(await clientC.rpc('moderate_listing', { target_listing_id: raceListing.id, decision: 'approved', reason: null }), 'approve race listing');
+  const raceTransactionIds = await Promise.all([
+    clientB.rpc('book_listing', { target_listing_id: raceListing.id }).then((result) => requireData(result, 'first race request')),
+    clientC.rpc('book_listing', { target_listing_id: raceListing.id }).then((result) => requireData(result, 'second race request')),
   ]);
-  const successfulBookings = race.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.status === 'fulfilled' && !entry.value.error);
-  if (successfulBookings.length !== 1) throw new Error(`Race protection expected one winner, got ${successfulBookings.length}`);
-  const winner = successfulBookings[0];
-  const raceTransactionId = winner.entry.value.data;
+  const requestDeal = requireData(await clientB.rpc('get_my_deals'), 'pending request details').find((deal) => deal.transaction_id === raceTransactionIds[0]);
+  const pendingHours = (new Date(requestDeal.expires_at) - new Date(requestDeal.created_at)) / 3600000;
+  if (pendingHours < 47.9 || pendingHours > 48.1) throw new Error('Pending request deadline is not 48 hours');
+  const accepts = await Promise.allSettled(raceTransactionIds.map((transactionId) => clientA.rpc('accept_deal', { target_transaction_id: transactionId })));
+  const accepted = accepts.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.status === 'fulfilled' && !entry.value.error);
+  if (accepted.length !== 1) throw new Error(`Acceptance race expected one winner, got ${accepted.length}`);
+  const raceTransactionId = raceTransactionIds[accepted[0].index];
+  const acceptedDeal = requireData(await clientA.rpc('get_my_deals'), 'accepted deadline details').find((deal) => deal.transaction_id === raceTransactionId);
+  const acceptedHours = (new Date(acceptedDeal.expires_at) - new Date(acceptedDeal.accepted_at)) / 3600000;
+  if (acceptedHours < 23.9 || acceptedHours > 24.1) throw new Error('Accepted booking deadline is not 24 hours');
   requireData(await clientA.rpc('cancel_booking', { target_transaction_id: raceTransactionId }), 'cancel booking by the other participant');
   const canceledHistory = requireData(await admin.from('transactions').select('canceled_at').eq('id', raceTransactionId).single(), 'read canceled history');
   if (!canceledHistory.canceled_at) throw new Error('Cancellation history was not preserved');
@@ -142,6 +160,7 @@ try {
   if (deactivatedListing.status !== 'canceled') throw new Error('Owner listing was not deactivated');
 
   const dealListing = requireData(await clientA.from('listings').insert({ ...listingPayload('deal'), image_url: admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl, quantity: 3 }).select('id').single(), 'create deal listing');
+  requireData(await clientC.rpc('moderate_listing', { target_listing_id: dealListing.id, decision: 'approved', reason: null }), 'approve deal listing');
   const transactionId = requireData(await clientB.rpc('book_listing', { target_listing_id: dealListing.id }), 'book deal listing');
   const directStatusUpdate = await clientA.from('listings').update({ status: 'completed' }).eq('id', dealListing.id);
   if (!directStatusUpdate.error) throw new Error('Direct listing status mutation was not blocked');
@@ -157,10 +176,13 @@ try {
   const outsiderTransactions = requireData(await clientE.from('transactions').select('id').eq('id', transactionId), 'outsider transaction probe');
   if (outsiderTransactions.length) throw new Error('Outsider read another transaction');
 
-  const completion = requireData(await clientA.rpc('complete_deal', { target_transaction_id: transactionId }), 'complete deal');
-  if (Number(completion.eco_reward) !== 50) throw new Error('First completion did not award 50 points');
-  const repeatedCompletion = requireData(await clientA.rpc('complete_deal', { target_transaction_id: transactionId }), 'repeat completion');
-  if (Number(repeatedCompletion.eco_reward) !== 0) throw new Error('Repeated completion awarded points twice');
+  requireData(await clientA.rpc('accept_deal', { target_transaction_id: transactionId }), 'accept deal');
+  const firstConfirmation = requireData(await clientA.rpc('confirm_handover', { target_transaction_id: transactionId }), 'giver confirmation');
+  if (firstConfirmation.completed) throw new Error('One-sided confirmation completed the deal');
+  const completion = requireData(await clientB.rpc('confirm_handover', { target_transaction_id: transactionId }), 'taker confirmation');
+  if (!completion.completed || Number(completion.eco_reward) !== 25) throw new Error('Two-sided handover did not complete or reward the taker');
+  const repeatedCompletion = requireData(await clientA.rpc('confirm_handover', { target_transaction_id: transactionId }), 'repeat confirmation');
+  if (Number(repeatedCompletion.eco_reward) !== 0) throw new Error('Repeated confirmation awarded points twice');
   requireData(await clientA.rpc('submit_review', { target_transaction_id: transactionId, target_rating: 5 }), 'giver review');
   requireData(await clientB.rpc('submit_review', { target_transaction_id: transactionId, target_rating: 4 }), 'taker review');
   const directReview = await clientA.from('reviews').insert({ transaction_id: transactionId, from_user_id: createdUsers[0].id, to_user_id: createdUsers[1].id, rating: 3 });
@@ -170,17 +192,30 @@ try {
   const profileA = requireData(await clientA.from('profiles').select('eco_points, rating').eq('id', createdUsers[0].id).single(), 'read giver profile');
   if (Number(profileA.eco_points) !== 50 || Number(profileA.rating) !== 4) throw new Error('Eco points or rating aggregate is incorrect');
 
+  const reportId = requireData(await clientB.rpc('create_report', { target_kind: 'deal', target_id: transactionId, reason: 'no_show', details: 'E2E completed-deal report' }), 'create post-completion report');
+  requireData(await clientA.rpc('resolve_report', { target_report_id: reportId, decision: 'upheld', penalty: 0.5 }), 'resolve report with penalty');
+  const penalizedProfile = requireData(await clientA.from('profiles').select('rating_penalty').eq('id', createdUsers[0].id).single(), 'read rating penalty');
+  if (Number(penalizedProfile.rating_penalty) !== 0.5) throw new Error('Confirmed report did not apply the selected penalty');
+
+  const feedbackId = requireData(await clientB.rpc('create_feedback', { feedback_type: 'feature', message: 'E2E feedback request', screenshot_url: null }), 'create feedback');
+  requireData(await clientC.rpc('set_feedback_status', { target_feedback_id: feedbackId, next_status: 'planned' }), 'advance feedback status');
+  const feedbackRow = requireData(await clientB.from('user_feedback').select('status').eq('id', feedbackId).single(), 'read own feedback status');
+  if (feedbackRow.status !== 'planned') throw new Error('Feedback status history did not update');
+
   const takeListing = requireData(await clientE.from('listings').insert({
     ...listingPayload('take'), user_id: createdUsers[4].id, type: 'take', quantity: 1,
   }).select('id').single(), 'create take listing');
+  requireData(await clientC.rpc('moderate_listing', { target_listing_id: takeListing.id, decision: 'approved', reason: null }), 'approve take listing');
   const takeTransactionId = requireData(await clientD.rpc('book_listing', { target_listing_id: takeListing.id }), 'book take listing');
   const dealsD = requireData(await clientD.rpc('get_my_deals'), 'giver role for take listing');
   const dealsE = requireData(await clientE.rpc('get_my_deals'), 'taker role for take listing');
   if (dealsD.find((deal) => deal.transaction_id === takeTransactionId)?.role !== 'giver' || dealsE.find((deal) => deal.transaction_id === takeTransactionId)?.role !== 'taker') {
     throw new Error('Take listing roles are incorrect');
   }
-  const takeCompletion = requireData(await clientD.rpc('complete_deal', { target_transaction_id: takeTransactionId }), 'complete take listing');
-  if (Number(takeCompletion.eco_reward) !== 50) throw new Error('Take listing giver did not receive the eco reward');
+  requireData(await clientE.rpc('accept_deal', { target_transaction_id: takeTransactionId }), 'accept take listing');
+  requireData(await clientD.rpc('confirm_handover', { target_transaction_id: takeTransactionId }), 'confirm take listing giver');
+  const takeCompletion = requireData(await clientE.rpc('confirm_handover', { target_transaction_id: takeTransactionId }), 'confirm take listing taker');
+  if (!takeCompletion.completed) throw new Error('Take listing did not complete after both confirmations');
 
   passed = true;
 } finally {

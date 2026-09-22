@@ -49,4 +49,6 @@ Regional hero illustrations live in `src/assets/visuals/v2/`. They may be wider 
 - Progress uses a short visible path, not colour alone.
 - Achievements use the same rounded icon tile system rather than mixed 3D badges.
 - Respect `prefers-reduced-motion`; no decorative animation is required for comprehension.
+- Motion is short and purposeful: marker feedback, address confirmation, card/photo entry, request confirmation, deal-stage progress and timer movement. Important confirmations use three light pulses, never continuous flashing; all of them remain open until the person closes them.
+- Bottom navigation uses a distinct but accessible colour accent for each destination, while its icon and text label always remain visible.
 - Follow the mappings in `ICONOGRAPHY.md`; do not use a truck to mean “search” or “ready to hand over”.

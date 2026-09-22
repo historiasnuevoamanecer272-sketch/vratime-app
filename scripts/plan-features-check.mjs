@@ -35,6 +35,8 @@ for (const signature of [
 
 requireText("selected_listing.moderation_status <> 'approved'", 'booking requires moderation approval');
 requireText('selected_listing.location_verified_at is null', 'booking requires verified location');
+requireText('selected_listing.lat not between -90 and 90', 'booking requires valid latitude');
+requireText('selected_listing.lng not between -180 and 180', 'booking requires valid longitude');
 if (!/expires_at[\s\S]{0,180}now\(\) \+ interval '48 hours'/.test(source)) {
   throw new Error('Plan feature check failed: requests expire after 48 hours');
 }

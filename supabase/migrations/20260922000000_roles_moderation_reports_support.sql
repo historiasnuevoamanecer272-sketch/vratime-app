@@ -124,6 +124,7 @@ create policy listings_owner_insert on public.listings for insert to authenticat
   with check (
     user_id = auth.uid() and status = 'active' and moderation_status = 'pending'
     and location_verified_at is not null and location_label is not null and char_length(btrim(location_label)) >= 3
+    and lat between -90 and 90 and lng between -180 and 180
   );
 
 create policy moderation_actions_staff_read on public.moderation_actions for select to authenticated using (public.is_staff());
@@ -166,6 +167,7 @@ begin
   if decision = 'approved' and (
     selected_listing.location_verified_at is null or selected_listing.location_label is null
     or char_length(btrim(selected_listing.location_label)) < 3
+    or selected_listing.lat not between -90 and 90 or selected_listing.lng not between -180 and 180
   ) then raise exception 'A verified address is required'; end if;
   if decision = 'rejected' and char_length(btrim(coalesce(reason, ''))) < 3 then raise exception 'A rejection reason is required'; end if;
   update public.listings set
@@ -348,7 +350,9 @@ begin
   if selected_listing.status <> 'active' then raise exception 'Listing is no longer available'; end if;
   if selected_listing.moderation_status <> 'approved' then raise exception 'Listing is awaiting moderation'; end if;
   if selected_listing.location_verified_at is null or selected_listing.location_label is null
-     or char_length(btrim(selected_listing.location_label)) < 3 then raise exception 'A verified address is required'; end if;
+     or char_length(btrim(selected_listing.location_label)) < 3
+     or selected_listing.lat not between -90 and 90 or selected_listing.lng not between -180 and 180
+  then raise exception 'A verified address and coordinates are required'; end if;
   if selected_listing.user_id = auth.uid() then raise exception 'You cannot request your own listing'; end if;
   partner_giver := case when selected_listing.type = 'give' then selected_listing.user_id else auth.uid() end;
   partner_taker := case when selected_listing.type = 'give' then auth.uid() else selected_listing.user_id end;
@@ -382,7 +386,8 @@ begin
   if selected_transaction.completed_at is not null or selected_transaction.canceled_at is not null then raise exception 'Request is already closed'; end if;
   if selected_transaction.accepted_at is not null then return selected_transaction.id; end if;
   if selected_listing.status <> 'active' or selected_listing.moderation_status <> 'approved' then raise exception 'Listing is no longer available'; end if;
-  if selected_listing.location_verified_at is null then raise exception 'A verified address is required'; end if;
+  if selected_listing.location_verified_at is null or selected_listing.lat not between -90 and 90 or selected_listing.lng not between -180 and 180
+  then raise exception 'A verified address and coordinates are required'; end if;
   update public.transactions set accepted_at = now(), expires_at = now() + interval '24 hours' where id = selected_transaction.id;
   update public.transactions set canceled_at = now(), canceled_reason = 'another_request_accepted'
   where listing_id = selected_listing.id and id <> selected_transaction.id and completed_at is null and canceled_at is null;
