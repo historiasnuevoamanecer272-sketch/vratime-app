@@ -25,6 +25,7 @@
 - [operations/GOOGLE_OAUTH_SETUP.md](operations/GOOGLE_OAUTH_SETUP.md) — Google OAuth.
 - [operations/AUTH_IDENTITY_CONTINUITY.md](operations/AUTH_IDENTITY_CONTINUITY.md) — непрерывность пользовательских учётных записей.
 - [operations/MULTI_MESSENGERS_SETUP.md](operations/MULTI_MESSENGERS_SETUP.md) — несколько каналов связи.
+- [operations/RELEASE_CANDIDATE_REPORT_2026-09-22.md](operations/RELEASE_CANDIDATE_REPORT_2026-09-22.md) — проверенный состав кандидата релиза и оставшиеся production-шаги.
 
 ## Архив
 
