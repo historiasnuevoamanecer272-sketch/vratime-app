@@ -91,7 +91,8 @@ export default function Profile({ userId, onEditListing }) {
   const levels = t('profile.levels', { returnObjects: true });
   const nextThreshold = levelState.nextThreshold;
   const levelProgress = levelState.percent;
-  const rating = Number(profile?.rating || 0);
+  const rawRating = Number(profile?.rating || 0);
+  const rating = rawRating > 0 ? Math.max(1, rawRating - Number(profile?.rating_penalty || 0)) : 0;
   const achievements = [
     { label: t('profile.firstDeal'), icon: 'gift', unlocked: completedDeals.length >= 1 },
     { label: t('profile.fiveDeals'), icon: 'deals', unlocked: completedDeals.length >= 5 },
@@ -164,6 +165,7 @@ export default function Profile({ userId, onEditListing }) {
 
   const sendFeedback = async () => {
     if (feedback.message.trim().length < 5) return showToast(t('workflow.feedbackShort'), 'error');
+    if (feedback.screenshot && (!['image/jpeg', 'image/png', 'image/webp'].includes(feedback.screenshot.type) || feedback.screenshot.size > 5 * 1024 * 1024)) return showToast(t('workflow.avatarInvalid'), 'error');
     setFeedbackSaving(true);
     try {
       let screenshotUrl = null;

@@ -211,7 +211,7 @@ export default function App() {
                   <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
                 </button>
               ) : (
-                <button key={tab.id} type="button" className={`bottom-nav-button ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
+                <button key={tab.id} type="button" className={`bottom-nav-button nav-${tab.id} ${activeTab === tab.id ? 'active' : ''}`} onClick={() => { setActiveTab(tab.id); setIsCreating(false); }} aria-current={activeTab === tab.id ? 'page' : undefined}>
                   <Icon name={tab.icon} size={22} /><span>{tab.label}</span>
                 </button>
               ))}
