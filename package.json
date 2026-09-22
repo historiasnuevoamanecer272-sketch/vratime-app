@@ -16,6 +16,7 @@
     "db:public": "node scripts/supabase-public-check.mjs",
     "db:test": "node scripts/supabase-integration-check.mjs",
     "db:e2e": "node scripts/supabase-e2e-check.mjs",
+    "db:promote-admin": "node scripts/promote-first-admin.mjs",
     "test:i18n": "node scripts/i18n-check.mjs",
     "test:docs": "node scripts/docs-check.mjs",
     "test:static": "node scripts/static-check.mjs",

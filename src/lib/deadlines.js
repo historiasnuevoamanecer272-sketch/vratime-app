@@ -14,3 +14,11 @@ export function getDeadlineState(expiresAt, now = new Date()) {
     minutes,
   };
 }
+
+export function getDeadlineProgress(startedAt, expiresAt, now = new Date()) {
+  const start = new Date(startedAt).getTime();
+  const end = new Date(expiresAt).getTime();
+  const current = now.getTime();
+  if (![start, end, current].every(Number.isFinite) || end <= start) return 0;
+  return Math.min(100, Math.max(0, Math.round(((current - start) / (end - start)) * 100)));
+}

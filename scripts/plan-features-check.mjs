@@ -4,6 +4,8 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const migrationPath = path.join(root, 'supabase', 'migrations', '20260922000000_roles_moderation_reports_support.sql');
 const source = (await fs.readFile(migrationPath, 'utf8')).replace(/\r\n/g, '\n');
+const promoteScriptPath = path.join(root, 'scripts', 'promote-first-admin.mjs');
+const promoteSource = (await fs.readFile(promoteScriptPath, 'utf8')).replace(/\r\n/g, '\n');
 
 const requireText = (text, label) => {
   if (!source.includes(text)) throw new Error(`Plan feature check failed: ${label}`);
@@ -41,5 +43,8 @@ if (!/expires_at[\s\S]{0,180}now\(\) \+ interval '24 hours'/.test(source)) {
 }
 requireText("check (app_role in ('user', 'moderator', 'admin'))", 'role allowlist');
 requireText('greatest(1,', 'effective rating floor');
+if (!promoteSource.includes('SUPABASE_ADMIN_USER_ID') || !promoteSource.includes("app_role: 'admin'")) {
+  throw new Error('Plan feature check failed: protected first-admin operation');
+}
 
 process.stdout.write('Roles, moderation, reports, feedback and deadline contracts passed.\n');

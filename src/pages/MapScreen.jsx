@@ -12,6 +12,7 @@ import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import { mapMarkerIcons } from '../lib/mapMarkers';
 import { baseMap } from '../lib/basemap';
 import { matchesDiscoveryType } from '../lib/listingFilters';
+import ReportDialog from '../components/ReportDialog';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -52,6 +53,7 @@ export default function MapScreen({ userId, onCreate }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [bookingListing, setBookingListing] = useState(null);
+  const [reportListing, setReportListing] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -201,6 +203,7 @@ export default function MapScreen({ userId, onCreate }) {
           <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>
           <p className="listing-dialog-note"><Icon name="message" size={16} />{requestedListingIds.has(selectedListing.id) ? t('map.requestedHint') : t('map.contactNote')}</p>
           <button type="button" className={requestedListingIds.has(selectedListing.id) ? 'btn-secondary mt-5 w-full' : 'btn-primary mt-5 w-full'} disabled={bookingId === selectedListing.id || requestedListingIds.has(selectedListing.id)} onClick={() => setBookingListing(selectedListing)}><Icon name={requestedListingIds.has(selectedListing.id) ? 'check' : selectedListing.type === 'take' ? 'handover' : 'gift'} size={18} />{requestedListingIds.has(selectedListing.id) ? t('map.requested') : bookingId === selectedListing.id ? t('map.booking') : t(selectedListing.type === 'take' ? 'map.bookTake' : 'map.bookGive')}</button>
+          <button type="button" className="btn-link mt-4 text-xs" onClick={() => setReportListing(selectedListing)}><Icon name="flag" size={15} />{t('workflow.reportListing')}</button>
         </section>
       </div> : null}
 
@@ -210,6 +213,7 @@ export default function MapScreen({ userId, onCreate }) {
           <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" className="btn-secondary" disabled={Boolean(bookingId)} onClick={() => setBookingListing(null)}>{t('common.cancel')}</button><button type="button" className="btn-primary" disabled={Boolean(bookingId)} onClick={() => handleBook(bookingListing)}><Icon name={bookingListing.type === 'take' ? 'handover' : 'gift'} size={17} />{bookingId ? t('map.booking') : t(bookingListing.type === 'take' ? 'map.confirmTakeYes' : 'map.confirmGiveYes')}</button></div>
         </section>
       </div> : null}
+      {reportListing ? <ReportDialog targetKind="listing" targetId={reportListing.id} label={listingCategoryLabel(reportListing, language)} onClose={() => setReportListing(null)} /> : null}
     </div>
   );
 }

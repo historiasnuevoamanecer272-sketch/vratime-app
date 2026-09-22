@@ -137,8 +137,35 @@ const planTranslations = {
   },
 };
 
+Object.assign(planTranslations.ru.workflow, {
+  timeExpired: 'Срок истёк', timeRemaining: 'Осталось: {{days}} д. {{hours}} ч. {{minutes}} мин.', report: 'Пожаловаться', reportListing: 'Пожаловаться на объявление', reportReason: 'Причина', reasonNoShow: 'Не пришёл или сорвал договорённость', reasonMisleading: 'Недостоверная информация', reasonSafety: 'Небезопасное поведение', reasonSpam: 'Спам', reasonOther: 'Другое', details: 'Подробности', sendReport: 'Отправить жалобу', reportSent: 'Жалоба отправлена модератору.', sectionEmpty: 'В этом разделе пока ничего нет.', avatarInvalid: 'Аватар должен быть JPEG, PNG или WebP не больше 5 МБ.', avatarSaved: 'Аватар обновлён.', changeAvatar: 'Добавить или заменить аватар', removeAvatar: 'Удалить аватар', feedbackShort: 'Опишите предложение хотя бы пятью символами.', feedbackSent: 'Обращение отправлено. Его статус сохранён в очереди поддержки.', myRequests: 'Мои запросы и предложения', myReservations: 'Мои бронирования', myHistory: 'История', ideaTitle: 'Есть идея для VratiMe?', ideaText: 'Предложите функцию или категорию, сообщите о проблеме либо обратитесь в техподдержку.', feedbackType: 'Тип обращения', feedbackFeature: 'Новая функция', feedbackCategory: 'Категория или вещь', feedbackProblem: 'Проблема', feedbackSupport: 'Техподдержка', message: 'Сообщение', addScreenshot: 'Добавить скриншот', send: 'Отправить',
+});
+Object.assign(planTranslations.me.workflow, {
+  timeExpired: 'Rok je istekao', timeRemaining: 'Preostalo: {{days}} d. {{hours}} h {{minutes}} min.', report: 'Prijavi', reportListing: 'Prijavi oglas', reportReason: 'Razlog', reasonNoShow: 'Nije došao ili je prekinuo dogovor', reasonMisleading: 'Netačne informacije', reasonSafety: 'Nebezbjedno ponašanje', reasonSpam: 'Spam', reasonOther: 'Drugo', details: 'Detalji', sendReport: 'Pošalji prijavu', reportSent: 'Prijava je poslata moderatoru.', sectionEmpty: 'Ovaj odjeljak je još prazan.', avatarInvalid: 'Avatar mora biti JPEG, PNG ili WebP do 5 MB.', avatarSaved: 'Avatar je ažuriran.', changeAvatar: 'Dodaj ili promijeni avatar', removeAvatar: 'Ukloni avatar', feedbackShort: 'Opišite prijedlog sa najmanje pet znakova.', feedbackSent: 'Poruka je poslata i sačuvana u redu podrške.', myRequests: 'Moji zahtjevi i ponude', myReservations: 'Moje rezervacije', myHistory: 'Istorija', ideaTitle: 'Imate ideju za VratiMe?', ideaText: 'Predložite funkciju ili kategoriju, prijavite problem ili kontaktirajte podršku.', feedbackType: 'Vrsta poruke', feedbackFeature: 'Nova funkcija', feedbackCategory: 'Kategorija ili stvar', feedbackProblem: 'Problem', feedbackSupport: 'Tehnička podrška', message: 'Poruka', addScreenshot: 'Dodaj snimak ekrana', send: 'Pošalji',
+});
+Object.assign(planTranslations.en.workflow, {
+  timeExpired: 'Time expired', timeRemaining: 'Remaining: {{days}}d {{hours}}h {{minutes}}m', report: 'Report', reportListing: 'Report listing', reportReason: 'Reason', reasonNoShow: 'No-show or broken arrangement', reasonMisleading: 'Misleading information', reasonSafety: 'Unsafe behaviour', reasonSpam: 'Spam', reasonOther: 'Other', details: 'Details', sendReport: 'Send report', reportSent: 'Report sent to moderation.', sectionEmpty: 'Nothing in this section yet.', avatarInvalid: 'Avatar must be a JPEG, PNG, or WebP file up to 5 MB.', avatarSaved: 'Avatar updated.', changeAvatar: 'Add or change avatar', removeAvatar: 'Remove avatar', feedbackShort: 'Describe your suggestion using at least five characters.', feedbackSent: 'Message sent and saved in the support queue.', myRequests: 'My requests and offers', myReservations: 'My bookings', myHistory: 'History', ideaTitle: 'Have an idea for VratiMe?', ideaText: 'Suggest a feature or category, report a problem, or contact support.', feedbackType: 'Message type', feedbackFeature: 'New feature', feedbackCategory: 'Category or item', feedbackProblem: 'Problem', feedbackSupport: 'Technical support', message: 'Message', addScreenshot: 'Add screenshot', send: 'Send',
+});
+
+Object.assign(planTranslations.ru.workflow, { staff: 'Управление', staffQueue: 'Очередь модерации и поддержки', staffSaved: 'Изменение сохранено.', moderationQueue: 'Объявления на модерации', rejectionReason: 'Причина отклонения', approve: 'Одобрить', reject: 'Отклонить', reportQueue: 'Жалобы', dismiss: 'Отклонить жалобу', uphold: 'Подтвердить · штраф', supportQueue: 'Обращения', screenshot: 'Открыть скриншот', roles: 'Роли пользователей' });
+Object.assign(planTranslations.me.workflow, { staff: 'Upravljanje', staffQueue: 'Red za moderaciju i podršku', staffSaved: 'Izmjena je sačuvana.', moderationQueue: 'Oglasi za moderaciju', rejectionReason: 'Razlog odbijanja', approve: 'Odobri', reject: 'Odbij', reportQueue: 'Prijave', dismiss: 'Odbaci prijavu', uphold: 'Potvrdi · kazna', supportQueue: 'Poruke', screenshot: 'Otvori snimak', roles: 'Uloge korisnika' });
+Object.assign(planTranslations.en.workflow, { staff: 'Management', staffQueue: 'Moderation and support queue', staffSaved: 'Change saved.', moderationQueue: 'Listings awaiting moderation', rejectionReason: 'Rejection reason', approve: 'Approve', reject: 'Reject', reportQueue: 'Reports', dismiss: 'Dismiss report', uphold: 'Uphold · penalty', supportQueue: 'Messages', screenshot: 'Open screenshot', roles: 'User roles' });
+
+const feedbackStatusTranslations = {
+  ru: { received: 'Получено', reviewing: 'На рассмотрении', planned: 'Запланировано', resolved: 'Решено', closed: 'Закрыто' },
+  me: { received: 'Primljeno', reviewing: 'U razmatranju', planned: 'Planirano', resolved: 'Riješeno', closed: 'Zatvoreno' },
+  en: { received: 'Received', reviewing: 'In review', planned: 'Planned', resolved: 'Resolved', closed: 'Closed' },
+};
+const roleTranslations = {
+  ru: { user: 'Пользователь', moderator: 'Модератор', admin: 'Администратор' },
+  me: { user: 'Korisnik', moderator: 'Moderator', admin: 'Administrator' },
+  en: { user: 'User', moderator: 'Moderator', admin: 'Administrator' },
+};
+
 for (const language of supportedLanguages) {
   Object.assign(resources[language].translation, planTranslations[language]);
+  resources[language].translation.feedbackStatus = feedbackStatusTranslations[language];
+  resources[language].translation.roles = roleTranslations[language];
   resources[language].translation.create.addressVerified = planTranslations[language].workflow.addressVerified;
   resources[language].translation.profile.editListing = planTranslations[language].workflow.editListing;
 }

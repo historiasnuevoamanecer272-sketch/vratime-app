@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { matchesDiscoveryType } from '../src/lib/listingFilters.js';
-import { getDeadlineState } from '../src/lib/deadlines.js';
+import { getDeadlineProgress, getDeadlineState } from '../src/lib/deadlines.js';
 import { LEVELS, getLevelProgress } from '../src/lib/levels.js';
 import { calculateFundingTimeline } from '../src/lib/fundingTimeline.js';
 import { hasVerifiedLocation } from '../src/lib/locationValidation.js';
@@ -20,6 +20,7 @@ assert.deepEqual(getDeadlineState('2026-09-22T11:30:00Z', now), {
   minutes: 30,
 });
 assert.equal(getDeadlineState('2026-09-22T09:59:59Z', now).expired, true);
+assert.equal(getDeadlineProgress('2026-09-22T10:00:00Z', '2026-09-22T12:00:00Z', new Date('2026-09-22T11:00:00Z')), 50);
 
 assert.equal(LEVELS.length, 5);
 assert.deepEqual(LEVELS.map((level) => level.threshold), [0, 50, 225, 500, 950]);

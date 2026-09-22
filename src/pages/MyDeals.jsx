@@ -9,6 +9,8 @@ import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
 import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import completedHandover from '../assets/visuals/v1/deal-complete-v1.webp';
+import DeadlineCountdown from '../components/DeadlineCountdown';
+import ReportDialog from '../components/ReportDialog';
 
 const statusIcons = {
   pending: 'clock',
@@ -29,6 +31,7 @@ export default function MyDeals() {
   const [error, setError] = useState('');
   const [workingId, setWorkingId] = useState(null);
   const [ratingDeal, setRatingDeal] = useState(null);
+  const [reportDeal, setReportDeal] = useState(null);
   const didChooseInitialRole = useRef(false);
 
   const loadDeals = useCallback(async () => {
@@ -93,7 +96,6 @@ export default function MyDeals() {
   const statusOf = (deal) => deal.canceled_at ? 'canceled' : deal.completed_at ? 'completed' : deal.status || 'reserved';
   const contactsOf = (deal) => Array.isArray(deal.contacts) && deal.contacts.length ? deal.contacts : deal.contact_value ? [{ messenger_type: deal.messenger_type, contact_value: deal.contact_value, contact_href: deal.contact_href }] : [];
   const hasConfirmed = (deal) => deal.role === 'giver' ? Boolean(deal.giver_confirmed_at) : Boolean(deal.taker_confirmed_at);
-  const deadlineText = (deal) => deal.expires_at ? new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(deal.expires_at)) : '';
 
   return (
     <div className="app-screen min-h-screen pb-28 pt-safe">
@@ -119,7 +121,7 @@ export default function MyDeals() {
 
               {!deal.canceled_at ? <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{partnerContacts.length ? <div className="contact-links">{partnerContacts.map((contact) => <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contactHref(contact) || contact.contact_href} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a>)}</div> : <p>{t('deals.contactMissing')}</p>}</div></div> : null}
 
-              {deal.accepted_at && !deal.completed_at && !deal.canceled_at ? <p className="deal-deadline"><Icon name="clock" size={16} />{t('deals.deadline', { date: deadlineText(deal) })}</p> : null}
+              {deal.expires_at && !deal.completed_at && !deal.canceled_at ? <DeadlineCountdown startedAt={deal.accepted_at || deal.created_at} expiresAt={deal.expires_at} /> : null}
 
               {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="message" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done reserved' : ''}><span><Icon name="clock" size={12} /></span>{t('deals.flowAccepted')}</li><li className={deal.completed_at ? 'done completed' : ''}><span><Icon name="handshake" size={12} /></span>{t('deals.flowHandover')}</li></ol> : null}
 
@@ -130,12 +132,14 @@ export default function MyDeals() {
               </div> : null}
               {deal.completed_at && !deal.my_review_rating ? <button type="button" className="btn-secondary mt-4 w-full text-sm" onClick={() => setRatingDeal(deal)}><Icon name="star" size={17} />{t('deals.rate')}</button> : null}
               {deal.my_review_rating ? <div className="mt-4 flex items-center gap-1 text-amber-500">{[1, 2, 3, 4, 5].map((value) => <Icon key={value} name="star" size={17} filled={value <= deal.my_review_rating} />)}</div> : null}
+              <button type="button" className="btn-link mt-4 text-xs" onClick={() => setReportDeal(deal)}><Icon name="flag" size={15} />{t('workflow.report')}</button>
             </article>;
           })}
         </div>
       </main>
 
       {ratingDeal ? <div className="modal-backdrop grid place-items-end sm:place-items-center"><section className="rating-dialog" role="dialog" aria-modal="true" aria-label={t('deals.rate')}><button type="button" className="icon-button ml-auto" onClick={() => setRatingDeal(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button><img className="rating-illustration" src={completedHandover} alt="" /><h2 className="font-display mt-2 text-center text-2xl text-forest">{t('deals.rate')}</h2><p className="mt-2 text-center text-sm text-muted">{ratingDeal.partner_name || t('common.partner')}</p><div className="mt-5 flex justify-center gap-2">{[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" className="rating-star" disabled={workingId === ratingDeal.transaction_id} onClick={() => rate(value)} aria-label={`${value}/5`}><Icon name="star" size={30} filled /></button>)}</div></section></div> : null}
+      {reportDeal ? <ReportDialog targetKind="deal" targetId={reportDeal.transaction_id} label={reportDeal.partner_name || t('common.partner')} onClose={() => setReportDeal(null)} /> : null}
     </div>
   );
 }

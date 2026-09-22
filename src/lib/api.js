@@ -26,6 +26,13 @@ export const updateMyListing = (listing) => rpc('update_my_listing', {
   target_image_url: listing.image_url || null,
   target_image_urls: listing.image_urls || [],
 });
+export const createReport = ({ targetKind, targetId, reason, details }) => rpc('create_report', { target_kind: targetKind, target_id: targetId, reason, details: details || null });
+export const createFeedback = ({ type, message, screenshotUrl = null }) => rpc('create_feedback', { feedback_type: type, message, screenshot_url: screenshotUrl });
+export const moderateListing = (listingId, decision, reason = null) => rpc('moderate_listing', { target_listing_id: listingId, decision, reason });
+export const resolveReport = (reportId, decision, penalty = 0) => rpc('resolve_report', { target_report_id: reportId, decision, penalty });
+export const setFeedbackStatus = (feedbackId, status) => rpc('set_feedback_status', { target_feedback_id: feedbackId, next_status: status });
+export const setUserRole = (userId, role) => rpc('set_user_role', { target_user_id: userId, target_role: role });
+export const setMyAvatar = (avatarUrl) => rpc('set_my_avatar', { next_avatar_url: avatarUrl || null });
 export const getMyDeals = () => rpc('get_my_deals');
 export const refreshExpiredDeals = () => rpc('refresh_expired_deals');
 export const getEcoLeaderboard = (limit = 20) => rpc('get_eco_leaderboard', { limit_count: limit });

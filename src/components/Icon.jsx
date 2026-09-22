@@ -281,6 +281,12 @@ const paths = {
       <path d="M9 13h6" />
     </>
   ),
+  flag: (
+    <>
+      <path d="M5 21V4" />
+      <path d="M5 5c5-3 8 3 14 0v9c-6 3-9-3-14 0" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 22, className = '', strokeWidth = 2, filled = false }) {
