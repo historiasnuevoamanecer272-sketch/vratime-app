@@ -122,6 +122,27 @@ export const resources = {
   },
 };
 
+const planTranslations = {
+  ru: {
+    workflow: { reverseAddressError: 'Не удалось определить адрес этой точки. Выберите найденный адрес или попробуйте ещё раз.', addressRequired: 'Сначала подтвердите адрес: выберите подсказку, точку на карте или геолокацию.', addressVerified: 'Адрес подтверждён', photoCount: 'Добавлено фото: {{count}}', submittedModeration: 'Объявление отправлено на модерацию. Статус виден в профиле.', updated: 'Изменения сохранены и отправлены на повторную модерацию.', editTitle: 'Редактирование объявления', saveChanges: 'Сохранить изменения', editListing: 'Редактировать объявление' },
+    moderation: { pending: 'На модерации', approved: 'Одобрено', rejected: 'Отклонено' },
+  },
+  me: {
+    workflow: { reverseAddressError: 'Nije moguće odrediti adresu ove tačke. Izaberite pronađenu adresu ili pokušajte ponovo.', addressRequired: 'Prvo potvrdite adresu: izaberite rezultat, tačku na mapi ili geolokaciju.', addressVerified: 'Adresa je potvrđena', photoCount: 'Dodato fotografija: {{count}}', submittedModeration: 'Oglas je poslat na moderaciju. Status je vidljiv u profilu.', updated: 'Izmjene su sačuvane i poslate na ponovnu moderaciju.', editTitle: 'Uređivanje oglasa', saveChanges: 'Sačuvaj izmjene', editListing: 'Uredi oglas' },
+    moderation: { pending: 'Na moderaciji', approved: 'Odobreno', rejected: 'Odbijeno' },
+  },
+  en: {
+    workflow: { reverseAddressError: 'Could not determine the address for this point. Choose a search result or try again.', addressRequired: 'Confirm the address first by choosing a result, a map point, or geolocation.', addressVerified: 'Address confirmed', photoCount: 'Photos added: {{count}}', submittedModeration: 'Listing submitted for moderation. Its status is visible in your profile.', updated: 'Changes saved and submitted for moderation again.', editTitle: 'Edit listing', saveChanges: 'Save changes', editListing: 'Edit listing' },
+    moderation: { pending: 'In moderation', approved: 'Approved', rejected: 'Rejected' },
+  },
+};
+
+for (const language of supportedLanguages) {
+  Object.assign(resources[language].translation, planTranslations[language]);
+  resources[language].translation.create.addressVerified = planTranslations[language].workflow.addressVerified;
+  resources[language].translation.profile.editListing = planTranslations[language].workflow.editListing;
+}
+
 const normalizeLanguage = (value) => {
   const code = String(value || '').toLowerCase().split('-')[0];
   return supportedLanguages.includes(code) ? code : 'ru';

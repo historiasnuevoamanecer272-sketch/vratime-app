@@ -3,6 +3,7 @@ import { matchesDiscoveryType } from '../src/lib/listingFilters.js';
 import { getDeadlineState } from '../src/lib/deadlines.js';
 import { LEVELS, getLevelProgress } from '../src/lib/levels.js';
 import { calculateFundingTimeline } from '../src/lib/fundingTimeline.js';
+import { hasVerifiedLocation } from '../src/lib/locationValidation.js';
 
 assert.equal(matchesDiscoveryType({ type: 'give' }, { query: 'стекло', type: 'take' }), true);
 assert.equal(matchesDiscoveryType({ type: 'take' }, { query: 'стекло', type: 'all' }), false);
@@ -31,5 +32,9 @@ assert.equal(september.remainingBudgetCents, 16333);
 assert.equal(september.elapsedPercent, 72);
 assert.equal(september.collectedCents, 1234);
 assert.equal(september.remainingAfterCollectedCents, 15099);
+
+assert.equal(hasVerifiedLocation({ address: 'Igalo, Herceg Novi', verified: true, position: [42.46, 18.51] }), true);
+assert.equal(hasVerifiedLocation({ address: 'Igalo', verified: false, position: [42.46, 18.51] }), false);
+assert.equal(hasVerifiedLocation({ address: 'Igalo', verified: true, position: [Number.NaN, 18.51] }), false);
 
 process.stdout.write('Plan UI logic passed: discovery, deadlines, five levels and daily funding.\n');

@@ -13,6 +13,19 @@ export const cancelBooking = (transactionId) => rpc('cancel_booking', { target_t
 export const confirmHandover = (transactionId) => rpc('confirm_handover', { target_transaction_id: transactionId });
 export const submitReview = (transactionId, rating) => rpc('submit_review', { target_transaction_id: transactionId, target_rating: rating });
 export const deactivateListing = (listingId) => rpc('deactivate_listing', { target_listing_id: listingId });
+export const updateMyListing = (listing) => rpc('update_my_listing', {
+  target_listing_id: listing.id,
+  target_category_id: listing.category_id,
+  target_category: listing.category,
+  target_category_path: listing.category_path,
+  target_description: listing.description || null,
+  target_quantity: Number(listing.quantity),
+  target_lat: Number(listing.lat),
+  target_lng: Number(listing.lng),
+  target_location_label: listing.location_label,
+  target_image_url: listing.image_url || null,
+  target_image_urls: listing.image_urls || [],
+});
 export const getMyDeals = () => rpc('get_my_deals');
 export const refreshExpiredDeals = () => rpc('refresh_expired_deals');
 export const getEcoLeaderboard = (limit = 20) => rpc('get_eco_leaderboard', { limit_count: limit });

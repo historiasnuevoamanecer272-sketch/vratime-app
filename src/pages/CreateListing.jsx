@@ -10,6 +10,8 @@ import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
 import { getCategoryArtwork } from '../lib/categoryArtwork';
 import { mapMarkerIcons } from '../lib/mapMarkers';
+import { updateMyListing } from '../lib/api';
+import { hasVerifiedLocation } from '../lib/locationValidation';
 
 const bucket = 'LISTING-PHOTOS';
 function LocationPicker({ position, type, onChange }) {
@@ -25,20 +27,23 @@ function MapMover({ position }) {
   return null;
 }
 
-export default function CreateListing({ userId, onBack, onSuccess }) {
+export default function CreateListing({ userId, onBack, onSuccess, editingListing = null }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
-  const [step, setStep] = useState(1);
+  const isEditing = Boolean(editingListing?.id);
+  const [step, setStep] = useState(isEditing ? 3 : 1);
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const [trail, setTrail] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [position, setPosition] = useState([42.441, 19.263]);
-  const [photos, setPhotos] = useState([]);
+  const [selected, setSelected] = useState(editingListing ? { id: editingListing.category_id, category_path: editingListing.category_path, name_ru: editingListing.category } : null);
+  const [position, setPosition] = useState(editingListing ? [Number(editingListing.lat), Number(editingListing.lng)] : [42.441, 19.263]);
+  const [photos, setPhotos] = useState(() => [...new Set([...(editingListing?.image_urls || []), editingListing?.image_url].filter(Boolean))].map((url) => ({ preview: url, existing: true })));
   const previewUrls = useRef(new Set());
-  const [form, setForm] = useState({ type: 'give', quantity: 1, description: '' });
-  const [address, setAddress] = useState('');
+  const reverseRequestRef = useRef(0);
+  const [form, setForm] = useState({ type: editingListing?.type || 'give', quantity: Number(editingListing?.quantity || 1), description: editingListing?.description || '' });
+  const [address, setAddress] = useState(editingListing?.location_label || '');
+  const [addressVerified, setAddressVerified] = useState(Boolean(editingListing?.location_label && Number.isFinite(Number(editingListing?.lat)) && Number.isFinite(Number(editingListing?.lng))));
   const [addressResults, setAddressResults] = useState([]);
   const [addressLoading, setAddressLoading] = useState(false);
 
@@ -89,14 +94,42 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
   };
 
   const removePhoto = (preview) => {
-    URL.revokeObjectURL(preview);
+    if (previewUrls.current.has(preview)) URL.revokeObjectURL(preview);
     previewUrls.current.delete(preview);
     setPhotos((current) => current.filter((photo) => photo.preview !== preview));
   };
 
+  const reverseGeocode = async (point) => {
+    const requestId = ++reverseRequestRef.current;
+    setAddressLoading(true);
+    setAddressVerified(false);
+    try {
+      const locale = language === 'me' ? 'sr' : language;
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=${encodeURIComponent(locale)}&lat=${encodeURIComponent(point[0])}&lon=${encodeURIComponent(point[1])}`);
+      if (!response.ok) throw new Error(String(response.status));
+      const result = await response.json();
+      if (requestId !== reverseRequestRef.current) return;
+      const label = String(result?.display_name || '').trim();
+      if (!label) throw new Error('missing address');
+      setAddress(label);
+      setAddressResults([]);
+      setAddressVerified(true);
+    } catch {
+      if (requestId === reverseRequestRef.current) showToast(t('workflow.reverseAddressError'), 'error');
+    } finally {
+      if (requestId === reverseRequestRef.current) setAddressLoading(false);
+    }
+  };
+
+  const selectPosition = (point) => {
+    setPosition(point);
+    reverseGeocode(point);
+  };
+
   const useLocation = () => {
     if (!navigator.geolocation) return showToast(t('map.locationMissing'), 'error');
-    navigator.geolocation.getCurrentPosition(({ coords }) => setPosition([coords.latitude, coords.longitude]), () => showToast(t('map.locationDenied'), 'error'), { enableHighAccuracy: true, timeout: 10000 });
+    setAddressLoading(true);
+    navigator.geolocation.getCurrentPosition(({ coords }) => selectPosition([coords.latitude, coords.longitude]), () => { setAddressLoading(false); showToast(t('map.locationDenied'), 'error'); }, { enableHighAccuracy: true, timeout: 10000 });
   };
 
   const searchAddress = async () => {
@@ -122,16 +155,18 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
     setPosition([Number(result.lat), Number(result.lon)]);
     setAddress(result.display_name || address);
     setAddressResults([]);
+    setAddressVerified(true);
   };
 
   const publish = async () => {
     if (!selected || form.quantity < 1 || form.quantity > 10000) return;
+    if (!hasVerifiedLocation({ address, verified: addressVerified, position })) return showToast(t('workflow.addressRequired'), 'error');
     setLoading(true);
     const uploadedPaths = [];
     try {
       if (!userId) throw new Error('No user');
-      const imageUrls = [];
-      for (const { file } of photos) {
+      const imageUrls = photos.filter((photo) => photo.existing).map((photo) => photo.preview);
+      for (const { file } of photos.filter((photo) => photo.file)) {
         const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
         const uploadedPath = `${userId}/listings/${crypto.randomUUID()}.${extension}`;
         const { error: uploadError } = await supabase.storage.from(bucket).upload(uploadedPath, file, { contentType: file.type, upsert: false, cacheControl: '3600' });
@@ -139,14 +174,18 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
         uploadedPaths.push(uploadedPath);
         imageUrls.push(supabase.storage.from(bucket).getPublicUrl(uploadedPath).data.publicUrl);
       }
-      const { error } = await supabase.from('listings').insert({
-        user_id: userId, type: form.type, status: 'active', category_id: selected.id,
+      const listingPayload = {
+        id: editingListing?.id, user_id: userId, type: form.type, status: 'active', category_id: selected.id,
         category: categoryLabel(selected, 'ru'), category_path: selected.category_path,
         description: form.description.trim() || null, image_url: imageUrls[0] || null, image_urls: imageUrls, quantity: Number(form.quantity),
-        lat: position[0], lng: position[1], location_label: address.trim() || null,
-      });
-      if (error) throw error;
-      showToast(t('create.published'), 'success');
+        lat: position[0], lng: position[1], location_label: address.trim(), location_verified_at: new Date().toISOString(), moderation_status: 'pending',
+      };
+      if (isEditing) await updateMyListing(listingPayload);
+      else {
+        const { error } = await supabase.from('listings').insert(listingPayload);
+        if (error) throw error;
+      }
+      showToast(t(isEditing ? 'workflow.updated' : 'workflow.submittedModeration'), 'success', { prominent: true });
       onSuccess();
       window.setTimeout(() => window.dispatchEvent(new Event('listings-updated')), 0);
     } catch (error) {
@@ -159,10 +198,10 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
 
   return (
     <div className="modal-backdrop">
-      <div className="wizard-shell" role="dialog" aria-modal="true" aria-label={t('create.title')}>
+      <div className="wizard-shell" role="dialog" aria-modal="true" aria-label={t(isEditing ? 'workflow.editTitle' : 'create.title')}>
         <header className="wizard-header">
           <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={goBack}><Icon name="arrowLeft" size={17} />{t('common.back')}</button>
-          <div className="text-right"><p className="eyebrow text-sea">{t('create.title')}</p><p className="mt-1 text-sm font-extrabold text-forest">{t('create.step', { step })}</p></div>
+          <div className="text-right"><p className="eyebrow text-sea">{t(isEditing ? 'workflow.editTitle' : 'create.title')}</p><p className="mt-1 text-sm font-extrabold text-forest">{t('create.step', { step })}</p></div>
           <div className="wizard-progress col-span-2">{[1, 2, 3].map((value) => <span key={value} className={value <= step ? 'active' : ''} />)}</div>
         </header>
 
@@ -186,19 +225,19 @@ export default function CreateListing({ userId, onBack, onSuccess }) {
           {step === 3 ? <section className="pb-28">
             <p className="eyebrow text-sea">{t('create.publishEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.publishTitle')}</h1><p className="mt-3 text-sm leading-6 text-muted">{t('create.publishText')}</p>
             <div className="detail-card mt-5">
-              <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}</strong><small className="block truncate text-muted">{photos[0]?.file.name || t('common.optional')}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={selectPhotos} /></label></div>
-              {photos.length ? <div className="photo-preview-grid">{photos.map(({ file, preview }) => <div key={preview} className="photo-preview"><img src={preview} alt={file.name} /><button type="button" className="btn-link" onClick={() => removePhoto(preview)}>{t('common.remove')}</button></div>)}</div> : null}
+              <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}</strong><small className="block truncate text-muted">{photos.length ? t('workflow.photoCount', { count: photos.length }) : t('common.optional')}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple onChange={selectPhotos} /></label></div>
+              {photos.length ? <div className="photo-preview-grid">{photos.map(({ file, preview }) => <div key={preview} className="photo-preview"><img src={preview} alt={file?.name || ''} /><button type="button" className="btn-link" onClick={() => removePhoto(preview)}>{t('common.remove')}</button></div>)}</div> : null}
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.min(10000, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
             <label className="mt-4 block"><span className="field-label">{t('create.description')}</span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
-            <div className="address-search mt-4"><label className="block"><span className="field-label">{t('create.address')}</span><div className="address-search-row"><input className="field" value={address} placeholder={t('create.addressPlaceholder')} onChange={(event) => { setAddress(event.target.value); setAddressResults([]); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={(event) => chooseAddress(event, result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small className="address-hint">{t('create.addressHint')}</small></div>
-            <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" onClick={useLocation}><Icon name="location" size={16} />{t('create.useLocation')}</button></div>
-            <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={setPosition} /></MapContainer></div>
+            <div className={`address-search mt-4 ${addressVerified ? 'is-verified' : ''}`}><label className="block"><span className="field-label">{t('create.address')}</span><div className="address-search-row"><input className="field" value={address} placeholder={t('create.addressPlaceholder')} onChange={(event) => { setAddress(event.target.value); setAddressResults([]); setAddressVerified(false); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={(event) => chooseAddress(event, result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small className="address-hint">{addressVerified ? t('create.addressVerified') : t('create.addressHint')}</small></div>
+            <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" disabled={addressLoading} onClick={useLocation}><Icon name="location" size={16} />{addressLoading ? t('map.locating') : t('create.useLocation')}</button></div>
+            <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={selectPosition} /></MapContainer></div>
             <p className="mt-2 text-xs font-semibold text-muted">{t('create.dragMarker')}</p>
           </section> : null}
         </main>
 
-        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'handover'} size={19} />{loading ? t('create.publishing') : t(form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
+        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading || !hasVerifiedLocation({ address, verified: addressVerified, position })} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'handover'} size={19} />{loading ? t('create.publishing') : t(isEditing ? 'workflow.saveChanges' : form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
       </div>
     </div>
   );

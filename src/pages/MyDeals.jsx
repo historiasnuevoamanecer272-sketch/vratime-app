@@ -67,11 +67,11 @@ export default function MyDeals() {
     if (action === 'cancel' && !window.confirm(t('deals.cancelConfirm'))) return;
     setWorkingId(deal.transaction_id);
     try {
-      if (action === 'cancel') { await cancelBooking(deal.transaction_id); showToast(t('deals.canceled'), 'success'); }
-      else if (action === 'accept') { await acceptDeal(deal.transaction_id); showToast(t('deals.accepted'), 'success'); }
+      if (action === 'cancel') { await cancelBooking(deal.transaction_id); showToast(t('deals.canceled'), 'success', { prominent: true }); }
+      else if (action === 'accept') { await acceptDeal(deal.transaction_id); showToast(t('deals.accepted'), 'success', { prominent: true }); }
       else {
         const result = await confirmHandover(deal.transaction_id);
-        showToast(t(result?.completed ? 'deals.completed' : 'deals.confirmedWaiting'), 'success');
+        showToast(t(result?.completed ? 'deals.completed' : 'deals.confirmedWaiting'), 'success', { prominent: true });
       }
       await loadDeals();
       window.dispatchEvent(new Event('listings-updated'));

@@ -114,7 +114,7 @@ export default function MapScreen({ userId, onCreate }) {
     setBookingId(item.id);
     try {
       await bookListing(item.id);
-      showToast(t(item.type === 'take' ? 'map.bookedTake' : 'map.bookedGive'), 'success');
+      showToast(t(item.type === 'take' ? 'map.bookedTake' : 'map.bookedGive'), 'success', { prominent: true });
       setBookingListing(null);
       setSelectedListing(null);
       await fetchData();

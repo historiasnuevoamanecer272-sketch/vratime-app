@@ -2,13 +2,11 @@ import Icon from './Icon';
 import glassIcon from '../assets/icons/icon-glass.png';
 import clothIcon from '../assets/icons/icon-cloth.png';
 import boxIcon from '../assets/icons/icon-box.png';
-import palletIcon from '../assets/icons/icon-pallet.png';
 
 const rootArt = {
   glass: glassIcon,
   cloth: clothIcon,
   box: boxIcon,
-  pallet: palletIcon,
 };
 
 const iconForPath = (path) => {
@@ -25,12 +23,12 @@ const iconForPath = (path) => {
 export default function CategoryIcon({ category, size = 28 }) {
   const path = category?.category_path || category?.path || '';
   const root = path.split('/')[0];
-  const art = !path.includes('/') ? rootArt[root] : null;
+  const art = !path.includes('/') && root !== 'pallet' ? rootArt[root] : null;
   const tone = path.includes('green-') ? 'green' : path.includes('brown-') ? 'amber' : path.includes('clear-') ? 'aqua' : root;
 
   return (
     <span className={`category-symbol category-symbol-${tone}`} aria-hidden="true">
-      {art ? <img className="category-art" src={art} alt="" /> : <Icon name={iconForPath(path)} size={size} strokeWidth={1.8} />}
+      {art ? <img className="category-art" src={art} alt="" /> : <Icon name={root === 'pallet' && !path.includes('/') ? 'eggCarton' : iconForPath(path)} size={size} strokeWidth={1.8} />}
     </span>
   );
 }

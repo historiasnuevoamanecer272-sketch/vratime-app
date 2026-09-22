@@ -48,14 +48,15 @@ export default function App() {
   const [profileError, setProfileError] = useState(false);
   const [activeTab, setActiveTab] = useState('map');
   const [isCreating, setIsCreating] = useState(false);
+  const [editingListing, setEditingListing] = useState(null);
   const [toasts, setToasts] = useState([]);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallHelp, setShowInstallHelp] = useState(() => !isStandalone());
   const profileUserRef = useRef(null);
   const profileRequestRef = useRef(0);
 
-  const pushToast = useCallback((message, type = 'info') => {
-    const toast = { id: `${Date.now()}-${Math.random()}`, message, type };
+  const pushToast = useCallback((message, type = 'info', options = {}) => {
+    const toast = { id: `${Date.now()}-${Math.random()}`, message, type, prominent: Boolean(options.prominent) };
     setToasts((current) => [...current, toast]);
   }, []);
 
@@ -128,7 +129,7 @@ export default function App() {
     };
   }, [checkProfile]);
 
-  useEffect(() => subscribeToasts((toast) => pushToast(toast.message, toast.type)), [pushToast]);
+  useEffect(() => subscribeToasts((toast) => pushToast(toast.message, toast.type, toast)), [pushToast]);
 
   useEffect(() => {
     if (isStandalone()) return undefined;
@@ -175,7 +176,7 @@ export default function App() {
     </aside>
   ) : null;
 
-  const toastStack = <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type}`} role="status"><p>{toast.message}</p><button type="button" onClick={() => dismissToast(toast.id)}>{t('common.ok')}</button></div>)}</div>;
+  const toastStack = <div className="toast-stack" aria-live="polite">{toasts.map((toast) => <div key={toast.id} className={`toast toast-${toast.type} ${toast.prominent ? 'toast-prominent' : ''}`} role="status"><span className="toast-symbol"><Icon name={toast.type === 'success' ? 'check' : toast.type === 'error' ? 'close' : 'message'} size={toast.prominent ? 30 : 18} /></span><p>{toast.message}</p><button type="button" onClick={() => dismissToast(toast.id)}>{t('common.ok')}</button></div>)}</div>;
 
   if (window.location.pathname === '/privacy') return <><PrivacyPage />{toastStack}</>;
   if (window.location.pathname === '/offer') return <><OfferPage />{toastStack}</>;
@@ -200,13 +201,13 @@ export default function App() {
           <Suspense fallback={loadingView}>
             {activeTab === 'map' ? <MapScreen userId={session.user.id} onCreate={() => setIsCreating(true)} /> : null}
             {activeTab === 'deals' ? <MyDeals /> : null}
-            {activeTab === 'profile' ? <Profile userId={session.user.id} /> : null}
+            {activeTab === 'profile' ? <Profile userId={session.user.id} onEditListing={(listing) => { setEditingListing(listing); setIsCreating(true); }} /> : null}
           </Suspense>
 
           <nav className="bottom-nav" aria-label={t('nav.label')}>
             <div className="bottom-nav-inner">
               {tabs.map((tab) => tab.action ? (
-                <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => setIsCreating(true)} aria-label={t('nav.create')}>
+                <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => { setEditingListing(null); setIsCreating(true); }} aria-label={t('nav.create')}>
                   <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
                 </button>
               ) : (
@@ -218,7 +219,7 @@ export default function App() {
           </nav>
         </div>
 
-        {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} onBack={() => setIsCreating(false)} onSuccess={() => { setIsCreating(false); setActiveTab('map'); }} /></Suspense> : null}
+        {isCreating ? <Suspense fallback={loadingView}><CreateListing userId={session.user.id} editingListing={editingListing} onBack={() => { setIsCreating(false); setEditingListing(null); }} onSuccess={() => { setIsCreating(false); setEditingListing(null); setActiveTab(editingListing ? 'profile' : 'map'); }} /></Suspense> : null}
       </AppScreenBoundary>
       {toastStack}
     </div>
