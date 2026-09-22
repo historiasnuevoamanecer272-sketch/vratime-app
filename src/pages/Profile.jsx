@@ -11,6 +11,7 @@ import CategoryIcon from '../components/CategoryIcon';
 import ContactChannelsFields from '../components/ContactChannelsFields';
 import SupportFund from '../components/SupportFund';
 import logo from '../assets/images/app-logo.png';
+import { LEVELS, getLevelProgress } from '../lib/levels';
 let profileCache = null;
 
 export default function Profile({ userId }) {
@@ -71,12 +72,11 @@ export default function Profile({ userId }) {
   const completedDeals = useMemo(() => deals.filter((deal) => deal.completed_at && !deal.canceled_at), [deals]);
   const itemCount = completedDeals.reduce((sum, deal) => sum + Number(deal.quantity || 0), 0);
   const ecoPoints = Number(profile?.eco_points || 0);
-  const levelThresholds = [0, 50, 125, 225, 350, 500, 700, 950, 1250, 1600];
-  const levelIndex = levelThresholds.reduce((current, threshold, index) => ecoPoints >= threshold ? index : current, 0);
+  const levelState = getLevelProgress(ecoPoints);
+  const levelIndex = levelState.currentIndex;
   const levels = t('profile.levels', { returnObjects: true });
-  const currentThreshold = levelThresholds[levelIndex];
-  const nextThreshold = levelThresholds[levelIndex + 1];
-  const levelProgress = nextThreshold ? Math.min(100, ((ecoPoints - currentThreshold) / (nextThreshold - currentThreshold)) * 100) : 100;
+  const nextThreshold = levelState.nextThreshold;
+  const levelProgress = levelState.percent;
   const rating = Number(profile?.rating || 0);
   const achievements = [
     { label: t('profile.firstDeal'), icon: 'gift', unlocked: completedDeals.length >= 1 },
@@ -84,7 +84,7 @@ export default function Profile({ userId }) {
     { label: t('profile.fiftyItems'), icon: 'leaf', unlocked: itemCount >= 50 },
     { label: t('profile.topRating'), icon: 'star', unlocked: rating >= 4.8 && completedDeals.length > 0 },
   ];
-  const levelMedals = levels.map((label, index) => ({ label, threshold: levelThresholds[index], unlocked: index <= levelIndex }));
+  const levelMedals = LEVELS.map((level, index) => ({ ...level, label: levels[index], unlocked: index <= levelIndex }));
 
   const save = async () => {
     const validationError = validateContacts(form.contacts);
@@ -130,7 +130,7 @@ export default function Profile({ userId }) {
 
         <section className="impact-grid mt-4"><div className="impact-card"><span><Icon name="deals" size={21} /></span><strong>{completedDeals.length}</strong><small>{t('profile.deals')}</small></div><div className="impact-card"><span><Icon name="leaf" size={21} /></span><strong>{itemCount}</strong><small>{t('profile.items')}</small></div></section>
 
-        <section className="card mt-4 p-5"><div className="flex items-center justify-between"><div><p className="eyebrow text-sea">{t('profile.level')}</p><h2 className="font-display mt-1 text-2xl text-forest">{levels[levelIndex]}</h2></div><span className="level-emblem" style={{ '--level-progress': `${levelProgress}%` }}><img src={logo} alt="" /><b>{levelIndex + 1}</b></span></div><div className="level-track mt-5"><span style={{ width: `${levelProgress}%` }} /></div><div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs font-semibold text-muted">{nextThreshold ? t('profile.nextLevel', { count: nextThreshold - ecoPoints }) : t('profile.maxLevel')}</p><button type="button" className="btn-link text-xs" onClick={() => setLevelsOpen(true)}>{t('profile.allLevels')}</button></div><div className="level-medals-preview mt-4">{levelMedals.map((medal, index) => <span key={medal.label} className={`level-medal ${medal.unlocked ? 'unlocked' : ''}`} title={`${medal.label} · ${medal.threshold}`}><Icon name={index === 0 ? 'leaf' : 'award'} size={18} /><b>{index + 1}</b></span>)}</div></section>
+        <section className="card mt-4 p-5"><div className="flex items-center justify-between"><div><p className="eyebrow text-sea">{t('profile.level')}</p><h2 className="font-display mt-1 text-2xl text-forest">{levels[levelIndex]}</h2></div><span className="level-emblem" style={{ '--level-progress': `${levelProgress}%` }}><img src={logo} alt="" /><b>{levelIndex + 1}</b></span></div><div className="level-track mt-5"><span style={{ width: `${levelProgress}%` }} /></div><div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs font-semibold text-muted">{nextThreshold ? t('profile.nextLevel', { count: levelState.remaining }) : t('profile.maxLevel')}</p><button type="button" className="btn-link text-xs" onClick={() => setLevelsOpen(true)}>{t('profile.allLevels')}</button></div><div className="level-medals-preview mt-4">{levelMedals.map((medal, index) => <span key={medal.id} className={`level-medal ${medal.unlocked ? 'unlocked' : ''}`} title={`${medal.label} · ${medal.threshold}`}><Icon name={medal.icon} size={18} /><b>{index + 1}</b></span>)}</div></section>
 
         <SupportFund />
 
@@ -145,7 +145,7 @@ export default function Profile({ userId }) {
         <section className="card mt-4 p-5"><h2 className="font-display text-2xl text-forest">{t('profile.reviews')}</h2>{reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <article key={review.id} className="review-row"><div><strong>{review.from_user?.full_name || t('common.partner')}</strong><small>{new Date(review.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</small></div><span><Icon name="star" size={17} filled />{Number(review.rating).toFixed(1)}</span></article>)}</div> : <p className="empty-copy mt-4">{t('profile.noReviews')}</p>}</section>
         <button type="button" className="btn-ghost mt-4 w-full" onClick={() => supabase.auth.signOut()}><Icon name="logout" size={19} />{t('profile.logout')}</button>
       </main>
-      {levelsOpen ? <div className="modal-backdrop grid place-items-end sm:place-items-center p-0 sm:p-5"><section className="levels-dialog" role="dialog" aria-modal="true" aria-label={t('profile.allLevels')}><div className="flex items-start justify-between gap-3"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.allLevels')}</h2><p className="mt-2 text-sm text-muted">{t('profile.levelsProgress', { count: levelIndex + 1, total: levels.length })}</p></div><button type="button" className="icon-button" onClick={() => setLevelsOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div><div className="levels-catalog mt-5">{levelMedals.map((medal, index) => <article key={medal.label} className={`levels-catalog-item ${medal.unlocked ? 'unlocked' : ''}`}><span className="level-medal"><Icon name={index === 0 ? 'leaf' : 'award'} size={23} /><b>{index + 1}</b></span><div><strong>{medal.label}</strong><small>{t('profile.levelAt', { count: medal.threshold })}</small></div>{medal.unlocked ? <Icon name="check" size={20} /> : <Icon name="lock" size={20} />}</article>)}</div></section></div> : null}
+      {levelsOpen ? <div className="modal-backdrop grid place-items-end sm:place-items-center p-0 sm:p-5"><section className="levels-dialog" role="dialog" aria-modal="true" aria-label={t('profile.allLevels')}><div className="flex items-start justify-between gap-3"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.allLevels')}</h2><p className="mt-2 text-sm text-muted">{t('profile.levelsProgress', { count: levelIndex + 1, total: levels.length })}</p></div><button type="button" className="icon-button" onClick={() => setLevelsOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div><div className="levels-catalog mt-5">{levelMedals.map((medal, index) => <article key={medal.id} className={`levels-catalog-item ${medal.unlocked ? 'unlocked' : ''}`}><span className="level-medal"><Icon name={medal.icon} size={23} /><b>{index + 1}</b></span><div><strong>{medal.label}</strong><small>{t('profile.levelAt', { count: medal.threshold })}</small></div>{medal.unlocked ? <Icon name="check" size={20} /> : <Icon name="lock" size={20} />}</article>)}</div></section></div> : null}
     </div>
   );
 }

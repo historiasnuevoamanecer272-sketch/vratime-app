@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getFundingProgress } from '../lib/api';
 import { getAppLanguage } from '../i18n';
 import Icon from './Icon';
+import { calculateFundingTimeline } from '../lib/fundingTimeline';
 
 const percent = (value, target) => target > 0 ? Math.min(100, Math.max(0, Math.round((value / target) * 100))) : 0;
 
@@ -35,12 +36,12 @@ export default function SupportFund({ page = false }) {
   const locale = language === 'me' ? 'sr-Latn-ME' : language;
   const formatter = useMemo(() => new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 }), [locale]);
   const monthlyTarget = Number(fund?.monthly_target_eur_cents || 5000);
-  const annualTarget = Number(fund?.annual_target_eur_cents || 60000);
   const monthCovered = Number(fund?.month_covered_eur_cents || 0);
   const yearCollected = Number(fund?.year_collected_eur_cents || 0);
   const reserve = Number(fund?.reserve_eur_cents || 0);
   const monthPercent = percent(monthCovered, monthlyTarget);
-  const yearPercent = percent(yearCollected, annualTarget);
+  const timeline = calculateFundingTimeline(new Date(), monthlyTarget, yearCollected);
+  const yearPercent = percent(yearCollected, timeline.remainingBudgetCents);
   const money = (cents) => formatter.format(cents / 100);
   const contributionDate = fund?.last_contribution_at ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(fund.last_contribution_at)) : null;
 
@@ -62,9 +63,11 @@ export default function SupportFund({ page = false }) {
           <p>{money(monthCovered)} {t('support.of')} {money(monthlyTarget)}</p>
         </div>
         <div className="support-goal">
-          <div className="support-goal-label"><span>{t('support.yearGoal', { year: new Date().getFullYear() })}</span><strong>{yearPercent}%</strong></div>
-          <div className="support-track support-track-year" role="progressbar" aria-label={t('support.yearGoal', { year: new Date().getFullYear() })} aria-valuemin="0" aria-valuemax="100" aria-valuenow={yearPercent}><span style={{ width: `${yearPercent}%` }} /></div>
-          <p>{money(yearCollected)} {t('support.of')} {money(annualTarget)}</p>
+          <div className="support-goal-label"><span>{t('support.yearRemaining', { year: timeline.year })}</span><strong>{yearPercent}%</strong></div>
+          <div className="support-track support-track-year" role="progressbar" aria-label={t('support.yearRemaining', { year: timeline.year })} aria-valuemin="0" aria-valuemax="100" aria-valuenow={yearPercent}><i style={{ width: `${timeline.elapsedPercent}%` }} /><span style={{ width: `${yearPercent}%` }} /></div>
+          <p>{t('support.collectedAll')}: {money(yearCollected)}</p>
+          <p>{t('support.needUntilYearEnd')}: {money(timeline.remainingAfterCollectedCents)}</p>
+          <small>{t('support.elapsed', { percent: timeline.elapsedPercent })}</small>
         </div>
       </div>
 

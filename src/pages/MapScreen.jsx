@@ -11,6 +11,7 @@ import CategoryIcon from '../components/CategoryIcon';
 import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import { mapMarkerIcons } from '../lib/mapMarkers';
 import { baseMap } from '../lib/basemap';
+import { matchesDiscoveryType } from '../lib/listingFilters';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -85,7 +86,7 @@ export default function MapScreen({ userId, onCreate }) {
   const filtered = useMemo(() => listings.filter((item) => {
     if (item.user_id === userId) return false;
     if (category !== 'all' && rootPath(item) !== category) return false;
-    if (type !== 'all' && item.type !== type) return false;
+    if (!matchesDiscoveryType(item, { query, type })) return false;
     if (query.trim() && !categorySearchText(item, categories).includes(normalizeSearch(query))) return false;
     if (distance !== 'all' && location) {
       const itemDistance = kmBetween(location, [Number(item.lat), Number(item.lng)]);
@@ -167,12 +168,13 @@ export default function MapScreen({ userId, onCreate }) {
             <div className="flex items-center gap-2"><button type="button" className="count-badge" onClick={() => setSheetOpen(true)}><strong>{filtered.length}</strong><span>{t('map.offers', { count: filtered.length }).replace(String(filtered.length), '').trim()}</span></button><button type="button" className="map-toolbar-toggle" onClick={() => setFiltersOpen(false)} aria-label={t('map.filters')}><Icon name="chevronUp" size={19} /></button></div>
           </div>
           <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('map.search')} aria-label={t('map.search')} />{query ? <button type="button" className="icon-button compact" onClick={() => setQuery('')} aria-label={t('map.resetFilters')}><Icon name="close" size={16} /></button> : null}<button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
+          {query.trim() ? <p className="search-scope-note"><Icon name="gift" size={14} />{t('map.searchGiveHint')}</p> : null}
           <div className="scroll-row mt-3 flex gap-2 overflow-x-auto pb-1">
             <button type="button" className={`chip ${category === 'all' ? 'chip-active' : ''}`} onClick={() => setCategory('all')}>{t('map.all')}</button>
             {roots.map((item) => <button key={item.id} type="button" className={`chip ${category === rootPath(item) ? 'chip-active' : ''}`} onClick={() => setCategory(rootPath(item))}><CategoryIcon category={item} size={17} />{categoryLabel(item, language)}</button>)}
           </div>
           <div className="scroll-row mt-2 flex gap-2 overflow-x-auto pb-1">
-            {['all', 'give', 'take'].map((value) => <button key={value} type="button" className={`chip chip-small ${type === value ? 'chip-active' : ''}`} onClick={() => setType(value)}>{value === 'all' ? null : <Icon name={value === 'give' ? 'gift' : 'search'} size={13} />}{value === 'all' ? t('map.all') : t(value === 'give' ? 'map.give' : 'map.take')}</button>)}
+            {['all', 'give', 'take'].map((value) => <button key={value} type="button" disabled={Boolean(query.trim())} className={`chip chip-small ${(query.trim() ? value === 'give' : type === value) ? 'chip-active' : ''}`} onClick={() => setType(value)}>{value === 'all' ? null : <Icon name={value === 'give' ? 'gift' : 'search'} size={13} />}{value === 'all' ? t('map.all') : t(value === 'give' ? 'map.give' : 'map.take')}</button>)}
             {distances.map((value) => <button key={value} type="button" className={`chip chip-small ${distance === value ? 'chip-active' : ''}`} onClick={() => { setDistance(value); if (value !== 'all' && !location) locate(); }}>{distanceLabel[value]}</button>)}
             <button type="button" className="chip chip-small" onClick={locate}><Icon name="location" size={14} />{t('map.nearby')}</button>
           </div>

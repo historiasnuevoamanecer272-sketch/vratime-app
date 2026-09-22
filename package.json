@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:quality",
-    "test:quality": "npm run lint && npm run test:docs && npm run test:i18n && npm run test:search && npm run test:contacts && npm run test:webhook && npm run test:migrations && npm run test:plan && npm run build && npm run test:static",
+    "test:quality": "npm run lint && npm run test:docs && npm run test:i18n && npm run test:search && npm run test:contacts && npm run test:webhook && npm run test:migrations && npm run test:plan && npm run test:plan-ui && npm run build && npm run test:static",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
@@ -24,6 +24,7 @@
     "test:webhook": "node --experimental-strip-types scripts/tribute-webhook-check.mjs",
     "test:migrations": "node scripts/migration-check.mjs",
     "test:plan": "node scripts/plan-features-check.mjs",
+    "test:plan-ui": "node scripts/plan-ui-logic-check.mjs",
     "test:production": "npm run build && node scripts/production-release-check.mjs"
   },
   "dependencies": {
