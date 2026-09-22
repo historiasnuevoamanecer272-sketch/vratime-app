@@ -8,7 +8,10 @@ const files = (await fs.readdir(migrationsDir)).filter((file) => file.endsWith('
 if (files.length < 6) throw new Error(`Expected at least 6 migrations, found ${files.length}`);
 if (JSON.stringify(files) !== JSON.stringify([...files].sort())) throw new Error('Migrations are not in timestamp order');
 
-const sources = new Map(await Promise.all(files.map(async (file) => [file, await fs.readFile(path.join(migrationsDir, file), 'utf8')])));
+const sources = new Map(await Promise.all(files.map(async (file) => [
+  file,
+  (await fs.readFile(path.join(migrationsDir, file), 'utf8')).replace(/\r\n/g, '\n'),
+])));
 for (const [file, source] of sources) {
   if (!/^\s*(?:--[^\n]*\n\s*)*begin;/i.test(source) || !/commit;\s*$/i.test(source)) throw new Error(`${file} is not transaction-wrapped`);
 }
