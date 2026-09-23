@@ -4,6 +4,8 @@ import { getDeadlineProgress, getDeadlineState } from '../src/lib/deadlines.js';
 import { LEVELS, getLevelProgress } from '../src/lib/levels.js';
 import { calculateFundingTimeline } from '../src/lib/fundingTimeline.js';
 import { hasVerifiedLocation } from '../src/lib/locationValidation.js';
+import { remainingQuantity } from '../src/lib/quantity.js';
+import { coarseCoordinates } from '../src/lib/locationPrivacy.js';
 
 assert.equal(matchesDiscoveryType({ type: 'give' }, { query: 'стекло', type: 'take' }), true);
 assert.equal(matchesDiscoveryType({ type: 'take' }, { query: 'стекло', type: 'all' }), false);
@@ -38,4 +40,10 @@ assert.equal(hasVerifiedLocation({ address: 'Igalo, Herceg Novi', verified: true
 assert.equal(hasVerifiedLocation({ address: 'Igalo', verified: false, position: [42.46, 18.51] }), false);
 assert.equal(hasVerifiedLocation({ address: 'Igalo', verified: true, position: [Number.NaN, 18.51] }), false);
 
-process.stdout.write('Plan UI logic passed: discovery, deadlines, five levels and daily funding.\n');
+assert.equal(remainingQuantity({ quantity: 8, available_quantity: 3 }), 3);
+assert.deepEqual(
+  coarseCoordinates(42.44123, 19.26387, 300),
+  coarseCoordinates(42.44111, 19.26372, 300),
+);
+
+process.stdout.write('Plan UI logic passed: discovery, deadlines, five levels, privacy, quantities and daily funding.\n');
