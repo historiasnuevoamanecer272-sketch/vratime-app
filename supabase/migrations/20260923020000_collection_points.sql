@@ -206,8 +206,8 @@ as $$
     p.location_label,
     p.status,
     coalesce(array_agg(distinct m.material_key) filter (where m.material_key is not null), '{}'::text[]),
-    coalesce(count(v.*) filter (where v.value = 'exists' and v.created_at >= now() - interval '180 days'), 0)::integer,
-    coalesce(count(v.*) filter (where v.value = 'missing' and v.created_at >= now() - interval '180 days'), 0)::integer,
+    coalesce(count(distinct v.user_id) filter (where v.value = 'exists' and v.created_at >= now() - interval '180 days'), 0)::integer,
+    coalesce(count(distinct v.user_id) filter (where v.value = 'missing' and v.created_at >= now() - interval '180 days'), 0)::integer,
     p.created_at
   from public.collection_points p
   left join public.collection_point_materials m on m.point_id = p.id

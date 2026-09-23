@@ -57,6 +57,7 @@ requireText(combined, "selected_point.created_by = auth.uid() then raise excepti
 requireText(combined, "created_at >= now() - interval '180 days'", 'collection point vote expiry');
 requireText(combined, 'get_collection_points()', 'public aggregate collection point RPC');
 requireText(combined, 'revoke all on public.collection_point_votes from public, anon', 'private collection point vote identities');
+requireText(combined, "count(distinct v.user_id) filter (where v.value = 'exists'", 'collection point confirmations count people, not joined materials');
 for (const signature of ['create_collection_point(text, double precision, double precision, text, text[], text)', 'vote_collection_point(uuid, text)', 'suggest_collection_point_edit(uuid, jsonb, text)', 'get_collection_points()']) {
   requireText(combined, `grant execute on function public.${signature} to authenticated`, `collection point RPC grant for ${signature}`);
 }
