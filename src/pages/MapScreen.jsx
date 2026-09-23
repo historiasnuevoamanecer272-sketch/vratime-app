@@ -54,6 +54,7 @@ export default function MapScreen({ userId, onCreate }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [bookingListing, setBookingListing] = useState(null);
+  const [bookingQuantity, setBookingQuantity] = useState(1);
   const [reportListing, setReportListing] = useState(null);
 
   const fetchData = useCallback(async () => {
@@ -113,10 +114,15 @@ export default function MapScreen({ userId, onCreate }) {
     );
   };
 
+  const openBooking = (item) => {
+    setBookingQuantity(1);
+    setBookingListing(item);
+  };
+
   const handleBook = async (item) => {
     setBookingId(item.id);
     try {
-      await bookListing(item.id);
+      await bookListing(item.id, Math.min(Number(item.quantity || 1), Math.max(1, Number(bookingQuantity) || 1)));
       showToast(t(item.type === 'take' ? 'map.bookedTake' : 'map.bookedGive'), 'success', { prominent: true });
       setBookingListing(null);
       setSelectedListing(null);
@@ -203,7 +209,7 @@ export default function MapScreen({ userId, onCreate }) {
           <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span><span><Icon name="calendar" size={13} />{new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short' }).format(new Date(selectedListing.created_at))}</span></div>
           <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>
           <p className="listing-dialog-note"><Icon name="message" size={16} />{requestedListingIds.has(selectedListing.id) ? t('map.requestedHint') : t('map.contactNote')}</p>
-          <button type="button" className={requestedListingIds.has(selectedListing.id) ? 'btn-secondary mt-5 w-full' : 'btn-primary mt-5 w-full'} disabled={bookingId === selectedListing.id || requestedListingIds.has(selectedListing.id)} onClick={() => setBookingListing(selectedListing)}><Icon name={requestedListingIds.has(selectedListing.id) ? 'check' : selectedListing.type === 'take' ? 'handover' : 'gift'} size={18} />{requestedListingIds.has(selectedListing.id) ? t('map.requested') : bookingId === selectedListing.id ? t('map.booking') : t(selectedListing.type === 'take' ? 'map.bookTake' : 'map.bookGive')}</button>
+          <button type="button" className={requestedListingIds.has(selectedListing.id) ? 'btn-secondary mt-5 w-full' : 'btn-primary mt-5 w-full'} disabled={bookingId === selectedListing.id || requestedListingIds.has(selectedListing.id)} onClick={() => openBooking(selectedListing)}><Icon name={requestedListingIds.has(selectedListing.id) ? 'check' : selectedListing.type === 'take' ? 'handover' : 'gift'} size={18} />{requestedListingIds.has(selectedListing.id) ? t('map.requested') : bookingId === selectedListing.id ? t('map.booking') : t(selectedListing.type === 'take' ? 'map.bookTake' : 'map.bookGive')}</button>
           <button type="button" className="btn-link mt-4 text-xs" onClick={() => setReportListing(selectedListing)}><Icon name="flag" size={15} />{t('workflow.reportListing')}</button>
         </section>
       </div> : null}
@@ -211,6 +217,7 @@ export default function MapScreen({ userId, onCreate }) {
       {bookingListing ? <div className="listing-dialog-backdrop" role="presentation" onMouseDown={() => !bookingId && setBookingListing(null)}>
         <section className="booking-confirm card" role="dialog" aria-modal="true" aria-label={t(bookingListing.type === 'take' ? 'map.confirmTakeTitle' : 'map.confirmGiveTitle')} onMouseDown={(event) => event.stopPropagation()}>
           <Icon name={bookingListing.type === 'take' ? 'handover' : 'gift'} size={30} /><h2 className="font-display mt-3 text-3xl text-forest">{t(bookingListing.type === 'take' ? 'map.confirmTakeTitle' : 'map.confirmGiveTitle')}</h2><p>{t(bookingListing.type === 'take' ? 'map.confirmTakeText' : 'map.confirmGiveText')}</p>
+          <label className="mt-4 block text-left"><span className="field-label">{t('map.quantity')}</span><input className="field" type="number" min="1" max={Math.max(1, Number(bookingListing.quantity || 1))} value={bookingQuantity} onChange={(event) => setBookingQuantity(Math.min(Math.max(1, Number(event.target.value) || 1), Math.max(1, Number(bookingListing.quantity || 1))))} /></label>
           <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" className="btn-secondary" disabled={Boolean(bookingId)} onClick={() => setBookingListing(null)}>{t('common.cancel')}</button><button type="button" className="btn-primary" disabled={Boolean(bookingId)} onClick={() => handleBook(bookingListing)}><Icon name={bookingListing.type === 'take' ? 'handover' : 'gift'} size={17} />{bookingId ? t('map.booking') : t(bookingListing.type === 'take' ? 'map.confirmTakeYes' : 'map.confirmGiveYes')}</button></div>
         </section>
       </div> : null}

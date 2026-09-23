@@ -69,6 +69,14 @@ requireText(combined, 'create or replace function public.set_listing_public_coor
 requireText(combined, "create policy listings_authenticated_read on public.listings for select to authenticated\n  using (user_id = auth.uid() or public.is_staff())", 'direct listing select limited to owner or staff');
 requireText(combined, 'grant execute on function public.get_public_map_listings() to anon, authenticated', 'public map listing RPC grant');
 requireText(combined, 'grant execute on function public.get_transaction_pickup_details(uuid) to authenticated', 'pickup details RPC grant');
+requireText(combined, 'alter table public.transactions add column if not exists requested_quantity', 'transaction requested quantity');
+requireText(combined, 'alter table public.transactions add column if not exists reserved_quantity', 'transaction reserved quantity');
+requireText(combined, 'drop index if exists public.transactions_one_accepted_per_listing', 'quantity-aware removal of single accepted listing index');
+requireText(combined, 'create or replace function public.restore_or_consume_reservation(target_transaction_id uuid, mode text)', 'idempotent reservation accounting');
+requireText(combined, 'create or replace function public.book_listing(target_listing_id uuid, requested_quantity integer default 1)', 'quantity-aware booking RPC');
+requireText(combined, 'selected_listing.available_quantity < selected_transaction.requested_quantity', 'oversell guard');
+requireText(combined, 'reserved_quantity = reserved_quantity + selected_transaction.requested_quantity', 'accepted quantity reserve increment');
+requireText(combined, 'grant execute on function public.book_listing(uuid, integer) to authenticated', 'quantity-aware booking grant');
 
 const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
 requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');

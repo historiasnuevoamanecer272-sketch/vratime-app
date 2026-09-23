@@ -7,7 +7,7 @@ const rpc = async (name, params = {}) => {
   return data;
 };
 
-export const bookListing = (listingId) => rpc('book_listing', { target_listing_id: listingId });
+export const bookListing = (listingId, requestedQuantity = 1) => rpc('book_listing', { target_listing_id: listingId, requested_quantity: Number(requestedQuantity) || 1 });
 export const acceptDeal = (transactionId) => rpc('accept_deal', { target_transaction_id: transactionId });
 export const cancelBooking = (transactionId) => rpc('cancel_booking', { target_transaction_id: transactionId });
 export const confirmHandover = (transactionId) => rpc('confirm_handover', { target_transaction_id: transactionId });

@@ -148,7 +148,7 @@ try {
   const invalidAddress = await clientA.from('listings').insert({ ...listingPayload('invalid-address'), location_label: null, location_verified_at: null });
   if (!invalidAddress.error) throw new Error('Listing without a verified address was accepted');
 
-  const raceListing = requireData(await clientA.from('listings').insert(listingPayload('race')).select('id').single(), 'create race listing');
+  const raceListing = requireData(await clientA.from('listings').insert({ ...listingPayload('race'), quantity: 1 }).select('id').single(), 'create race listing');
   const hiddenPending = requireData(await anonymous.from('listings').select('id').eq('id', raceListing.id), 'pending visibility probe');
   if (hiddenPending.length) throw new Error('Pending listing was visible anonymously');
   requireData(await clientC.rpc('moderate_listing', { target_listing_id: raceListing.id, decision: 'approved', reason: null }), 'approve race listing');
@@ -174,6 +174,19 @@ try {
   requireData(await clientA.rpc('deactivate_listing', { target_listing_id: raceListing.id }), 'deactivate owner listing');
   const deactivatedListing = requireData(await admin.from('listings').select('status').eq('id', raceListing.id).single(), 'read deactivated listing');
   if (deactivatedListing.status !== 'canceled') throw new Error('Owner listing was not deactivated');
+
+  const quantityListing = requireData(await clientA.from('listings').insert({ ...listingPayload('quantity'), quantity: 10 }).select('id').single(), 'create quantity listing');
+  requireData(await clientC.rpc('moderate_listing', { target_listing_id: quantityListing.id, decision: 'approved', reason: null }), 'approve quantity listing');
+  const requestSeven = requireData(await clientB.rpc('book_listing', { target_listing_id: quantityListing.id, requested_quantity: 7 }), 'request seven units');
+  const requestSix = requireData(await clientC.rpc('book_listing', { target_listing_id: quantityListing.id, requested_quantity: 6 }), 'request six units');
+  const quantityAccepts = await Promise.allSettled([
+    clientA.rpc('accept_deal', { target_transaction_id: requestSeven }),
+    clientA.rpc('accept_deal', { target_transaction_id: requestSix }),
+  ]);
+  const quantityAccepted = quantityAccepts.filter((entry) => entry.status === 'fulfilled' && !entry.value.error);
+  if (quantityAccepted.length !== 1) throw new Error(`Partial quantity race expected one accepted request, got ${quantityAccepted.length}`);
+  const reserved = requireData(await admin.from('listings').select('available_quantity,reserved_quantity').eq('id', quantityListing.id).single(), 'read quantity reservation');
+  if (reserved.available_quantity < 0 || reserved.reserved_quantity > 10) throw new Error('Oversold listing');
 
   const dealListing = requireData(await clientA.from('listings').insert({ ...listingPayload('deal'), image_url: admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl, quantity: 3 }).select('id').single(), 'create deal listing');
   requireData(await clientC.rpc('moderate_listing', { target_listing_id: dealListing.id, decision: 'approved', reason: null }), 'approve deal listing');
