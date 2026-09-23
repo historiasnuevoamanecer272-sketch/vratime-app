@@ -24,3 +24,4 @@
 - Check widths 360, 390, 768 and 1440 px; keyboard navigation; safe areas; reduced motion; location denied; offline/network errors; 5 MB photo limit.
 - Run `npm test`, `npm audit`, `npm run db:public`, `npm run db:test`, and `npm run db:e2e`; after deployment run `npm run test:production`.
 - Preview locally before pushing. Push/deploy only after explicit approval.
+- Do not run `npm run db:migrate` against an established database until `public.vratime_schema_migrations` has been explicitly baselined; the runner refuses an empty ledger with existing VratiMe tables.

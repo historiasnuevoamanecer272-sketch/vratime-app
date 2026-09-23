@@ -31,6 +31,20 @@ const createLedger = () => client.query(`
   )
 `);
 
+const assertSafeMigrationBaseline = async (appliedNames) => {
+  if (appliedNames.size) return;
+  const result = await client.query(`
+    select (
+      to_regclass('public.listings') is not null
+      or to_regclass('public.profiles') is not null
+      or to_regclass('public.categories') is not null
+    ) as has_vratime_tables
+  `);
+  if (result.rows[0]?.has_vratime_tables) {
+    throw new Error('Migration ledger is empty on a database that already contains VratiMe tables. Seed the ledger explicitly after verifying the existing schema; refusing to replay historical migrations.');
+  }
+};
+
 const check = async () => {
   const result = await client.query(`
     select
@@ -60,6 +74,7 @@ const applyAll = async () => {
   const files = await orderedMigrationFiles();
   const applied = await client.query('select filename from public.vratime_schema_migrations');
   const appliedNames = new Set(applied.rows.map((row) => row.filename));
+  await assertSafeMigrationBaseline(appliedNames);
   const pending = files.filter((file) => !appliedNames.has(file));
   if (!pending.length) {
     process.stdout.write(`No pending migrations. Ledger contains ${appliedNames.size} files.\n`);

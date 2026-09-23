@@ -127,6 +127,8 @@ const migrationRunner = await fs.readFile(migrationRunnerPath, 'utf8');
 requireText(migrationRunner, 'public.vratime_schema_migrations', 'ordered migration ledger');
 requireText(migrationRunner, "readdir(migrationsDir)", 'migration directory discovery');
 requireText(migrationRunner, "insert into public.vratime_schema_migrations", 'migration ledger write');
+requireText(migrationRunner, 'Migration ledger is empty on a database that already contains VratiMe tables', 'migration runner refuses unsafe legacy replay');
+requireText(migrationRunner, "to_regclass('public.listings')", 'migration runner detects an existing VratiMe schema');
 
 const multiContacts = sources.get('20260820233000_multi_messenger_contacts.sql') || '';
 requireText(multiContacts, 'primary key (user_id, messenger_type)', 'one protected contact per messenger');
