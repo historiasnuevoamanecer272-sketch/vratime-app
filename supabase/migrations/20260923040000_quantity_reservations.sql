@@ -122,7 +122,8 @@ security definer
 set search_path = public
 as $$ select public.book_listing(target_listing_id, 1); $$;
 
-create or replace function public.accept_deal(target_transaction_id uuid)
+drop function if exists public.accept_deal(uuid);
+create function public.accept_deal(target_transaction_id uuid)
 returns jsonb
 language plpgsql
 security definer

@@ -81,7 +81,7 @@ returns table (
   category_path text,
   description text,
   image_url text,
-  image_urls text[],
+  image_urls jsonb,
   quantity integer,
   available_quantity integer,
   condition text,
@@ -172,7 +172,7 @@ create or replace function public.update_my_listing(
   target_lng double precision,
   target_location_label text,
   target_image_url text,
-  target_image_urls text[],
+  target_image_urls jsonb,
   target_condition text,
   target_pickup_mode text,
   target_pickup_windows jsonb,
@@ -210,7 +210,7 @@ begin
     location_label = btrim(target_location_label),
     location_verified_at = now(),
     image_url = nullif(target_image_url, ''),
-    image_urls = coalesce(target_image_urls, '{}'::text[]),
+    image_urls = coalesce(target_image_urls, '[]'::jsonb),
     condition = target_condition,
     pickup_mode = target_pickup_mode,
     pickup_windows = coalesce(target_pickup_windows, '[]'::jsonb),
@@ -224,9 +224,9 @@ $$;
 
 revoke execute on function public.get_public_map_listings() from public;
 revoke execute on function public.get_transaction_pickup_details(uuid) from public, anon;
-revoke execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, text[], text, text, jsonb, numeric) from public, anon;
+revoke execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, jsonb, text, text, jsonb, numeric) from public, anon;
 grant execute on function public.get_public_map_listings() to anon, authenticated;
 grant execute on function public.get_transaction_pickup_details(uuid) to authenticated;
-grant execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, text[], text, text, jsonb, numeric) to authenticated;
+grant execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, jsonb, text, text, jsonb, numeric) to authenticated;
 
 commit;

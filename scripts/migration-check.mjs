@@ -4,6 +4,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const migrationsDir = path.join(root, 'supabase', 'migrations');
 const dailyDigestPath = path.join(root, 'supabase', 'functions', 'daily-digest', 'index.ts');
+const migrationRunnerPath = path.join(root, 'scripts', 'supabase-migrate.mjs');
 const files = (await fs.readdir(migrationsDir)).filter((file) => file.endsWith('.sql')).sort();
 
 if (files.length < 6) throw new Error(`Expected at least 6 migrations, found ${files.length}`);
@@ -64,6 +65,7 @@ for (const column of ['condition', 'pickup_mode', 'pickup_windows', 'public_lat'
   requireText(combined, `alter table public.listings add column if not exists ${column}`, `listing privacy metadata column ${column}`);
 }
 requireText(combined, 'create or replace function public.get_public_map_listings()', 'public map listings RPC');
+requireText(combined, 'image_urls jsonb,', 'public map preserves the JSON photo array contract');
 requireText(combined, 'create or replace function public.get_transaction_pickup_details(target_transaction_id uuid)', 'participant pickup details RPC');
 requireText(combined, 'create or replace function public.set_listing_public_coordinates()', 'server-computed public coordinates');
 requireText(combined, "create policy listings_authenticated_read on public.listings for select to authenticated\n  using (user_id = auth.uid() or public.is_staff())", 'direct listing select limited to owner or staff');
@@ -74,6 +76,7 @@ requireText(combined, 'alter table public.transactions add column if not exists 
 requireText(combined, 'drop index if exists public.transactions_one_accepted_per_listing', 'quantity-aware removal of single accepted listing index');
 requireText(combined, 'create or replace function public.restore_or_consume_reservation(target_transaction_id uuid, mode text)', 'idempotent reservation accounting');
 requireText(combined, 'create or replace function public.book_listing(target_listing_id uuid, requested_quantity integer default 1)', 'quantity-aware booking RPC');
+requireText(combined, 'drop function if exists public.accept_deal(uuid);', 'accept-deal return contract replacement');
 requireText(combined, 'selected_listing.available_quantity < selected_transaction.requested_quantity', 'oversell guard');
 requireText(combined, 'reserved_quantity = reserved_quantity + selected_transaction.requested_quantity', 'accepted quantity reserve increment');
 requireText(combined, 'grant execute on function public.book_listing(uuid, integer) to authenticated', 'quantity-aware booking grant');
@@ -109,6 +112,11 @@ requireText(dailyDigest, 'web_push_subscriptions?select=id,endpoint,p256dh,auth,
 requireText(dailyDigest, 'enabled=eq.true', 'digest push only enabled subscriptions');
 requireText(dailyDigest, "queue_handover_reminders", 'daily digest queues appointment reminders');
 requireText(dailyDigest, "queue_loan_return_reminders", 'daily digest queues loan return reminders');
+
+const migrationRunner = await fs.readFile(migrationRunnerPath, 'utf8');
+requireText(migrationRunner, 'public.vratime_schema_migrations', 'ordered migration ledger');
+requireText(migrationRunner, "readdir(migrationsDir)", 'migration directory discovery');
+requireText(migrationRunner, "insert into public.vratime_schema_migrations", 'migration ledger write');
 
 const multiContacts = sources.get('20260820233000_multi_messenger_contacts.sql') || '';
 requireText(multiContacts, 'primary key (user_id, messenger_type)', 'one protected contact per messenger');
