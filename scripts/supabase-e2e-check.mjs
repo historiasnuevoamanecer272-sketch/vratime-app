@@ -163,7 +163,10 @@ try {
   if (pendingHours < 47.9 || pendingHours > 48.1) throw new Error('Pending request deadline is not 48 hours');
   const accepts = await Promise.allSettled(raceTransactionIds.map((transactionId) => clientA.rpc('accept_deal', { target_transaction_id: transactionId })));
   const accepted = accepts.map((entry, index) => ({ entry, index })).filter(({ entry }) => entry.status === 'fulfilled' && !entry.value.error);
-  if (accepted.length !== 1) throw new Error(`Acceptance race expected one winner, got ${accepted.length}`);
+  if (accepted.length !== 1) {
+    const failures = accepts.map((entry) => entry.status === 'fulfilled' ? entry.value.error?.message || null : String(entry.reason));
+    throw new Error(`Acceptance race expected one winner, got ${accepted.length}: ${JSON.stringify(failures)}`);
+  }
   const raceTransactionId = raceTransactionIds[accepted[0].index];
   const acceptedDeal = requireData(await clientA.rpc('get_my_deals'), 'accepted deadline details').find((deal) => deal.transaction_id === raceTransactionId);
   const acceptedHours = (new Date(acceptedDeal.expires_at) - new Date(acceptedDeal.accepted_at)) / 3600000;

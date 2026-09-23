@@ -46,7 +46,7 @@ begin
   else
     update public.listings
     set reserved_quantity = greatest(0, reserved_quantity - selected_transaction.reserved_quantity),
-        status = case when coalesce(available_quantity, 0) <= 0 and greatest(0, reserved_quantity - selected_transaction.reserved_quantity) = 0 then 'completed' else 'active' end,
+        status = case when coalesce(available_quantity, 0) <= 0 and greatest(0, reserved_quantity - selected_transaction.reserved_quantity) = 0 then 'completed'::public.listing_status else 'active'::public.listing_status end,
         updated_at = now()
     where id = selected_transaction.listing_id;
   end if;
@@ -153,7 +153,7 @@ begin
   update public.listings
   set available_quantity = next_available,
       reserved_quantity = reserved_quantity + selected_transaction.requested_quantity,
-      status = case when next_available <= 0 then 'reserved' else 'active' end,
+      status = case when next_available <= 0 then 'reserved'::public.listing_status else 'active'::public.listing_status end,
       updated_at = now()
   where id = selected_listing.id;
   return jsonb_build_object('transaction_id', selected_transaction.id, 'available_quantity', next_available);

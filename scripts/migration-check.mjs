@@ -81,6 +81,8 @@ requireText(combined, 'selected_listing.available_quantity < selected_transactio
 requireText(combined, 'reserved_quantity = reserved_quantity + selected_transaction.requested_quantity', 'accepted quantity reserve increment');
 requireText(combined, 'grant execute on function public.book_listing(uuid, integer) to authenticated', 'quantity-aware booking grant');
 requireText(combined, 'drop function public.book_listing(uuid);', 'legacy one-argument booking overload removed');
+requireText(combined, "then 'reserved'::public.listing_status else 'active'::public.listing_status", 'reservation status keeps the listing enum type');
+requireText(combined, "then 'completed'::public.listing_status else 'active'::public.listing_status", 'reservation restoration keeps the listing enum type');
 requireText(combined, 'create table if not exists public.handover_appointments', 'handover appointments table');
 requireText(combined, 'alter table public.handover_appointments enable row level security', 'handover appointment RLS');
 requireText(combined, 'create or replace function public.schedule_handover', 'schedule handover RPC');

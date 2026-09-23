@@ -156,7 +156,7 @@ begin
   update public.listings
   set available_quantity = next_available,
       reserved_quantity = reserved_quantity + selected_transaction.requested_quantity,
-      status = case when next_available <= 0 then 'reserved' else 'active' end,
+      status = case when next_available <= 0 then 'reserved'::public.listing_status else 'active'::public.listing_status end,
       updated_at = now()
   where id = selected_listing.id;
   return jsonb_build_object('transaction_id', selected_transaction.id, 'available_quantity', next_available);
@@ -254,7 +254,7 @@ begin
   where id = selected_transaction.id returning * into updated_transaction;
   if updated_transaction.giver_confirmed_at is not null and updated_transaction.taker_confirmed_at is not null then
     update public.transactions set handed_over_at = now(), reserved_quantity = 0 where id = updated_transaction.id;
-    update public.listings set reserved_quantity = greatest(0, reserved_quantity - updated_transaction.reserved_quantity), status = case when available_quantity > 0 then 'active' else 'reserved' end, updated_at = now() where id = selected_listing.id;
+    update public.listings set reserved_quantity = greatest(0, reserved_quantity - updated_transaction.reserved_quantity), status = case when available_quantity > 0 then 'active'::public.listing_status else 'reserved'::public.listing_status end, updated_at = now() where id = selected_listing.id;
     return jsonb_build_object('transaction_id', updated_transaction.id, 'handed_over', true, 'return_due_at', updated_transaction.return_due_at);
   end if;
   return jsonb_build_object('transaction_id', updated_transaction.id, 'handed_over', false);
@@ -368,7 +368,7 @@ begin
     condition = target_condition, pickup_mode = target_pickup_mode, pickup_windows = coalesce(target_pickup_windows, '[]'::jsonb),
     weight_kg = target_weight_kg, loan_duration_days = case when type = 'lend' then target_loan_duration_days else null end,
     moderation_status = 'pending', moderation_reason = null, moderated_by = null, moderated_at = null,
-    status = case when status = 'canceled' then 'active' else status end, updated_at = now()
+    status = case when status = 'canceled' then 'active'::public.listing_status else status end, updated_at = now()
   where id = target_listing_id;
 end;
 $$;
