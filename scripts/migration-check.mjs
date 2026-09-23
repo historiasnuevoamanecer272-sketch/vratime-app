@@ -31,6 +31,9 @@ for (const table of ['saved_searches', 'listing_favourites', 'user_inbox', 'dige
 for (const table of ['search_history', 'listing_matches', 'web_push_subscriptions']) {
   requireText(combined, `alter table public.${table} enable row level security`, `RLS for ${table}`);
 }
+for (const table of ['collection_points', 'collection_point_materials', 'collection_point_votes', 'collection_point_edits']) {
+  requireText(combined, `alter table public.${table} enable row level security`, `RLS for ${table}`);
+}
 requireText(combined, 'revoke all on public.profiles from anon', 'anonymous profile access revoked');
 requireText(combined, 'revoke all on public.profile_contacts from anon', 'anonymous contact access revoked');
 requireText(combined, 'with check (user_id = auth.uid() and status = \'active\')', 'listing ownership check');
@@ -49,6 +52,14 @@ requireText(combined, 'create policy user_inbox_owner_read on public.user_inbox'
 for (const signature of ['save_search(text, jsonb, boolean)', 'toggle_listing_favourite(uuid)', 'record_search_history(text)', 'get_my_discovery_feed()', 'mark_inbox_item_read(uuid)']) {
   requireText(combined, `grant execute on function public.${signature} to authenticated`, `discovery RPC grant for ${signature}`);
 }
+requireText(combined, "selected_point.created_by = auth.uid() then raise exception 'Point owner cannot vote'", 'collection point self-vote guard');
+requireText(combined, "created_at >= now() - interval '180 days'", 'collection point vote expiry');
+requireText(combined, 'get_collection_points()', 'public aggregate collection point RPC');
+requireText(combined, 'revoke all on public.collection_point_votes from public, anon', 'private collection point vote identities');
+for (const signature of ['create_collection_point(text, double precision, double precision, text, text[], text)', 'vote_collection_point(uuid, text)', 'suggest_collection_point_edit(uuid, jsonb, text)', 'get_collection_points()']) {
+  requireText(combined, `grant execute on function public.${signature} to authenticated`, `collection point RPC grant for ${signature}`);
+}
+requireText(combined, 'grant execute on function public.get_collection_points() to anon', 'anonymous aggregate collection point read');
 
 const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
 requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');

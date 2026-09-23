@@ -3,6 +3,7 @@ import { remainingQuantity } from '../src/lib/quantity.js';
 import { coarseCoordinates } from '../src/lib/locationPrivacy.js';
 import { pointStatus } from '../src/lib/collectionPoints.js';
 import { isDigestDue } from '../src/lib/digest.js';
+import { collectionPointTypeKeys, collectionPointTypeLabel } from '../src/lib/collectionPointTypes.js';
 
 const firstPrivatePoint = coarseCoordinates(42.44123, 19.26387, 300);
 const secondPrivatePoint = coarseCoordinates(42.44111, 19.26372, 300);
@@ -36,4 +37,8 @@ assert.equal(isDigestDue({ last_digest_at: null }, '2026-09-23T10:00:00Z'), true
 assert.equal(isDigestDue({ last_digest_at: '2026-09-22T23:59:00Z' }, '2026-09-23T00:01:00Z'), true);
 assert.equal(isDigestDue({ last_digest_at: '2026-09-23T00:01:00Z' }, '2026-09-23T23:59:00Z'), false);
 
-process.stdout.write('Discovery-service contracts passed: privacy, quantities, point votes and daily digest.\n');
+assert.deepEqual(collectionPointTypeKeys, ['glass', 'paper', 'textile', 'packaging', 'plastic', 'metal', 'electronics', 'batteries', 'mixed']);
+assert.equal(collectionPointTypeLabel('glass', 'en'), 'Glass');
+assert.equal(collectionPointTypeLabel('unknown', 'ru'), 'unknown');
+
+process.stdout.write('Discovery-service contracts passed: privacy, quantities, point votes, daily digest and collection point types.\n');

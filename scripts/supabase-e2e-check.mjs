@@ -40,7 +40,7 @@ const signIn = async (email, password) => {
 
 const counts = async () => {
   const result = {};
-  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback', 'saved_searches', 'search_history', 'listing_favourites', 'listing_matches', 'user_inbox', 'digest_deliveries', 'web_push_subscriptions']) {
+  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback', 'saved_searches', 'search_history', 'listing_favourites', 'listing_matches', 'user_inbox', 'digest_deliveries', 'web_push_subscriptions', 'collection_points', 'collection_point_materials', 'collection_point_votes', 'collection_point_edits']) {
     const response = await admin.from(table).select('*', { count: 'exact', head: true });
     if (response.error) throw response.error;
     result[table] = response.count;
@@ -62,6 +62,15 @@ const cleanup = async () => {
     await admin.from('search_history').delete().in('user_id', ids);
     await admin.from('saved_searches').delete().in('user_id', ids);
     await admin.from('web_push_subscriptions').delete().in('user_id', ids);
+    await admin.from('collection_point_edits').delete().in('user_id', ids);
+    await admin.from('collection_point_votes').delete().in('user_id', ids);
+    const pointRows = await admin.from('collection_points').select('id').in('created_by', ids);
+    if (pointRows.error) throw pointRows.error;
+    const pointIds = (pointRows.data || []).map((point) => point.id);
+    if (pointIds.length) {
+      await admin.from('collection_point_materials').delete().in('point_id', pointIds);
+      await admin.from('collection_points').delete().in('id', pointIds);
+    }
     await admin.from('reputation_penalties').delete().in('user_id', ids);
     await admin.from('reports').delete().in('reporter_id', ids);
     await admin.from('user_feedback').delete().in('user_id', ids);
@@ -212,6 +221,44 @@ try {
   if (outsiderContacts.length) throw new Error('Outsider read another profile contact');
   const outsiderTransactions = requireData(await clientE.from('transactions').select('id').eq('id', transactionId), 'outsider transaction probe');
   if (outsiderTransactions.length) throw new Error('Outsider read another transaction');
+
+  const pointId = requireData(await clientA.rpc('create_collection_point', {
+    point_name: 'E2E glass collection point',
+    point_lat: 42.441,
+    point_lng: 19.263,
+    point_location_label: 'E2E Podgorica collection point',
+    material_keys: ['glass', 'paper'],
+    point_description: 'Public recycling point for E2E',
+  }), 'create collection point');
+  const selfVote = await clientA.rpc('vote_collection_point', { target_point_id: pointId, vote_value: 'exists' });
+  if (!selfVote.error) throw new Error('Point owner was allowed to vote');
+  requireData(await clientB.rpc('vote_collection_point', { target_point_id: pointId, vote_value: 'exists' }), 'first collection point confirmation');
+  requireData(await clientC.rpc('vote_collection_point', { target_point_id: pointId, vote_value: 'exists' }), 'second collection point confirmation');
+  const verifiedStatus = requireData(await clientD.rpc('vote_collection_point', { target_point_id: pointId, vote_value: 'exists' }), 'third collection point confirmation');
+  if (verifiedStatus !== 'verified') throw new Error('Three independent votes did not verify the collection point');
+  const aggregatePoints = requireData(await anonymous.rpc('get_collection_points'), 'anonymous collection point aggregate');
+  const aggregatePoint = aggregatePoints.find((point) => point.id === pointId);
+  if (!aggregatePoint || aggregatePoint.status !== 'verified' || aggregatePoint.exists_votes !== 3 || 'user_id' in aggregatePoint || 'created_by' in aggregatePoint) {
+    throw new Error('Collection point aggregate did not hide voter identities or expose the expected status');
+  }
+  const directVoteProbe = await anonymous.from('collection_point_votes').select('*').eq('point_id', pointId);
+  if (!directVoteProbe.error) throw new Error('Anonymous user read collection point vote identities');
+  requireData(await clientB.rpc('vote_collection_point', { target_point_id: pointId, vote_value: 'missing' }), 'first collection point missing vote');
+  const unverifiedStatus = requireData(await clientC.rpc('vote_collection_point', { target_point_id: pointId, vote_value: 'missing' }), 'second collection point missing vote');
+  if (unverifiedStatus !== 'unverified') throw new Error('Two missing votes did not unverify the collection point');
+  const stalePointId = requireData(await clientA.rpc('create_collection_point', {
+    point_name: 'E2E stale collection point',
+    point_lat: 42.442,
+    point_lng: 19.264,
+    point_location_label: 'E2E stale collection point',
+    material_keys: ['glass'],
+    point_description: null,
+  }), 'create stale collection point');
+  await Promise.all([clientB, clientC, clientD].map((client) => client.rpc('vote_collection_point', { target_point_id: stalePointId, vote_value: 'exists' }).then((result) => requireData(result, 'stale point confirmation'))));
+  requireData(await admin.from('collection_point_votes').update({ created_at: '2026-01-01T00:00:00Z' }).eq('point_id', stalePointId), 'age collection point votes');
+  requireData(await admin.rpc('refresh_expired_collection_point_votes'), 'refresh stale collection point votes');
+  const staleAggregate = requireData(await anonymous.rpc('get_collection_points'), 'anonymous stale collection point aggregate').find((point) => point.id === stalePointId);
+  if (!staleAggregate || staleAggregate.status !== 'unverified' || staleAggregate.exists_votes !== 0) throw new Error('Expired collection point votes still affected public status');
 
   requireData(await clientA.rpc('accept_deal', { target_transaction_id: transactionId }), 'accept deal');
   const firstConfirmation = requireData(await clientA.rpc('confirm_handover', { target_transaction_id: transactionId }), 'giver confirmation');
