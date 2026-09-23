@@ -14,6 +14,13 @@ export const confirmHandover = (transactionId) => rpc('confirm_handover', { targ
 export const confirmLoanHandover = (transactionId) => rpc('confirm_loan_handover', { target_transaction_id: transactionId });
 export const confirmLoanReturn = (transactionId) => rpc('confirm_loan_return', { target_transaction_id: transactionId });
 export const getImpactTotals = () => rpc('get_impact_totals');
+export const getMyDiscoveryFeed = () => rpc('get_my_discovery_feed');
+export const saveSearch = (query, filters = {}, notifyDaily = true) => rpc('save_search', { search_query: query, search_filters: filters, wants_daily_digest: notifyDaily });
+export const toggleListingFavourite = (listingId) => rpc('toggle_listing_favourite', { target_listing_id: listingId });
+export const markInboxItemRead = (inboxId) => rpc('mark_inbox_item_read', { target_inbox_id: inboxId });
+export const getCollectionPoints = () => rpc('get_collection_points');
+export const createCollectionPoint = ({ name, lat, lng, locationLabel, materials, description = null }) => rpc('create_collection_point', { point_name: name, point_lat: Number(lat), point_lng: Number(lng), point_location_label: locationLabel, material_keys: materials, point_description: description });
+export const voteCollectionPoint = (pointId, value) => rpc('vote_collection_point', { target_point_id: pointId, vote_value: value });
 export const submitReview = (transactionId, rating) => rpc('submit_review', { target_transaction_id: transactionId, target_rating: rating });
 export const deactivateListing = (listingId) => rpc('deactivate_listing', { target_listing_id: listingId });
 export const updateMyListing = (listing) => rpc('update_my_listing', {

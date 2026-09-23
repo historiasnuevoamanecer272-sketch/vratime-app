@@ -10,6 +10,14 @@ const flatten = (value, prefix = '', output = new Map()) => {
 };
 
 const reference = flatten(resources.ru.translation);
+for (const key of [
+  'discovery.savedSearches', 'discovery.favourite', 'discovery.saveSearch', 'discovery.inbox',
+  'points.title', 'points.unverified', 'points.verified', 'points.exists', 'points.missing', 'points.add',
+  'lending.returnDue', 'lending.confirmHandover', 'lending.confirmReturn', 'lending.returned',
+  'impact.title', 'impact.personalItems', 'impact.communityItems', 'impact.noCo2',
+]) {
+  if (!reference.has(key)) throw new Error(`ru: missing required key ${key}`);
+}
 for (const language of ['me', 'en']) {
   const candidate = flatten(resources[language].translation);
   const missing = [...reference.keys()].filter((key) => !candidate.has(key));

@@ -287,6 +287,19 @@ const paths = {
       <path d="M5 5c5-3 8 3 14 0v9c-6 3-9-3-14 0" />
     </>
   ),
+  bell: (
+    <>
+      <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+      <path d="M10 21h4" />
+    </>
+  ),
+  bookmark: <path d="M6 3h12v18l-6-4-6 4z" />,
+  collection: (
+    <>
+      <path d="M12 21s7-5.4 7-12a7 7 0 0 0-14 0c0 6.6 7 12 7 12z" />
+      <path d="M8 10h8M8 13h8M10 7v6M14 7v6" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 22, className = '', strokeWidth = 2, filled = false }) {
