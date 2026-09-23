@@ -40,6 +40,9 @@ export const setMyAvatar = (avatarUrl) => rpc('set_my_avatar', { next_avatar_url
 export const getMyDeals = () => rpc('get_my_deals');
 export const getPublicMapListings = () => rpc('get_public_map_listings');
 export const getTransactionPickupDetails = (transactionId) => rpc('get_transaction_pickup_details', { target_transaction_id: transactionId });
+export const scheduleHandover = (transactionId, scheduledFor, note = null) => rpc('schedule_handover', { target_transaction_id: transactionId, scheduled_for: scheduledFor, note });
+export const setHandoverOutcome = (appointmentId, outcome) => rpc('set_handover_outcome', { target_appointment_id: appointmentId, outcome });
+export const getMyReliability = () => rpc('get_my_reliability');
 export const refreshExpiredDeals = () => rpc('refresh_expired_deals');
 export const getEcoLeaderboard = (limit = 20) => rpc('get_eco_leaderboard', { limit_count: limit });
 export const getFundingProgress = async () => {

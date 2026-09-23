@@ -41,6 +41,15 @@ const patchJson = async (url: string, serviceRoleKey: string, path: string, body
   if (!response.ok) throw new Error(`Database update failed: ${path} ${response.status}`);
 };
 
+const callRpc = async (url: string, serviceRoleKey: string, name: string, body: unknown = {}) => {
+  const response = await fetch(`${url}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: restHeaders(serviceRoleKey),
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`RPC failed: ${name} ${response.status}`);
+};
+
 const isValidSubscription = (subscription: Record<string, unknown>) => (
   subscription.enabled === true
   && typeof subscription.endpoint === 'string'
@@ -62,6 +71,7 @@ Deno.serve(async (request) => {
 
   const digestDate = utcDateKey();
   try {
+    await callRpc(supabaseUrl, serviceRoleKey, 'queue_handover_reminders');
     const searches = await selectJson(
       supabaseUrl,
       serviceRoleKey,

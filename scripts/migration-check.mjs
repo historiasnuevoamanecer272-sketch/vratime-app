@@ -77,6 +77,16 @@ requireText(combined, 'create or replace function public.book_listing(target_lis
 requireText(combined, 'selected_listing.available_quantity < selected_transaction.requested_quantity', 'oversell guard');
 requireText(combined, 'reserved_quantity = reserved_quantity + selected_transaction.requested_quantity', 'accepted quantity reserve increment');
 requireText(combined, 'grant execute on function public.book_listing(uuid, integer) to authenticated', 'quantity-aware booking grant');
+requireText(combined, 'create table if not exists public.handover_appointments', 'handover appointments table');
+requireText(combined, 'alter table public.handover_appointments enable row level security', 'handover appointment RLS');
+requireText(combined, 'create or replace function public.schedule_handover', 'schedule handover RPC');
+requireText(combined, 'create or replace function public.set_handover_outcome', 'handover outcome RPC');
+requireText(combined, 'create or replace function public.get_my_reliability()', 'reliability RPC');
+requireText(combined, "where scheduled_for between now() + interval '2 hours 55 minutes' and now() + interval '3 hours 5 minutes'\n    and reminder_3h_sent_at is null", '3h appointment reminder selection');
+requireText(combined, "where scheduled_for between now() + interval '25 minutes' and now() + interval '35 minutes'\n    and reminder_30m_sent_at is null", '30m appointment reminder selection');
+requireText(combined, 'grant execute on function public.schedule_handover(uuid, timestamptz, text) to authenticated', 'schedule handover grant');
+requireText(combined, 'grant execute on function public.set_handover_outcome(uuid, text) to authenticated', 'handover outcome grant');
+requireText(combined, 'grant execute on function public.get_my_reliability() to authenticated', 'reliability grant');
 
 const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
 requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');
@@ -85,6 +95,7 @@ requireText(dailyDigest, 'user_inbox?on_conflict=user_id,idempotency_key', 'dige
 requireText(dailyDigest, 'digest_deliveries?on_conflict=user_id,digest_date', 'daily delivery idempotency');
 requireText(dailyDigest, 'web_push_subscriptions?select=id,endpoint,p256dh,auth,enabled', 'digest opt-in push subscription read');
 requireText(dailyDigest, 'enabled=eq.true', 'digest push only enabled subscriptions');
+requireText(dailyDigest, "queue_handover_reminders", 'daily digest queues appointment reminders');
 
 const multiContacts = sources.get('20260820233000_multi_messenger_contacts.sql') || '';
 requireText(multiContacts, 'primary key (user_id, messenger_type)', 'one protected contact per messenger');

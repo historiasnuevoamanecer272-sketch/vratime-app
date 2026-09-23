@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { createFeedback, deactivateListing, getEcoLeaderboard, getMyDeals, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
+import { createFeedback, deactivateListing, getEcoLeaderboard, getMyDeals, getMyReliability, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contacts';
@@ -30,6 +30,7 @@ export default function Profile({ userId, onEditListing }) {
   const [reviews, setReviews] = useState(cached?.reviews || []);
   const [leaderboard, setLeaderboard] = useState(cached?.leaderboard || []);
   const [feedbackHistory, setFeedbackHistory] = useState(cached?.feedbackHistory || []);
+  const [reliability, setReliability] = useState(cached?.reliability || null);
   const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
@@ -45,7 +46,7 @@ export default function Profile({ userId, onEditListing }) {
     if (profileCache?.userId !== userId) setLoading(true);
     setError('');
     if (!userId) return setLoading(false);
-    const [profileResult, contactResult, dealResult, listingResult, reviewResult, leaderboardResult, feedbackResult] = await Promise.all([
+    const [profileResult, contactResult, dealResult, listingResult, reviewResult, leaderboardResult, feedbackResult, reliabilityResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
       supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId),
       getMyDeals().then((data) => ({ data })).catch((error) => ({ error })),
@@ -53,6 +54,7 @@ export default function Profile({ userId, onEditListing }) {
       supabase.from('reviews').select('id, rating, created_at, from_user:profiles!reviews_from_user_id_fkey(full_name)').eq('to_user_id', userId).order('created_at', { ascending: false }).limit(5),
       getEcoLeaderboard(20).then((data) => ({ data })).catch((error) => ({ error })),
       supabase.from('user_feedback').select('id, feedback_type, message, status, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
+      getMyReliability().then((data) => ({ data })).catch(() => ({ data: null })),
     ]);
     const firstError = profileResult.error || contactResult.error || dealResult.error || listingResult.error || reviewResult.error || leaderboardResult.error || feedbackResult.error;
     if (firstError) {
@@ -60,9 +62,9 @@ export default function Profile({ userId, onEditListing }) {
       setLoading(false);
       return;
     }
-    const nextData = { userId, profile: profileResult.data || null, contacts: contactsToMap(contactResult.data || []), deals: dealResult.data || [], listings: listingResult.data || [], reviews: reviewResult.data || [], leaderboard: leaderboardResult.data || [], feedbackHistory: feedbackResult.data || [] };
+    const nextData = { userId, profile: profileResult.data || null, contacts: contactsToMap(contactResult.data || []), deals: dealResult.data || [], listings: listingResult.data || [], reviews: reviewResult.data || [], leaderboard: leaderboardResult.data || [], feedbackHistory: feedbackResult.data || [], reliability: reliabilityResult?.data || null };
     if (profileResult.data) profileCache = nextData;
-    setProfile(nextData.profile); setDeals(nextData.deals); setListings(nextData.listings); setReviews(nextData.reviews); setLeaderboard(nextData.leaderboard); setFeedbackHistory(nextData.feedbackHistory);
+    setProfile(nextData.profile); setDeals(nextData.deals); setListings(nextData.listings); setReviews(nextData.reviews); setLeaderboard(nextData.leaderboard); setFeedbackHistory(nextData.feedbackHistory); setReliability(nextData.reliability);
     if (profileResult.data) {
       const nextLanguage = profileResult.data.preferred_language || profileResult.data.language || language;
       setForm({ full_name: profileResult.data.full_name || '', language: nextLanguage, contacts: nextData.contacts, ranking_opt_in: profileResult.data.ranking_opt_in ?? true });
@@ -209,6 +211,8 @@ export default function Profile({ userId, onEditListing }) {
         <section className="impact-grid mt-4"><div className="impact-card"><span><Icon name="deals" size={21} /></span><strong>{completedDeals.length}</strong><small>{t('profile.deals')}</small></div><div className="impact-card"><span><Icon name="leaf" size={21} /></span><strong>{itemCount}</strong><small>{t('profile.items')}</small></div></section>
 
         <section className="card mt-4 p-5"><div className="flex items-center justify-between"><div><p className="eyebrow text-sea">{t('profile.level')}</p><h2 className="font-display mt-1 text-2xl text-forest">{levels[levelIndex]}</h2></div><span className="level-emblem" style={{ '--level-progress': `${levelProgress}%` }}><img src={logo} alt="" /><b>{levelIndex + 1}</b></span></div><div className="level-track mt-5"><span style={{ width: `${levelProgress}%` }} /></div><div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs font-semibold text-muted">{nextThreshold ? t('profile.nextLevel', { count: levelState.remaining }) : t('profile.maxLevel')}</p><button type="button" className="btn-link text-xs" onClick={() => setLevelsOpen(true)}>{t('profile.allLevels')}</button></div><div className="level-medals-preview mt-4">{levelMedals.map((medal, index) => <span key={medal.id} className={`level-medal ${medal.unlocked ? 'unlocked' : ''}`} title={`${medal.label} · ${medal.threshold}`}><Icon name={medal.icon} size={18} /><b>{index + 1}</b></span>)}</div></section>
+
+        <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">Надёжность</h2></div><Icon name="handshake" size={24} /></div><div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="impact-card"><strong>{reliability?.completed_count ?? 0}</strong><small>завершено</small></div><div className="impact-card"><strong>{reliability?.accepted_cancellations ?? 0}</strong><small>отмены</small></div><div className="impact-card"><strong>{reliability?.confirmed_no_shows_90d ?? 0}</strong><small>no-show 90д</small></div></div><p className="mt-3 text-xs font-semibold text-muted">No-show не снижает рейтинг автоматически. Он становится сигналом только после подтверждения или решения модератора.</p></section>
 
         <SupportFund />
 

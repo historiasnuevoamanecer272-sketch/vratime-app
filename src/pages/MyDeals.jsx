@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { acceptDeal, cancelBooking, confirmHandover, getMyDeals, submitReview } from '../lib/api';
+import { supabase } from '../supabaseClient';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
 import { contactHref } from '../lib/contacts';
@@ -11,6 +12,7 @@ import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import completedHandover from '../assets/visuals/v1/deal-complete-v1.webp';
 import DeadlineCountdown from '../components/DeadlineCountdown';
 import ReportDialog from '../components/ReportDialog';
+import AppointmentCard from '../components/AppointmentCard';
 
 const statusIcons = {
   pending: 'clock',
@@ -25,6 +27,7 @@ export default function MyDeals() {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const [deals, setDeals] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [role, setRole] = useState('giver');
   const [view, setView] = useState('active');
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,8 @@ export default function MyDeals() {
     try {
       const nextDeals = await getMyDeals() || [];
       setDeals(nextDeals);
+      const appointmentResult = await supabase.from('handover_appointments').select('*').order('scheduled_for', { ascending: true });
+      if (!appointmentResult.error) setAppointments(appointmentResult.data || []);
       if (!didChooseInitialRole.current) {
         const hasGiverDeals = nextDeals.some((deal) => deal.role === 'giver');
         const hasTakerDeals = nextDeals.some((deal) => deal.role === 'taker');
@@ -96,6 +101,7 @@ export default function MyDeals() {
   const statusOf = (deal) => deal.canceled_at ? 'canceled' : deal.completed_at ? 'completed' : deal.status || 'reserved';
   const contactsOf = (deal) => Array.isArray(deal.contacts) && deal.contacts.length ? deal.contacts : deal.contact_value ? [{ messenger_type: deal.messenger_type, contact_value: deal.contact_value, contact_href: deal.contact_href }] : [];
   const hasConfirmed = (deal) => deal.role === 'giver' ? Boolean(deal.giver_confirmed_at) : Boolean(deal.taker_confirmed_at);
+  const appointmentOf = (deal) => appointments.find((appointment) => appointment.transaction_id === deal.transaction_id);
 
   return (
     <div className="app-screen min-h-screen pb-28 pt-safe">
@@ -124,6 +130,7 @@ export default function MyDeals() {
               {deal.expires_at && !deal.completed_at && !deal.canceled_at ? <DeadlineCountdown startedAt={deal.accepted_at || deal.created_at} expiresAt={deal.expires_at} /> : null}
 
               {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="message" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done reserved' : ''}><span><Icon name="clock" size={12} /></span>{t('deals.flowAccepted')}</li><li className={deal.completed_at ? 'done completed' : ''}><span><Icon name="handshake" size={12} /></span>{t('deals.flowHandover')}</li></ol> : null}
+              <AppointmentCard deal={deal} appointment={appointmentOf(deal)} onChanged={loadDeals} />
 
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {!deal.accepted_at && deal.is_listing_owner ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'accept')}><Icon name="check" size={17} />{working ? t('deals.accepting') : t('deals.accept')}</button> : null}

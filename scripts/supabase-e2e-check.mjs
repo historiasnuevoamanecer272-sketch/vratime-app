@@ -40,7 +40,7 @@ const signIn = async (email, password) => {
 
 const counts = async () => {
   const result = {};
-  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback', 'saved_searches', 'search_history', 'listing_favourites', 'listing_matches', 'user_inbox', 'digest_deliveries', 'web_push_subscriptions', 'collection_points', 'collection_point_materials', 'collection_point_votes', 'collection_point_edits']) {
+  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback', 'saved_searches', 'search_history', 'listing_favourites', 'listing_matches', 'user_inbox', 'digest_deliveries', 'web_push_subscriptions', 'collection_points', 'collection_point_materials', 'collection_point_votes', 'collection_point_edits', 'handover_appointments']) {
     const response = await admin.from(table).select('*', { count: 'exact', head: true });
     if (response.error) throw response.error;
     result[table] = response.count;
@@ -64,6 +64,7 @@ const cleanup = async () => {
     await admin.from('web_push_subscriptions').delete().in('user_id', ids);
     await admin.from('collection_point_edits').delete().in('user_id', ids);
     await admin.from('collection_point_votes').delete().in('user_id', ids);
+    await admin.from('handover_appointments').delete().in('created_by', ids);
     const pointRows = await admin.from('collection_points').select('id').in('created_by', ids);
     if (pointRows.error) throw pointRows.error;
     const pointIds = (pointRows.data || []).map((point) => point.id);
@@ -284,6 +285,14 @@ try {
   if (!participantPickup || Number(participantPickup.lat) !== 42.441 || Number(participantPickup.lng) !== 19.263) throw new Error('Participant could not retrieve accepted pickup details');
   const outsiderPickup = requireData(await clientD.rpc('get_transaction_pickup_details', { target_transaction_id: transactionId }), 'outsider pickup details probe');
   if (outsiderPickup.length) throw new Error('Outsider retrieved pickup details');
+  const futureTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const outsiderSchedule = await clientD.rpc('schedule_handover', { target_transaction_id: transactionId, scheduled_for: futureTime, note: 'outsider' });
+  if (!outsiderSchedule.error) throw new Error('Outsider scheduled another deal');
+  const appointmentId = requireData(await clientB.rpc('schedule_handover', { target_transaction_id: transactionId, scheduled_for: futureTime, note: 'E2E appointment' }), 'schedule handover');
+  const oneSidedNoShow = requireData(await clientB.rpc('set_handover_outcome', { target_appointment_id: appointmentId, outcome: 'no_show' }), 'one-sided no-show');
+  if (oneSidedNoShow !== 'no_show_reported') throw new Error('One-sided no-show was not recorded neutrally');
+  const reliabilityBeforePenalty = requireData(await clientB.rpc('get_my_reliability'), 'read reliability before report penalty');
+  if (Number(reliabilityBeforePenalty.confirmed_no_shows_90d) !== 0) throw new Error('One-sided no-show affected reliability automatically');
   const firstConfirmation = requireData(await clientA.rpc('confirm_handover', { target_transaction_id: transactionId }), 'giver confirmation');
   if (firstConfirmation.completed) throw new Error('One-sided confirmation completed the deal');
   const completion = requireData(await clientB.rpc('confirm_handover', { target_transaction_id: transactionId }), 'taker confirmation');
