@@ -340,7 +340,7 @@ $$;
 create or replace function public.update_my_listing(
   target_listing_id uuid, target_category_id bigint, target_category text, target_category_path text,
   target_description text, target_quantity integer, target_lat double precision, target_lng double precision,
-  target_location_label text, target_image_url text, target_image_urls text[], target_condition text,
+  target_location_label text, target_image_url text, target_image_urls jsonb, target_condition text,
   target_pickup_mode text, target_pickup_windows jsonb, target_weight_kg numeric default null,
   target_loan_duration_days integer default null
 )
@@ -364,7 +364,7 @@ begin
     description = nullif(btrim(coalesce(target_description, '')), ''), quantity = target_quantity,
     available_quantity = least(coalesce(available_quantity, target_quantity), target_quantity),
     lat = target_lat, lng = target_lng, location_label = btrim(target_location_label), location_verified_at = now(),
-    image_url = nullif(target_image_url, ''), image_urls = coalesce(target_image_urls, '{}'::text[]),
+    image_url = nullif(target_image_url, ''), image_urls = coalesce(target_image_urls, '[]'::jsonb),
     condition = target_condition, pickup_mode = target_pickup_mode, pickup_windows = coalesce(target_pickup_windows, '[]'::jsonb),
     weight_kg = target_weight_kg, loan_duration_days = case when type = 'lend' then target_loan_duration_days else null end,
     moderation_status = 'pending', moderation_reason = null, moderated_by = null, moderated_at = null,
@@ -430,11 +430,11 @@ revoke execute on function public.confirm_loan_handover(uuid) from public, anon;
 revoke execute on function public.confirm_loan_return(uuid) from public, anon;
 revoke execute on function public.get_impact_totals() from public, anon;
 revoke execute on function public.queue_loan_return_reminders() from public, anon, authenticated;
-revoke execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, text[], text, text, jsonb, numeric, integer) from public, anon;
+revoke execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, jsonb, text, text, jsonb, numeric, integer) from public, anon;
 grant execute on function public.confirm_loan_handover(uuid) to authenticated;
 grant execute on function public.confirm_loan_return(uuid) to authenticated;
 grant execute on function public.get_impact_totals() to authenticated;
 grant execute on function public.queue_loan_return_reminders() to service_role;
-grant execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, text[], text, text, jsonb, numeric, integer) to authenticated;
+grant execute on function public.update_my_listing(uuid, bigint, text, text, text, integer, double precision, double precision, text, text, jsonb, text, text, jsonb, numeric, integer) to authenticated;
 
 commit;

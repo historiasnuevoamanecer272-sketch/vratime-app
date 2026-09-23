@@ -103,6 +103,11 @@ requireText(combined, 'create or replace function public.confirm_loan_return', '
 requireText(combined, 'create or replace function public.get_impact_totals()', 'personal and community impact RPC');
 requireText(combined, 'grant execute on function public.confirm_loan_return(uuid) to authenticated', 'loan return grant');
 
+const lendingMigration = sources.get('20260923060000_lending_and_impact.sql') || '';
+requireText(lendingMigration, 'target_image_urls jsonb, target_condition text', 'lending listing update preserves JSON photo arrays');
+requireText(lendingMigration, "image_urls = coalesce(target_image_urls, '[]'::jsonb)", 'lending listing update stores JSON photo arrays');
+requireText(lendingMigration, 'text, text, jsonb, text, text, jsonb, numeric, integer)', 'lending listing update grant matches JSON photo signature');
+
 const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
 requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');
 requireText(dailyDigest, "Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')", 'daily digest server-only service role');
