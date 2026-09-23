@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { acceptDeal, cancelBooking, confirmHandover, getMyDeals, submitReview } from '../lib/api';
+import { acceptDeal, cancelBooking, confirmHandover, confirmLoanHandover, confirmLoanReturn, getMyDeals, submitReview } from '../lib/api';
 import { supabase } from '../supabaseClient';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
@@ -13,6 +13,7 @@ import completedHandover from '../assets/visuals/v1/deal-complete-v1.webp';
 import DeadlineCountdown from '../components/DeadlineCountdown';
 import ReportDialog from '../components/ReportDialog';
 import AppointmentCard from '../components/AppointmentCard';
+import { loanPhase } from '../lib/lending';
 
 const statusIcons = {
   pending: 'clock',
@@ -21,6 +22,9 @@ const statusIcons = {
   completed: 'check',
   canceled: 'close',
   expired: 'history',
+  handed_over: 'handover',
+  return_due: 'clock',
+  returned: 'check',
 };
 
 export default function MyDeals() {
@@ -77,6 +81,14 @@ export default function MyDeals() {
     try {
       if (action === 'cancel') { await cancelBooking(deal.transaction_id); showToast(t('deals.canceled'), 'success', { prominent: true }); }
       else if (action === 'accept') { await acceptDeal(deal.transaction_id); showToast(t('deals.accepted'), 'success', { prominent: true }); }
+      else if (action === 'loan-handover') {
+        const result = await confirmLoanHandover(deal.transaction_id);
+        showToast(t(result?.handed_over ? 'lending.handedOver' : 'lending.waitingHandover'), 'success', { prominent: true });
+      }
+      else if (action === 'loan-return') {
+        const result = await confirmLoanReturn(deal.transaction_id);
+        showToast(t(result?.returned ? 'lending.returned' : 'lending.waitingReturn'), 'success', { prominent: true });
+      }
       else {
         const result = await confirmHandover(deal.transaction_id);
         showToast(t(result?.completed ? 'deals.completed' : 'deals.confirmedWaiting'), 'success', { prominent: true });
@@ -98,7 +110,7 @@ export default function MyDeals() {
     finally { setWorkingId(null); }
   };
 
-  const statusOf = (deal) => deal.canceled_at ? 'canceled' : deal.completed_at ? 'completed' : deal.status || 'reserved';
+  const statusOf = (deal) => loanPhase(deal) || (deal.canceled_at ? 'canceled' : deal.completed_at ? 'completed' : deal.status || 'reserved');
   const contactsOf = (deal) => Array.isArray(deal.contacts) && deal.contacts.length ? deal.contacts : deal.contact_value ? [{ messenger_type: deal.messenger_type, contact_value: deal.contact_value, contact_href: deal.contact_href }] : [];
   const hasConfirmed = (deal) => deal.role === 'giver' ? Boolean(deal.giver_confirmed_at) : Boolean(deal.taker_confirmed_at);
   const appointmentOf = (deal) => appointments.find((appointment) => appointment.transaction_id === deal.transaction_id);
@@ -119,6 +131,9 @@ export default function MyDeals() {
             const status = statusOf(deal);
             const working = workingId === deal.transaction_id;
             const partnerContacts = contactsOf(deal);
+            const isLoan = deal.listing_type === 'lend';
+            const loanState = loanPhase(deal);
+            const returnConfirmed = deal.role === 'giver' ? Boolean(deal.lender_return_confirmed_at) : Boolean(deal.borrower_return_confirmed_at);
             return <article key={deal.transaction_id} className={`deal-card deal-card-${status}`}>
               <div className="flex gap-3">
                 {deal.image_url ? <img src={deal.image_url} alt="" className="deal-thumb" /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
@@ -129,13 +144,16 @@ export default function MyDeals() {
 
               {deal.expires_at && !deal.completed_at && !deal.canceled_at ? <DeadlineCountdown startedAt={deal.accepted_at || deal.created_at} expiresAt={deal.expires_at} /> : null}
 
-              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="message" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done reserved' : ''}><span><Icon name="clock" size={12} /></span>{t('deals.flowAccepted')}</li><li className={deal.completed_at ? 'done completed' : ''}><span><Icon name="handshake" size={12} /></span>{t('deals.flowHandover')}</li></ol> : null}
+              {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="message" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done reserved' : ''}><span><Icon name="clock" size={12} /></span>{t('deals.flowAccepted')}</li><li className={deal.handed_over_at || (!isLoan && deal.completed_at) ? 'done completed' : ''}><span><Icon name="handshake" size={12} /></span>{t('deals.flowHandover')}</li>{isLoan ? <li className={deal.returned_at ? 'done completed' : ''}><span><Icon name="history" size={12} /></span>{t('lending.return')}</li> : null}</ol> : null}
+              {isLoan && deal.return_due_at ? <p className="mt-3 text-sm font-semibold text-muted"><Icon name="calendar" size={15} /> {t('lending.returnDue')}: {new Date(deal.return_due_at).toLocaleString(language === 'me' ? 'sr-ME' : language)}</p> : null}
               <AppointmentCard deal={deal} appointment={appointmentOf(deal)} onChanged={loadDeals} />
 
               {!deal.completed_at && !deal.canceled_at ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {!deal.accepted_at && deal.is_listing_owner ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'accept')}><Icon name="check" size={17} />{working ? t('deals.accepting') : t('deals.accept')}</button> : null}
-                {deal.accepted_at ? <button type="button" className="btn-primary w-full text-sm" disabled={working || hasConfirmed(deal)} onClick={() => runAction(deal, 'confirm')}><Icon name="check" size={17} />{working ? t('deals.completing') : hasConfirmed(deal) ? t('deals.confirmed') : t('deals.complete')}</button> : null}
-                <button type="button" className="btn-ghost w-full text-sm" disabled={working} onClick={() => runAction(deal, 'cancel')}><Icon name="close" size={17} />{working ? t('deals.canceling') : t('deals.cancel')}</button>
+                {deal.accepted_at && !isLoan ? <button type="button" className="btn-primary w-full text-sm" disabled={working || hasConfirmed(deal)} onClick={() => runAction(deal, 'confirm')}><Icon name="check" size={17} />{working ? t('deals.completing') : hasConfirmed(deal) ? t('deals.confirmed') : t('deals.complete')}</button> : null}
+                {isLoan && deal.accepted_at && !deal.handed_over_at ? <button type="button" className="btn-primary w-full text-sm" disabled={working || hasConfirmed(deal)} onClick={() => runAction(deal, 'loan-handover')}><Icon name="handover" size={17} />{hasConfirmed(deal) ? t('lending.confirmed') : t('lending.confirmHandover')}</button> : null}
+                {isLoan && deal.handed_over_at && !deal.returned_at ? <button type="button" className="btn-primary w-full text-sm" disabled={working || returnConfirmed} onClick={() => runAction(deal, 'loan-return')}><Icon name="history" size={17} />{returnConfirmed ? t('lending.confirmed') : t('lending.confirmReturn')}</button> : null}
+                {!(isLoan && ['handed_over', 'return_due'].includes(loanState)) ? <button type="button" className="btn-ghost w-full text-sm" disabled={working} onClick={() => runAction(deal, 'cancel')}><Icon name="close" size={17} />{working ? t('deals.canceling') : t('deals.cancel')}</button> : null}
               </div> : null}
               {deal.completed_at && !deal.my_review_rating ? <button type="button" className="btn-secondary mt-4 w-full text-sm" onClick={() => setRatingDeal(deal)}><Icon name="star" size={17} />{t('deals.rate')}</button> : null}
               {deal.my_review_rating ? <div className="mt-4 flex items-center gap-1 text-amber-500">{[1, 2, 3, 4, 5].map((value) => <Icon key={value} name="star" size={17} filled={value <= deal.my_review_rating} />)}</div> : null}

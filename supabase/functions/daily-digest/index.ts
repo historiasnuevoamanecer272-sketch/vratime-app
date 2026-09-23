@@ -72,6 +72,7 @@ Deno.serve(async (request) => {
   const digestDate = utcDateKey();
   try {
     await callRpc(supabaseUrl, serviceRoleKey, 'queue_handover_reminders');
+    await callRpc(supabaseUrl, serviceRoleKey, 'queue_loan_return_reminders');
     const searches = await selectJson(
       supabaseUrl,
       serviceRoleKey,

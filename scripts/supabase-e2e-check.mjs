@@ -40,7 +40,7 @@ const signIn = async (email, password) => {
 
 const counts = async () => {
   const result = {};
-  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback', 'saved_searches', 'search_history', 'listing_favourites', 'listing_matches', 'user_inbox', 'digest_deliveries', 'web_push_subscriptions', 'collection_points', 'collection_point_materials', 'collection_point_votes', 'collection_point_edits', 'handover_appointments']) {
+  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback', 'saved_searches', 'search_history', 'listing_favourites', 'listing_matches', 'user_inbox', 'digest_deliveries', 'web_push_subscriptions', 'collection_points', 'collection_point_materials', 'collection_point_votes', 'collection_point_edits', 'handover_appointments', 'reuse_events']) {
     const response = await admin.from(table).select('*', { count: 'exact', head: true });
     if (response.error) throw response.error;
     result[table] = response.count;
@@ -65,6 +65,7 @@ const cleanup = async () => {
     await admin.from('collection_point_edits').delete().in('user_id', ids);
     await admin.from('collection_point_votes').delete().in('user_id', ids);
     await admin.from('handover_appointments').delete().in('created_by', ids);
+    await admin.from('reuse_events').delete().in('actor_user_id', ids);
     const pointRows = await admin.from('collection_points').select('id').in('created_by', ids);
     if (pointRows.error) throw pointRows.error;
     const pointIds = (pointRows.data || []).map((point) => point.id);
@@ -332,6 +333,29 @@ try {
   requireData(await clientD.rpc('confirm_handover', { target_transaction_id: takeTransactionId }), 'confirm take listing giver');
   const takeCompletion = requireData(await clientE.rpc('confirm_handover', { target_transaction_id: takeTransactionId }), 'confirm take listing taker');
   if (!takeCompletion.completed) throw new Error('Take listing did not complete after both confirmations');
+
+  const lendListing = requireData(await clientA.from('listings').insert({
+    ...listingPayload('lend'), type: 'lend', quantity: 1, image_url: admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl,
+    image_urls: [admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl], loan_duration_days: 7, weight_kg: 2.5,
+  }).select('id').single(), 'create lend listing');
+  requireData(await clientC.rpc('moderate_listing', { target_listing_id: lendListing.id, decision: 'approved', reason: null }), 'approve lend listing');
+  const loanId = requireData(await clientB.rpc('book_listing', { target_listing_id: lendListing.id }), 'request loan');
+  requireData(await clientA.rpc('accept_deal', { target_transaction_id: loanId }), 'accept loan');
+  if (!(await clientB.rpc('confirm_loan_return', { target_transaction_id: loanId })).error) throw new Error('Loan returned before handover');
+  const giveawayCompletion = await clientA.rpc('confirm_handover', { target_transaction_id: loanId });
+  if (!giveawayCompletion.error) throw new Error('Loan followed giveaway completion path');
+  const lenderHandover = requireData(await clientA.rpc('confirm_loan_handover', { target_transaction_id: loanId }), 'lender loan handover');
+  if (lenderHandover.handed_over) throw new Error('One-sided loan handover completed');
+  const borrowerHandover = requireData(await clientB.rpc('confirm_loan_handover', { target_transaction_id: loanId }), 'borrower loan handover');
+  if (!borrowerHandover.handed_over) throw new Error('Two-sided loan handover did not complete');
+  requireData(await clientB.rpc('confirm_loan_return', { target_transaction_id: loanId }), 'borrower loan return');
+  const loanReturn = requireData(await clientA.rpc('confirm_loan_return', { target_transaction_id: loanId }), 'lender loan return');
+  if (!loanReturn.returned) throw new Error('Two-sided loan return did not complete');
+  requireData(await clientA.rpc('confirm_loan_return', { target_transaction_id: loanId }), 'idempotent loan return');
+  const loanEvents = requireData(await admin.from('reuse_events').select('*').eq('transaction_id', loanId), 'loan reuse event');
+  if (loanEvents.length !== 1 || loanEvents[0].event_kind !== 'loan_returned') throw new Error('Loan return did not create exactly one impact event');
+  const impact = requireData(await clientA.rpc('get_impact_totals'), 'personal and community impact');
+  if (Number(impact.personal?.items) < 1 || Number(impact.community?.items) < 1 || 'co2' in impact) throw new Error('Impact totals are missing or claim unsupported CO2');
 
   passed = true;
 } finally {

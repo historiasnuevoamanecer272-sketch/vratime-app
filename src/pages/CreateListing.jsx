@@ -51,6 +51,7 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
     pickup_mode: editingListing?.pickup_mode || 'public_place',
     pickup_windows: normalizePickupWindows(editingListing?.pickup_windows),
     weight_kg: editingListing?.weight_kg || '',
+    loan_duration_days: editingListing?.loan_duration_days || 7,
   });
   const [address, setAddress] = useState(editingListing?.location_label || '');
   const [addressVerified, setAddressVerified] = useState(Boolean(editingListing?.location_label && Number.isFinite(Number(editingListing?.lat)) && Number.isFinite(Number(editingListing?.lng))));
@@ -170,6 +171,7 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
 
   const publish = async () => {
     if (!selected || form.quantity < 1 || form.quantity > 10000) return;
+    if (form.type === 'lend' && photos.length === 0) return showToast(t('lending.photoRequired', 'Для займа добавьте фотографию состояния вещи.'), 'error');
     if (!hasVerifiedLocation({ address, verified: addressVerified, position })) return showToast(t('workflow.addressRequired'), 'error');
     setLoading(true);
     const uploadedPaths = [];
@@ -189,6 +191,7 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
         category: categoryLabel(selected, 'ru'), category_path: selected.category_path,
         description: form.description.trim() || null, image_url: imageUrls[0] || null, image_urls: imageUrls, quantity: Number(form.quantity),
         condition: form.condition, pickup_mode: form.pickup_mode, pickup_windows: form.pickup_windows.filter(Boolean), weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
+        loan_duration_days: form.type === 'lend' ? Number(form.loan_duration_days) : null,
         lat: position[0], lng: position[1], location_label: address.trim(), location_verified_at: new Date().toISOString(), moderation_status: 'pending',
       };
       if (isEditing) await updateMyListing(listingPayload);
@@ -220,7 +223,7 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
           {step === 1 ? <section>
             <p className="eyebrow text-sea">{t('create.typeEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.typeTitle')}</h1>
             <div className="mt-7 space-y-3">
-              {[['give', 'gift'], ['take', 'search']].map(([value, icon]) => <button key={value} type="button" className={`choice-card ${value}`} onClick={() => { setForm((current) => ({ ...current, type: value })); setStep(2); }}><span className="choice-icon"><Icon name={icon} size={29} /></span><span><strong>{t(`create.${value}`)}</strong><small>{t(`create.${value}Text`)}</small></span><Icon name="arrowRight" size={20} /></button>)}
+              {[['give', 'gift'], ['take', 'search'], ['lend', 'history']].map(([value, icon]) => <button key={value} type="button" className={`choice-card ${value}`} onClick={() => { setForm((current) => ({ ...current, type: value })); setStep(2); }}><span className="choice-icon"><Icon name={icon} size={29} /></span><span><strong>{t(`create.${value}`, value === 'lend' ? 'Одолжить' : value)}</strong><small>{t(`create.${value}Text`, value === 'lend' ? 'Передать вещь временно и вернуть её в согласованный срок' : '')}</small></span><Icon name="arrowRight" size={20} /></button>)}
             </div>
           </section> : null}
 
@@ -246,6 +249,7 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
               <label className="block"><span className="field-label">{t('create.pickupMode', 'Передача')}</span><select className="field" value={form.pickup_mode} onChange={(event) => setForm((current) => ({ ...current, pickup_mode: event.target.value }))}><option value="public_place">{t('create.pickupPublic', 'Публичное место')}</option><option value="entrance">{t('create.pickupEntrance', 'У подъезда')}</option><option value="doorstep">{t('create.pickupDoorstep', 'У двери')}</option><option value="courier">{t('create.pickupCourier', 'Доставка/курьер')}</option></select></label>
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.weightKg', 'Вес, кг')}</span><input className="field" type="number" min="0" step="0.1" inputMode="decimal" value={form.weight_kg} onChange={(event) => setForm((current) => ({ ...current, weight_kg: event.target.value }))} /></label>
+            {form.type === 'lend' ? <label className="mt-4 block"><span className="field-label">{t('lending.durationDays', 'Срок займа, дней')}</span><input className="field" type="number" min="1" max="365" inputMode="numeric" value={form.loan_duration_days} onChange={(event) => setForm((current) => ({ ...current, loan_duration_days: Math.min(365, Math.max(1, Number(event.target.value) || 1)) }))} /><small className="address-hint">{t('lending.conditionPhotoHint', 'Фотография фиксирует состояние вещи до передачи.')}</small></label> : null}
             <div className="mt-4 space-y-2"><span className="field-label">{t('create.pickupWindows', 'Когда удобно забрать')}</span>{[0, 1, 2].map((index) => <input key={index} className="field" value={form.pickup_windows[index] || ''} placeholder={t('create.pickupWindowPlaceholder', 'Например: завтра 18:00-20:00')} onChange={(event) => setForm((current) => { const next = [...current.pickup_windows]; next[index] = event.target.value; return { ...current, pickup_windows: next.filter((item, itemIndex) => item || itemIndex <= index).slice(0, 3) }; })} />)}</div>
             <div className={`address-search mt-4 ${addressVerified ? 'is-verified' : ''}`}><label className="block"><span className="field-label">{t('create.address')}</span><div className="address-search-row"><input className="field" value={address} placeholder={t('create.addressPlaceholder')} onChange={(event) => { setAddress(event.target.value); setAddressResults([]); setAddressVerified(false); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={(event) => chooseAddress(event, result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small className="address-hint">{addressVerified ? t('create.addressVerified') : t('create.addressHint')}</small></div>
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" disabled={addressLoading} onClick={useLocation}><Icon name="location" size={16} />{addressLoading ? t('map.locating') : t('create.useLocation')}</button></div>
@@ -254,7 +258,7 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
           </section> : null}
         </main>
 
-        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading || !hasVerifiedLocation({ address, verified: addressVerified, position })} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : 'handover'} size={19} />{loading ? t('create.publishing') : t(isEditing ? 'workflow.saveChanges' : form.type === 'give' ? 'create.publishGive' : 'create.publishTake')}</button></footer> : null}
+        {step === 3 ? <footer className="wizard-footer"><button type="button" className="btn-primary w-full" disabled={loading || !hasVerifiedLocation({ address, verified: addressVerified, position }) || (form.type === 'lend' && photos.length === 0)} onClick={publish}><Icon name={form.type === 'give' ? 'gift' : form.type === 'lend' ? 'history' : 'handover'} size={19} />{loading ? t('create.publishing') : t(isEditing ? 'workflow.saveChanges' : form.type === 'give' ? 'create.publishGive' : form.type === 'lend' ? 'lending.publish' : 'create.publishTake')}</button></footer> : null}
       </div>
     </div>
   );

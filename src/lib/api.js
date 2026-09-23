@@ -11,6 +11,9 @@ export const bookListing = (listingId, requestedQuantity = 1) => rpc('book_listi
 export const acceptDeal = (transactionId) => rpc('accept_deal', { target_transaction_id: transactionId });
 export const cancelBooking = (transactionId) => rpc('cancel_booking', { target_transaction_id: transactionId });
 export const confirmHandover = (transactionId) => rpc('confirm_handover', { target_transaction_id: transactionId });
+export const confirmLoanHandover = (transactionId) => rpc('confirm_loan_handover', { target_transaction_id: transactionId });
+export const confirmLoanReturn = (transactionId) => rpc('confirm_loan_return', { target_transaction_id: transactionId });
+export const getImpactTotals = () => rpc('get_impact_totals');
 export const submitReview = (transactionId, rating) => rpc('submit_review', { target_transaction_id: transactionId, target_rating: rating });
 export const deactivateListing = (listingId) => rpc('deactivate_listing', { target_listing_id: listingId });
 export const updateMyListing = (listing) => rpc('update_my_listing', {
@@ -29,6 +32,7 @@ export const updateMyListing = (listing) => rpc('update_my_listing', {
   target_pickup_mode: listing.pickup_mode || 'public_place',
   target_pickup_windows: listing.pickup_windows || [],
   target_weight_kg: listing.weight_kg || null,
+  target_loan_duration_days: listing.loan_duration_days || null,
 });
 export const createReport = ({ targetKind, targetId, reason, details }) => rpc('create_report', { target_kind: targetKind, target_id: targetId, reason, details: details || null });
 export const createFeedback = ({ type, message, screenshotUrl = null }) => rpc('create_feedback', { feedback_type: type, message, screenshot_url: screenshotUrl });

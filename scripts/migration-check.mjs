@@ -87,6 +87,18 @@ requireText(combined, "where scheduled_for between now() + interval '25 minutes'
 requireText(combined, 'grant execute on function public.schedule_handover(uuid, timestamptz, text) to authenticated', 'schedule handover grant');
 requireText(combined, 'grant execute on function public.set_handover_outcome(uuid, text) to authenticated', 'handover outcome grant');
 requireText(combined, 'grant execute on function public.get_my_reliability() to authenticated', 'reliability grant');
+requireText(combined, "alter type public.listing_type add value if not exists 'lend'", 'separate lend listing intent');
+for (const column of ['return_due_at', 'handed_over_at', 'returned_at', 'lender_return_confirmed_at', 'borrower_return_confirmed_at']) {
+  requireText(combined, `alter table public.transactions add column if not exists ${column}`, `loan state column ${column}`);
+}
+requireText(combined, 'create table if not exists public.reuse_events', 'immutable reuse event table');
+requireText(combined, 'on conflict (transaction_id) do nothing', 'one impact event per transaction');
+requireText(combined, "if selected_listing.type = 'lend' then raise exception 'Use the loan handover flow'", 'loan cannot complete through giveaway flow');
+requireText(combined, "if selected_transaction.handed_over_at is null then raise exception 'Loan has not been handed over'", 'return requires handover');
+requireText(combined, 'create or replace function public.confirm_loan_handover', 'loan handover RPC');
+requireText(combined, 'create or replace function public.confirm_loan_return', 'loan return RPC');
+requireText(combined, 'create or replace function public.get_impact_totals()', 'personal and community impact RPC');
+requireText(combined, 'grant execute on function public.confirm_loan_return(uuid) to authenticated', 'loan return grant');
 
 const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
 requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');
@@ -96,6 +108,7 @@ requireText(dailyDigest, 'digest_deliveries?on_conflict=user_id,digest_date', 'd
 requireText(dailyDigest, 'web_push_subscriptions?select=id,endpoint,p256dh,auth,enabled', 'digest opt-in push subscription read');
 requireText(dailyDigest, 'enabled=eq.true', 'digest push only enabled subscriptions');
 requireText(dailyDigest, "queue_handover_reminders", 'daily digest queues appointment reminders');
+requireText(dailyDigest, "queue_loan_return_reminders", 'daily digest queues loan return reminders');
 
 const multiContacts = sources.get('20260820233000_multi_messenger_contacts.sql') || '';
 requireText(multiContacts, 'primary key (user_id, messenger_type)', 'one protected contact per messenger');

@@ -4,6 +4,7 @@ import { coarseCoordinates } from '../src/lib/locationPrivacy.js';
 import { pointStatus } from '../src/lib/collectionPoints.js';
 import { isDigestDue } from '../src/lib/digest.js';
 import { collectionPointTypeKeys, collectionPointTypeLabel } from '../src/lib/collectionPointTypes.js';
+import { impactTotals, loanPhase } from '../src/lib/lending.js';
 
 const firstPrivatePoint = coarseCoordinates(42.44123, 19.26387, 300);
 const secondPrivatePoint = coarseCoordinates(42.44111, 19.26372, 300);
@@ -41,4 +42,13 @@ assert.deepEqual(collectionPointTypeKeys, ['glass', 'paper', 'textile', 'packagi
 assert.equal(collectionPointTypeLabel('glass', 'en'), 'Glass');
 assert.equal(collectionPointTypeLabel('unknown', 'ru'), 'unknown');
 
-process.stdout.write('Discovery-service contracts passed: privacy, quantities, point votes, daily digest and collection point types.\n');
+assert.equal(loanPhase({ listing_type: 'lend', accepted_at: '2026-09-23T10:00:00Z' }), 'accepted');
+assert.equal(loanPhase({ listing_type: 'lend', handed_over_at: '2026-09-23T12:00:00Z', return_due_at: '2026-09-30T12:00:00Z' }), 'handed_over');
+assert.equal(loanPhase({ listing_type: 'lend', handed_over_at: '2026-09-23T12:00:00Z', return_due_at: '2026-09-22T12:00:00Z' }, now), 'return_due');
+assert.equal(loanPhase({ listing_type: 'lend', returned_at: '2026-09-24T12:00:00Z' }), 'returned');
+assert.deepEqual(impactTotals([
+  { event_kind: 'give_completed', item_count: 2, weight_kg: 1.5, category_snapshot: 'glass' },
+  { event_kind: 'loan_returned', item_count: 1, weight_kg: null, category_snapshot: 'tools' },
+]), { events: 2, items: 3, declaredWeightKg: 1.5, categories: { glass: 2, tools: 1 } });
+
+process.stdout.write('Discovery-service contracts passed: privacy, quantities, point votes, daily digest, lending and impact.\n');
