@@ -45,7 +45,8 @@ for (const key of ['monthly_target_eur_cents', 'annual_target_eur_cents', 'month
 if ('supporter_hash' in fundingRow || 'external_event_id' in fundingRow) throw new Error('Funding progress leaked private contribution identifiers');
 
 const privateRpc = await anonymous.rpc('get_my_deals');
-if (!privateRpc.error || ![401, 403].includes(privateRpc.status)) {
+const privateRpcBlockedByDatabase = privateRpc.error?.code === 'P0001' && privateRpc.error?.message === 'Authentication required';
+if (!privateRpc.error || (!privateRpcBlockedByDatabase && ![401, 403].includes(privateRpc.status))) {
   const rowCount = Array.isArray(privateRpc.data) ? privateRpc.data.length : 0;
   throw new Error(`Anonymous execution of get_my_deals was not blocked (status ${privateRpc.status}, rows ${rowCount}, active listings ${listings.data.length})`);
 }
