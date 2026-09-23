@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const migrationsDir = path.join(root, 'supabase', 'migrations');
+const dailyDigestPath = path.join(root, 'supabase', 'functions', 'daily-digest', 'index.ts');
 const files = (await fs.readdir(migrationsDir)).filter((file) => file.endsWith('.sql')).sort();
 
 if (files.length < 6) throw new Error(`Expected at least 6 migrations, found ${files.length}`);
@@ -24,6 +25,12 @@ const requireText = (source, text, label) => {
 for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'funding_settings', 'support_contributions']) {
   requireText(combined, `alter table public.${table} enable row level security`, `RLS for ${table}`);
 }
+for (const table of ['saved_searches', 'listing_favourites', 'user_inbox', 'digest_deliveries']) {
+  requireText(combined, `alter table public.${table} enable row level security`, `RLS for ${table}`);
+}
+for (const table of ['search_history', 'listing_matches', 'web_push_subscriptions']) {
+  requireText(combined, `alter table public.${table} enable row level security`, `RLS for ${table}`);
+}
 requireText(combined, 'revoke all on public.profiles from anon', 'anonymous profile access revoked');
 requireText(combined, 'revoke all on public.profile_contacts from anon', 'anonymous contact access revoked');
 requireText(combined, 'with check (user_id = auth.uid() and status = \'active\')', 'listing ownership check');
@@ -35,6 +42,21 @@ requireText(combined, 'revoke insert on public.reviews from anon, authenticated'
 requireText(combined, 'revoke all on public.funding_settings from public, anon, authenticated', 'funding settings protected');
 requireText(combined, 'revoke all on public.support_contributions from public, anon, authenticated', 'contributions protected');
 requireText(combined, 'grant execute on function public.get_funding_progress() to anon, authenticated', 'public aggregate funding progress RPC');
+requireText(combined, 'create unique index if not exists digest_deliveries_one_per_day', 'one digest per person/day');
+requireText(combined, 'create policy saved_searches_owner on public.saved_searches', 'saved search owner-only policy');
+requireText(combined, 'create policy listing_favourites_owner on public.listing_favourites', 'favourites owner-only policy');
+requireText(combined, 'create policy user_inbox_owner_read on public.user_inbox', 'inbox owner-only read policy');
+for (const signature of ['save_search(text, jsonb, boolean)', 'toggle_listing_favourite(uuid)', 'record_search_history(text)', 'get_my_discovery_feed()', 'mark_inbox_item_read(uuid)']) {
+  requireText(combined, `grant execute on function public.${signature} to authenticated`, `discovery RPC grant for ${signature}`);
+}
+
+const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
+requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');
+requireText(dailyDigest, "Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')", 'daily digest server-only service role');
+requireText(dailyDigest, 'user_inbox?on_conflict=user_id,idempotency_key', 'digest inbox idempotency');
+requireText(dailyDigest, 'digest_deliveries?on_conflict=user_id,digest_date', 'daily delivery idempotency');
+requireText(dailyDigest, 'web_push_subscriptions?select=id,endpoint,p256dh,auth,enabled', 'digest opt-in push subscription read');
+requireText(dailyDigest, 'enabled=eq.true', 'digest push only enabled subscriptions');
 
 const multiContacts = sources.get('20260820233000_multi_messenger_contacts.sql') || '';
 requireText(multiContacts, 'primary key (user_id, messenger_type)', 'one protected contact per messenger');

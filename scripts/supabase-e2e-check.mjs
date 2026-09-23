@@ -40,7 +40,7 @@ const signIn = async (email, password) => {
 
 const counts = async () => {
   const result = {};
-  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback']) {
+  for (const table of ['categories', 'listings', 'profiles', 'profile_contacts', 'transactions', 'reviews', 'moderation_actions', 'reports', 'reputation_penalties', 'user_feedback', 'saved_searches', 'search_history', 'listing_favourites', 'listing_matches', 'user_inbox', 'digest_deliveries', 'web_push_subscriptions']) {
     const response = await admin.from(table).select('*', { count: 'exact', head: true });
     if (response.error) throw response.error;
     result[table] = response.count;
@@ -55,6 +55,13 @@ const cleanup = async () => {
   const ids = createdUsers.map((user) => user.id);
   if (uploadedPaths.length) await admin.storage.from('LISTING-PHOTOS').remove(uploadedPaths);
   if (ids.length) {
+    await admin.from('digest_deliveries').delete().in('user_id', ids);
+    await admin.from('user_inbox').delete().in('user_id', ids);
+    await admin.from('listing_matches').delete().in('user_id', ids);
+    await admin.from('listing_favourites').delete().in('user_id', ids);
+    await admin.from('search_history').delete().in('user_id', ids);
+    await admin.from('saved_searches').delete().in('user_id', ids);
+    await admin.from('web_push_subscriptions').delete().in('user_id', ids);
     await admin.from('reputation_penalties').delete().in('user_id', ids);
     await admin.from('reports').delete().in('reporter_id', ids);
     await admin.from('user_feedback').delete().in('user_id', ids);
@@ -161,6 +168,36 @@ try {
 
   const dealListing = requireData(await clientA.from('listings').insert({ ...listingPayload('deal'), image_url: admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl, quantity: 3 }).select('id').single(), 'create deal listing');
   requireData(await clientC.rpc('moderate_listing', { target_listing_id: dealListing.id, decision: 'approved', reason: null }), 'approve deal listing');
+  const savedSearchId = requireData(await clientB.rpc('save_search', { search_query: 'стекло', search_filters: { type: 'give' }, wants_daily_digest: true }), 'save private discovery search');
+  requireData(await clientB.rpc('record_search_history', { search_query: 'стекло' }), 'record private search history');
+  const favourited = requireData(await clientB.rpc('toggle_listing_favourite', { target_listing_id: dealListing.id }), 'favourite listing');
+  if (favourited !== true) throw new Error('First favourite toggle did not add the listing');
+  const discoveryFeed = requireData(await clientB.rpc('get_my_discovery_feed'), 'read private discovery feed');
+  if (!discoveryFeed.saved_searches?.some((search) => search.id === savedSearchId) || !discoveryFeed.favourites?.some((favourite) => favourite.listing_id === dealListing.id)) {
+    throw new Error('Discovery feed did not include own saved search and favourite');
+  }
+  const outsiderFavourites = requireData(await clientD.from('listing_favourites').select('*').eq('user_id', createdUsers[1].id), 'outsider favourite probe');
+  if (outsiderFavourites.length) throw new Error('Outsider read another user favourite');
+  const outsiderSearches = requireData(await clientD.from('saved_searches').select('*').eq('user_id', createdUsers[1].id), 'outsider saved search probe');
+  if (outsiderSearches.length) throw new Error('Outsider read another user saved search');
+  const digestDate = new Date().toISOString().slice(0, 10);
+  requireData(await admin.from('user_inbox').insert({
+    user_id: createdUsers[1].id,
+    item_type: 'digest',
+    title: 'E2E digest',
+    idempotency_key: `e2e-digest-${stamp}`,
+  }).select('id').single(), 'create digest inbox item');
+  requireData(await admin.from('digest_deliveries').insert({
+    user_id: createdUsers[1].id,
+    digest_date: digestDate,
+    search_count: 1,
+  }), 'create daily digest delivery');
+  const duplicateDigest = await admin.from('digest_deliveries').insert({
+    user_id: createdUsers[1].id,
+    digest_date: digestDate,
+    search_count: 1,
+  });
+  if (!duplicateDigest.error) throw new Error('Duplicate daily digest delivery was accepted');
   const transactionId = requireData(await clientB.rpc('book_listing', { target_listing_id: dealListing.id }), 'book deal listing');
   const directStatusUpdate = await clientA.from('listings').update({ status: 'completed' }).eq('id', dealListing.id);
   if (!directStatusUpdate.error) throw new Error('Direct listing status mutation was not blocked');
