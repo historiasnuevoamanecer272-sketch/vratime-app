@@ -195,6 +195,26 @@ try {
 
   const dealListing = requireData(await clientA.from('listings').insert({ ...listingPayload('deal'), image_url: admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl, quantity: 3 }).select('id').single(), 'create deal listing');
   requireData(await clientC.rpc('moderate_listing', { target_listing_id: dealListing.id, decision: 'approved', reason: null }), 'approve deal listing');
+  requireData(await clientA.rpc('update_my_listing', {
+    target_listing_id: dealListing.id,
+    target_category_id: category.id,
+    target_category: category.name,
+    target_category_path: category.category_path,
+    target_description: 'E2E edited listing',
+    target_quantity: 3,
+    target_lat: 42.441,
+    target_lng: 19.263,
+    target_location_label: 'E2E edited Podgorica, Montenegro',
+    target_image_url: admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl,
+    target_image_urls: [admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl],
+    target_condition: 'usable',
+    target_pickup_mode: 'public_place',
+    target_pickup_windows: [],
+    target_weight_kg: null,
+  }), 'edit own listing');
+  const editedListing = requireData(await admin.from('listings').select('description, moderation_status').eq('id', dealListing.id).single(), 'read edited listing');
+  if (editedListing.description !== 'E2E edited listing' || editedListing.moderation_status !== 'pending') throw new Error('Editing did not update the owner listing or return it to moderation');
+  requireData(await clientC.rpc('moderate_listing', { target_listing_id: dealListing.id, decision: 'approved', reason: null }), 'approve edited deal listing');
   const publicListings = requireData(await anonymous.rpc('get_public_map_listings'), 'read public map listings');
   const publicListing = publicListings.find((listing) => listing.id === dealListing.id);
   if (!publicListing) throw new Error('Approved listing was not returned by public map RPC');
