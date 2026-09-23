@@ -60,6 +60,15 @@ for (const signature of ['create_collection_point(text, double precision, double
   requireText(combined, `grant execute on function public.${signature} to authenticated`, `collection point RPC grant for ${signature}`);
 }
 requireText(combined, 'grant execute on function public.get_collection_points() to anon', 'anonymous aggregate collection point read');
+for (const column of ['condition', 'pickup_mode', 'pickup_windows', 'public_lat', 'public_lng', 'public_meeting_label', 'available_quantity', 'reserved_quantity', 'weight_kg']) {
+  requireText(combined, `alter table public.listings add column if not exists ${column}`, `listing privacy metadata column ${column}`);
+}
+requireText(combined, 'create or replace function public.get_public_map_listings()', 'public map listings RPC');
+requireText(combined, 'create or replace function public.get_transaction_pickup_details(target_transaction_id uuid)', 'participant pickup details RPC');
+requireText(combined, 'create or replace function public.set_listing_public_coordinates()', 'server-computed public coordinates');
+requireText(combined, "create policy listings_authenticated_read on public.listings for select to authenticated\n  using (user_id = auth.uid() or public.is_staff())", 'direct listing select limited to owner or staff');
+requireText(combined, 'grant execute on function public.get_public_map_listings() to anon, authenticated', 'public map listing RPC grant');
+requireText(combined, 'grant execute on function public.get_transaction_pickup_details(uuid) to authenticated', 'pickup details RPC grant');
 
 const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
 requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');

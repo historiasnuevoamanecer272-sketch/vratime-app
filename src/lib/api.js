@@ -25,6 +25,10 @@ export const updateMyListing = (listing) => rpc('update_my_listing', {
   target_location_label: listing.location_label,
   target_image_url: listing.image_url || null,
   target_image_urls: listing.image_urls || [],
+  target_condition: listing.condition || 'usable',
+  target_pickup_mode: listing.pickup_mode || 'public_place',
+  target_pickup_windows: listing.pickup_windows || [],
+  target_weight_kg: listing.weight_kg || null,
 });
 export const createReport = ({ targetKind, targetId, reason, details }) => rpc('create_report', { target_kind: targetKind, target_id: targetId, reason, details: details || null });
 export const createFeedback = ({ type, message, screenshotUrl = null }) => rpc('create_feedback', { feedback_type: type, message, screenshot_url: screenshotUrl });
@@ -34,6 +38,8 @@ export const setFeedbackStatus = (feedbackId, status) => rpc('set_feedback_statu
 export const setUserRole = (userId, role) => rpc('set_user_role', { target_user_id: userId, target_role: role });
 export const setMyAvatar = (avatarUrl) => rpc('set_my_avatar', { next_avatar_url: avatarUrl || null });
 export const getMyDeals = () => rpc('get_my_deals');
+export const getPublicMapListings = () => rpc('get_public_map_listings');
+export const getTransactionPickupDetails = (transactionId) => rpc('get_transaction_pickup_details', { target_transaction_id: transactionId });
 export const refreshExpiredDeals = () => rpc('refresh_expired_deals');
 export const getEcoLeaderboard = (limit = 20) => rpc('get_eco_leaderboard', { limit_count: limit });
 export const getFundingProgress = async () => {

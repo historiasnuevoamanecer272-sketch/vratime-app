@@ -6,6 +6,7 @@ import { calculateFundingTimeline } from '../src/lib/fundingTimeline.js';
 import { hasVerifiedLocation } from '../src/lib/locationValidation.js';
 import { remainingQuantity } from '../src/lib/quantity.js';
 import { coarseCoordinates } from '../src/lib/locationPrivacy.js';
+import { publicListingPosition } from '../src/lib/publicListings.js';
 
 assert.equal(matchesDiscoveryType({ type: 'give' }, { query: 'стекло', type: 'take' }), true);
 assert.equal(matchesDiscoveryType({ type: 'take' }, { query: 'стекло', type: 'all' }), false);
@@ -45,5 +46,7 @@ assert.deepEqual(
   coarseCoordinates(42.44123, 19.26387, 300),
   coarseCoordinates(42.44111, 19.26372, 300),
 );
+assert.deepEqual(publicListingPosition({ lat: 42.44123, lng: 19.26387, public_lat: 42.4401, public_lng: 19.2601 }), [42.4401, 19.2601]);
+assert.notDeepEqual(publicListingPosition({ lat: 42.44123, lng: 19.26387, public_lat: 42.4401, public_lng: 19.2601 }), [42.44123, 19.26387]);
 
 process.stdout.write('Plan UI logic passed: discovery, deadlines, five levels, privacy, quantities and daily funding.\n');

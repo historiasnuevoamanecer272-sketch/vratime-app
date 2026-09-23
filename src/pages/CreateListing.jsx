@@ -14,6 +14,8 @@ import { updateMyListing } from '../lib/api';
 import { hasVerifiedLocation } from '../lib/locationValidation';
 
 const bucket = 'LISTING-PHOTOS';
+const pickupWindowValue = (value) => (typeof value === 'string' ? value : value?.label || '');
+const normalizePickupWindows = (value) => (Array.isArray(value) ? value.map(pickupWindowValue).filter(Boolean).slice(0, 3) : []);
 function LocationPicker({ position, type, onChange }) {
   useMapEvents({ click: ({ latlng }) => onChange([latlng.lat, latlng.lng]) });
   return <Marker position={position} icon={mapMarkerIcons[type === 'take' ? 'take' : 'give']} draggable eventHandlers={{ dragend: (event) => { const point = event.target.getLatLng(); onChange([point.lat, point.lng]); } }} />;
@@ -41,7 +43,15 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
   const [photos, setPhotos] = useState(() => [...new Set([...(editingListing?.image_urls || []), editingListing?.image_url].filter(Boolean))].map((url) => ({ preview: url, existing: true })));
   const previewUrls = useRef(new Set());
   const reverseRequestRef = useRef(0);
-  const [form, setForm] = useState({ type: editingListing?.type || 'give', quantity: Number(editingListing?.quantity || 1), description: editingListing?.description || '' });
+  const [form, setForm] = useState({
+    type: editingListing?.type || 'give',
+    quantity: Number(editingListing?.quantity || 1),
+    description: editingListing?.description || '',
+    condition: editingListing?.condition || 'usable',
+    pickup_mode: editingListing?.pickup_mode || 'public_place',
+    pickup_windows: normalizePickupWindows(editingListing?.pickup_windows),
+    weight_kg: editingListing?.weight_kg || '',
+  });
   const [address, setAddress] = useState(editingListing?.location_label || '');
   const [addressVerified, setAddressVerified] = useState(Boolean(editingListing?.location_label && Number.isFinite(Number(editingListing?.lat)) && Number.isFinite(Number(editingListing?.lng))));
   const [addressResults, setAddressResults] = useState([]);
@@ -178,6 +188,7 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
         id: editingListing?.id, user_id: userId, type: form.type, status: 'active', category_id: selected.id,
         category: categoryLabel(selected, 'ru'), category_path: selected.category_path,
         description: form.description.trim() || null, image_url: imageUrls[0] || null, image_urls: imageUrls, quantity: Number(form.quantity),
+        condition: form.condition, pickup_mode: form.pickup_mode, pickup_windows: form.pickup_windows.filter(Boolean), weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
         lat: position[0], lng: position[1], location_label: address.trim(), location_verified_at: new Date().toISOString(), moderation_status: 'pending',
       };
       if (isEditing) await updateMyListing(listingPayload);
@@ -230,6 +241,12 @@ export default function CreateListing({ userId, onBack, onSuccess, editingListin
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')}</span><input className="field" type="number" min="1" max="10000" inputMode="numeric" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: Math.min(10000, Math.max(1, Number(event.target.value) || 1)) }))} /></label>
             <label className="mt-4 block"><span className="field-label">{t('create.description')}</span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block"><span className="field-label">{t('create.condition', 'Состояние')}</span><select className="field" value={form.condition} onChange={(event) => setForm((current) => ({ ...current, condition: event.target.value }))}><option value="new">{t('create.conditionNew', 'Новое')}</option><option value="usable">{t('create.conditionUsable', 'Можно пользоваться')}</option><option value="worn">{t('create.conditionWorn', 'Есть следы')}</option><option value="repair">{t('create.conditionRepair', 'Нужен ремонт')}</option></select></label>
+              <label className="block"><span className="field-label">{t('create.pickupMode', 'Передача')}</span><select className="field" value={form.pickup_mode} onChange={(event) => setForm((current) => ({ ...current, pickup_mode: event.target.value }))}><option value="public_place">{t('create.pickupPublic', 'Публичное место')}</option><option value="entrance">{t('create.pickupEntrance', 'У подъезда')}</option><option value="doorstep">{t('create.pickupDoorstep', 'У двери')}</option><option value="courier">{t('create.pickupCourier', 'Доставка/курьер')}</option></select></label>
+            </div>
+            <label className="mt-4 block"><span className="field-label">{t('create.weightKg', 'Вес, кг')}</span><input className="field" type="number" min="0" step="0.1" inputMode="decimal" value={form.weight_kg} onChange={(event) => setForm((current) => ({ ...current, weight_kg: event.target.value }))} /></label>
+            <div className="mt-4 space-y-2"><span className="field-label">{t('create.pickupWindows', 'Когда удобно забрать')}</span>{[0, 1, 2].map((index) => <input key={index} className="field" value={form.pickup_windows[index] || ''} placeholder={t('create.pickupWindowPlaceholder', 'Например: завтра 18:00-20:00')} onChange={(event) => setForm((current) => { const next = [...current.pickup_windows]; next[index] = event.target.value; return { ...current, pickup_windows: next.filter((item, itemIndex) => item || itemIndex <= index).slice(0, 3) }; })} />)}</div>
             <div className={`address-search mt-4 ${addressVerified ? 'is-verified' : ''}`}><label className="block"><span className="field-label">{t('create.address')}</span><div className="address-search-row"><input className="field" value={address} placeholder={t('create.addressPlaceholder')} onChange={(event) => { setAddress(event.target.value); setAddressResults([]); setAddressVerified(false); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={(event) => chooseAddress(event, result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small className="address-hint">{addressVerified ? t('create.addressVerified') : t('create.addressHint')}</small></div>
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" disabled={addressLoading} onClick={useLocation}><Icon name="location" size={16} />{addressLoading ? t('map.locating') : t('create.useLocation')}</button></div>
             <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={selectPosition} /></MapContainer></div>

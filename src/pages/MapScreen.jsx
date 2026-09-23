@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import { supabase } from '../supabaseClient';
-import { bookListing, getMyDeals, refreshExpiredDeals } from '../lib/api';
+import { bookListing, getMyDeals, getPublicMapListings, refreshExpiredDeals } from '../lib/api';
 import { categoryLabel, categorySearchText, listingCategoryLabel, normalizeSearch, rootPath } from '../lib/categories';
 import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
@@ -13,6 +13,7 @@ import { mapMarkerIcons } from '../lib/mapMarkers';
 import { baseMap } from '../lib/basemap';
 import { matchesDiscoveryType } from '../lib/listingFilters';
 import ReportDialog from '../components/ReportDialog';
+import { normalizePublicListing, publicListingPosition } from '../lib/publicListings';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -59,12 +60,12 @@ export default function MapScreen({ userId, onCreate }) {
     setLoading(true); setLoadError('');
     await refreshExpiredDeals().catch(() => null);
     const [listingsResult, categoriesResult, dealsResult] = await Promise.all([
-      supabase.from('listings').select('*').eq('status', 'active').order('created_at', { ascending: false }),
+      getPublicMapListings().then((data) => ({ data })).catch((error) => ({ error })),
       supabase.from('categories').select('*').order('id'),
       getMyDeals().then((data) => ({ data })).catch((error) => ({ error })),
     ]);
     if (listingsResult.error || categoriesResult.error) setLoadError(listingsResult.error?.message || categoriesResult.error?.message || t('errors.load'));
-    setListings(listingsResult.data || []);
+    setListings((listingsResult.data || []).map(normalizePublicListing));
     setCategories(categoriesResult.data || []);
     if (dealsResult.error) console.error('Could not load the current user listing requests:', dealsResult.error);
     else setDeals(dealsResult.data || []);
@@ -91,10 +92,10 @@ export default function MapScreen({ userId, onCreate }) {
     if (!matchesDiscoveryType(item, { query, type })) return false;
     if (query.trim() && !categorySearchText(item, categories).includes(normalizeSearch(query))) return false;
     if (distance !== 'all' && location) {
-      const itemDistance = kmBetween(location, [Number(item.lat), Number(item.lng)]);
+      const itemDistance = kmBetween(location, publicListingPosition(item));
       if (itemDistance === null || itemDistance > Number(distance)) return false;
     }
-    return Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng));
+    return Boolean(publicListingPosition(item));
   }), [categories, category, distance, listings, location, query, type, userId]);
 
   const hasFilters = Boolean(query.trim() || category !== 'all' || type !== 'all' || distance !== 'all');
@@ -131,7 +132,7 @@ export default function MapScreen({ userId, onCreate }) {
   const distanceLabel = { all: t('map.anyDistance'), 1: t('map.km1'), 5: t('map.km5'), 10: t('map.km10') };
   const distanceText = (item) => {
     if (!location) return t('map.distanceUnknown');
-    const value = kmBetween(location, [Number(item.lat), Number(item.lng)]);
+    const value = kmBetween(location, publicListingPosition(item));
     return value === null ? t('map.distanceUnknown') : t('map.distance', { value: value.toFixed(1) });
   };
   const listingCard = (item, compact = false) => (
@@ -160,7 +161,7 @@ export default function MapScreen({ userId, onCreate }) {
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
         <TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} />
         <FlyToLocation location={location} />
-        {filtered.map((item) => <Marker key={item.id} position={[Number(item.lat), Number(item.lng)]} icon={mapMarkerIcons[item.type === 'give' ? 'give' : 'take']} opacity={requestedListingIds.has(item.id) ? 0.45 : 1} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
+        {filtered.map((item) => <Marker key={item.id} position={publicListingPosition(item)} icon={mapMarkerIcons[item.type === 'give' ? 'give' : 'take']} opacity={requestedListingIds.has(item.id) ? 0.45 : 1} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1}>{listingPreview(item)}</Tooltip><Popup>{listingCard(item)}</Popup></Marker>)}
       </MapContainer>
 
       <header className={`map-toolbar glass-panel ${filtersOpen ? '' : 'is-collapsed'}`}>

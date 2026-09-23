@@ -177,6 +177,12 @@ try {
 
   const dealListing = requireData(await clientA.from('listings').insert({ ...listingPayload('deal'), image_url: admin.storage.from('LISTING-PHOTOS').getPublicUrl(ownPath).data.publicUrl, quantity: 3 }).select('id').single(), 'create deal listing');
   requireData(await clientC.rpc('moderate_listing', { target_listing_id: dealListing.id, decision: 'approved', reason: null }), 'approve deal listing');
+  const publicListings = requireData(await anonymous.rpc('get_public_map_listings'), 'read public map listings');
+  const publicListing = publicListings.find((listing) => listing.id === dealListing.id);
+  if (!publicListing) throw new Error('Approved listing was not returned by public map RPC');
+  if (Number(publicListing.lat) === 42.441 || Number(publicListing.lng) === 19.263) throw new Error('Exact home coordinates leaked publicly');
+  const outsiderListingProbe = requireData(await clientD.from('listings').select('id, lat, lng, location_label').eq('id', dealListing.id), 'outsider direct listing probe');
+  if (outsiderListingProbe.length) throw new Error('Outsider read exact listing pickup data directly');
   const savedSearchId = requireData(await clientB.rpc('save_search', { search_query: 'стекло', search_filters: { type: 'give' }, wants_daily_digest: true }), 'save private discovery search');
   requireData(await clientB.rpc('record_search_history', { search_query: 'стекло' }), 'record private search history');
   const favourited = requireData(await clientB.rpc('toggle_listing_favourite', { target_listing_id: dealListing.id }), 'favourite listing');
@@ -261,6 +267,10 @@ try {
   if (!staleAggregate || staleAggregate.status !== 'unverified' || staleAggregate.exists_votes !== 0) throw new Error('Expired collection point votes still affected public status');
 
   requireData(await clientA.rpc('accept_deal', { target_transaction_id: transactionId }), 'accept deal');
+  const participantPickup = requireData(await clientB.rpc('get_transaction_pickup_details', { target_transaction_id: transactionId }), 'participant pickup details')[0];
+  if (!participantPickup || Number(participantPickup.lat) !== 42.441 || Number(participantPickup.lng) !== 19.263) throw new Error('Participant could not retrieve accepted pickup details');
+  const outsiderPickup = requireData(await clientD.rpc('get_transaction_pickup_details', { target_transaction_id: transactionId }), 'outsider pickup details probe');
+  if (outsiderPickup.length) throw new Error('Outsider retrieved pickup details');
   const firstConfirmation = requireData(await clientA.rpc('confirm_handover', { target_transaction_id: transactionId }), 'giver confirmation');
   if (firstConfirmation.completed) throw new Error('One-sided confirmation completed the deal');
   const completion = requireData(await clientB.rpc('confirm_handover', { target_transaction_id: transactionId }), 'taker confirmation');
