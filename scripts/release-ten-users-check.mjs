@@ -214,6 +214,7 @@ export async function runReleaseTenUsers(options) {
   const listing = async (ownerIndex, key, overrides = {}) => step(`listing:${key}`, async () => {
     const id = await stableId(`listing:${key}`), owner = ledger.users[ownerIndex];
     const payload = { id, user_id: owner.id, type: 'give', status: 'active', category_id: category.id, category: category.name_ru || category.name, category_path: category.category_path, description: `${marker} ${key}`, quantity: 10, lat: 42.441123, lng: 19.263456, location_label: `${marker} Podgorica public test pickup`, location_verified_at: new Date().toISOString(), moderation_status: 'approved', image_urls: [], image_url: null, condition: 'usable', pickup_mode: 'public_place', pickup_windows: [], ...overrides };
+    if (payload.type === 'lend') Object.assign(payload, { category_id: null, category: `[TEST ${ledger.runId.slice(0,8)}] Reusable item`, category_path: 'lend/item' });
     await addRecord('listings', { id });
     const result = await clients[ownerIndex].from('listings').insert(payload); if (result.error?.code !== '23505') unwrap(result, 'create_fixture_listing');
     const row = unwrap(await clients[ownerIndex].from('listings').select('*').eq('id', id).single(), 'read_fixture_listing'); ensure(row.user_id === owner.id && row.description === payload.description && row.quantity === payload.quantity && row.type === payload.type, 'listing_identity_conflict'); return row;
