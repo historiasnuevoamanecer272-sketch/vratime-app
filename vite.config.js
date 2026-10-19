@@ -14,7 +14,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'prompt',
-      workbox: { importScripts: ['push-notifications.js'] },
+      workbox: {
+        importScripts: ['push-notifications.js'],
+        // Review documents must load their own HTML instead of the app shell.
+        navigateFallbackDenylist: [/\/__review_/],
+      },
       manifest: {
         name: 'VratiMe',
         short_name: 'VratiMe',
