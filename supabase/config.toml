@@ -1,0 +1,7 @@
+project_id = "vratime"
+
+[functions.media-upload]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/media-upload/index.ts"
+static_files = ["./functions/media-upload/magick.wasm", "./functions/media-upload/vendor/LICENSE", "./functions/media-upload/vendor/NOTICE"]

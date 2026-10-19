@@ -1,0 +1,23 @@
+{
+  "package": "@imagemagick/magick-wasm",
+  "version": "0.0.45",
+  "source": "https://registry.npmjs.org/@imagemagick/magick-wasm/-/magick-wasm-0.0.45.tgz",
+  "files": {
+    "vendor/magick.mjs": {
+      "bytes": 409295,
+      "sha256": "696370daea26ec9ccb1d53316e49eca464cd841678be0fdd550652cbcc73208e"
+    },
+    "magick.wasm": {
+      "bytes": 15425791,
+      "sha256": "54629cbcf06dd10db38b4d87fa6ab241b248c09c94f2d9689506e5f994ac5f0c"
+    },
+    "vendor/NOTICE": {
+      "bytes": 221910,
+      "sha256": "7cb6cf162ba965ed068dbc9e638c9b792b8a1a9f4dae51031e7a21ff1ebefc8d"
+    },
+    "vendor/LICENSE": {
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    }
+  }
+}
