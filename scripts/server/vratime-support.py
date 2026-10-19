@@ -50,6 +50,8 @@ class Store:
 
     def queue(self, key, chat, text, ticket=None, admin_map=False, markup=None):
         body = {'chat_id': chat, 'text': text, 'link_preview_options': {'is_disabled': True}}
+        if chat == self.admin and not markup and not admin_map:
+            markup = {'keyboard': [[{'text': 'Входящие'}, {'text': 'Как ответить'}], [{'text': 'Открыть приложение'}]], 'resize_keyboard': True, 'is_persistent': True}
         if chat != self.admin and not markup:
             latest = self.db.execute('select lang from tickets where chat=? order by id desc limit 1', (chat,)).fetchone()
             lang = latest['lang'] if latest else getattr(self, 'current_language', 'en')
@@ -142,6 +144,17 @@ class Store:
             self.queue(f'{identifier}:receipt', chat_id, copy[1].format(ticket_id))
 
     def admin_message(self, msg, identifier, text):
+        if text in ('Входящие', '/inbox'):
+            tickets = self.db.execute("select * from tickets where status!='resolved' order by updated desc limit 10").fetchall()
+            if not tickets:
+                self.queue(f'{identifier}:empty', self.admin, 'Открытых обращений пока нет.')
+            for ticket in tickets:
+                self.queue(f'{identifier}:ticket:{ticket["id"]}', self.admin, self.status_text(ticket) + '\nОтветьте на эту карточку, чтобы написать пользователю.', ticket['id'], True,
+                           {'inline_keyboard': [[{'text': name, 'callback_data': f'status:{ticket["id"]}:{state}'} for name, state in (('В работе', 'reviewing'), ('Нужны сведения', 'waiting'), ('Решено', 'resolved'))]]})
+            return
+        if text == 'Открыть приложение':
+            self.queue(f'{identifier}:app', self.admin, 'VratiMe: https://vratime.vzdigital.online/')
+            return
         reply_id = msg.get('reply_to_message', {}).get('message_id')
         ticket = self.db.execute('select t.* from mappings m join tickets t on t.id=m.ticket where m.message_id=?', (reply_id,)).fetchone()
         if ticket and 0 < len(text) <= 3000:

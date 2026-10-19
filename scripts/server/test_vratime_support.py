@@ -103,6 +103,16 @@ class SupportTests(unittest.TestCase):
         self.store.handle(self.message(2, text='Написать в поддержку'))
         self.assertEqual(self.store.db.execute('select count(*) from tickets').fetchone()[0], 0)
 
+    def test_owner_has_inbox_buttons_and_replyable_ticket_card(self):
+        self.store.handle(self.message(1))
+        self.store.handle(self.message(2, 99, '/start'))
+        welcome = support.json.loads(self.store.pending()[-1]['payload'])
+        self.assertIn('Входящие', str(welcome['reply_markup']))
+        self.store.handle(self.message(3, 99, 'Входящие'))
+        cards = [row for row in self.store.pending() if row['event_key'].startswith('3:') and row['admin_map']]
+        self.assertEqual(len(cards), 1)
+        self.assertEqual(cards[0]['ticket'], 1)
+
 
 if __name__ == '__main__':
     unittest.main()

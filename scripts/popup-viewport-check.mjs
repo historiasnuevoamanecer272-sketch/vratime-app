@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { popupPanOffset } from '../src/lib/popupViewport.js';
+const viewport = { left: 0, top: 0, right: 375, bottom: 770 };
+assert.deepEqual(popupPanOffset({ left: -120, top: 20, right: 160, bottom: 360 }, viewport), [-132, -54]);
+assert.deepEqual(popupPanOffset({ left: 250, top: 100, right: 530, bottom: 440 }, viewport), [167, 0]);
+assert.deepEqual(popupPanOffset({ left: 20, top: 100, right: 300, bottom: 440 }, viewport), [0, 0]);
+assert.deepEqual(popupPanOffset({ left: 20, top: 500, right: 300, bottom: 840 }, viewport), [0, 162]);
+assert.deepEqual(popupPanOffset({ left: 20, top: -200, right: 300, bottom: 900 }, viewport), [0, -274]);
+assert.deepEqual(popupPanOffset({ left: -50, top: 100, right: 400, bottom: 440 }, viewport), [37, 0]);
+console.log('PASS: popup close control and content stay inside the mobile map after one bounded pan');

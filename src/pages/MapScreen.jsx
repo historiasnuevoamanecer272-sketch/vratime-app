@@ -21,6 +21,7 @@ import { friendlyError } from '../lib/userErrors';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { requestBrowserLocation } from '../lib/geolocationRequest';
+import { revealMapPopup } from '../lib/popupViewport';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -36,7 +37,7 @@ const kmBetween = (from, to) => {
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-function MapView({ location, recenterRequest, active, resultsViewport }) {
+function MapView({ location, recenterRequest, active, resultsViewport, closeLabel }) {
   const map = useMap();
   const appliedResults = useRef(null);
   const latitude = location?.[0];
@@ -56,6 +57,11 @@ function MapView({ location, recenterRequest, active, resultsViewport }) {
     map.closePopup?.();
     map.fitBounds(resultsViewport.positions, { paddingTopLeft: [24, 90], paddingBottomRight: [24, 120], maxZoom: 14, animate: false });
   }, [active, map, resultsViewport]);
+  useEffect(() => {
+    const opened = (event) => revealMapPopup(map, event.popup, closeLabel);
+    map.on('popupopen', opened);
+    return () => map.off('popupopen', opened);
+  }, [map, closeLabel]);
   return null;
 }
 
@@ -275,7 +281,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
     <div className="map-page relative h-[100svh] overflow-hidden">
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
         <TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} />
-        <MapView location={location} recenterRequest={recenterRequest} active={active} resultsViewport={resultsViewport} />
+        <MapView location={location} recenterRequest={recenterRequest} active={active} resultsViewport={resultsViewport} closeLabel={t('common.close')} />
         {mapLayer === 'listings' ? filtered.map((item) => <Marker key={item.id} position={publicListingPosition(item)} icon={mapMarkerIcons[item.type] || mapMarkerIcons.give} opacity={requestedListingIds.has(item.id) ? 0.45 : 1} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)} eventHandlers={{ popupopen: (event) => event.target.closeTooltip(), mouseover: (event) => { if (event.target.isPopupOpen()) event.target.closeTooltip(); } }}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1} interactive={false}>{listingPreview(item)}</Tooltip><Popup autoPan={false} keepInView={false}>{listingCard(item)}</Popup></Marker>) : <CollectionPointLayer points={collectionPoints} onVote={votePoint} />}
       </MapContainer>
 

@@ -68,6 +68,7 @@ const hooks = registerHooks({
           setView: (...args) => mapCalls.push(['setView', ...args]),
           fitBounds: (...args) => mapCalls.push(['fitBounds', ...args]),
           flyTo: (...args) => mapCalls.push(['flyTo', ...args]),
+          on() {}, off() {},
         };
         const layer = name => props => { layers.push({ name, props }); return createElement(Fragment, null, props.children); };
         export const MapContainer = layer('MapContainer'), Marker = layer('Marker'), Popup = layer('Popup'),
@@ -206,7 +207,7 @@ try {
     assert.equal(search.props.onPointerDown, undefined);
     assert.equal(elementWithClass('map-toolbar').props.onPointerDown, undefined);
   });
-  await check('listing popup does not pan the map and opening it closes the overlapping tooltip', () => {
+  await check('listing popup disables continuous auto-pan and opening it closes the overlapping tooltip', () => {
     render();
     assert.equal(layers.find(layer => layer.name === 'Popup').props.autoPan, false);
     let closed = false;
