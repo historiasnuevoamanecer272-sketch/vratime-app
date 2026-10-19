@@ -15,6 +15,8 @@ const jsxUrl = import.meta.resolve('react/jsx-runtime');
 const apiExports = ['getCollectionPoints', 'getMyDeals', 'getMyDiscoveryFeed', 'getPublicMapListings', 'refreshExpiredDeals', 'saveSearch', 'voteCollectionPoint', 'createReport', 'createCollectionPoint'];
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (context.parentURL?.endsWith('/components/ListingPhoto.jsx') && specifier === 'react') return {url:'map-test:state',shortCircuit:true};
+    if (['/components/ListingPhoto.jsx','/components/MediaPreview.jsx'].some(path=>context.parentURL?.endsWith(path)) && specifier === 'react/jsx-runtime') return {url:'map-test:elements',shortCircuit:true};
     if (context.parentURL?.endsWith('/pages/MapScreen.jsx')) {
       if (specifier === 'react') return { url: 'map-test:state', shortCircuit: true };
       if (specifier === 'react/jsx-runtime') return { url: 'map-test:elements', shortCircuit: true };
@@ -37,6 +39,7 @@ const hooks = registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
+    if (url.startsWith(srcUrl) && url.endsWith('.css')) return {format:'module',source:'export default {};',shortCircuit:true};
     const sources = {
       'map-test:state': `
         import * as React from ${JSON.stringify(reactUrl)};
@@ -202,6 +205,23 @@ try {
     button.props.onClick?.();
     assert.equal(values.get(15), undefined);
     assert.equal(calls.length, 0);
+  });
+  await check('own and other listing photos expose an action to open the complete image', () => {
+    for (const user_id of ['me','other']) {
+      const photoListing = {...fixture,user_id,image_url:'https://example.test/photo.jpg',image_urls:['https://example.test/photo.jpg','https://example.test/portrait.jpg']};
+      const html = render({0:[photoListing],14:photoListing});
+      assert.match(html,/class="listing-photo-button/,'Published listing photos need a full-image action');
+      assert.ok((html.match(/aria-label="Open photo"/g)||[]).length>=2,'Every detail photo must be independently openable');
+      const portraitButton = elements.find(({type,props})=>type==='button' && props.className?.includes('listing-photo-button') && props.children?.props?.src==='https://example.test/portrait.jpg');
+      assert.ok(portraitButton);
+      portraitButton.props.onClick({stopPropagation(){}});
+      const expanded = rerender();
+      assert.match(expanded,/media-preview-dialog/);
+      const completePhoto = elementWithClass('media-full-preview');
+      assert.equal(completePhoto.props.src,'https://example.test/portrait.jpg');
+      elementWithClass('media-preview-close').props.onClick();
+      assert.doesNotMatch(rerender(),/media-preview-dialog/);
+    }
   });
   await check('collapsed filters retain an independent recenter control', () => {
     render({ 12: false });

@@ -1,5 +1,6 @@
 export const createExperienceTranslations = {
   ru: {
+    addressSearching: 'Ищем подходящие адреса…',
     draftLoading: 'Загружаем сохранённый черновик…',
     draftPending: 'Выберите «Продолжить» или «Удалить черновик» в начале формы.',
     draftReview: 'Подтвердите ниже, что количество и место из черновика актуальны.',
@@ -18,6 +19,7 @@ export const createExperienceTranslations = {
     published: 'Объявление опубликовано.',
   },
   me: {
+    addressSearching: 'Tražimo odgovarajuće adrese…',
     draftLoading: 'Učitavamo sačuvani nacrt…',
     draftPending: 'Izaberite „Nastavi“ ili „Obriši nacrt“ na početku obrasca.',
     draftReview: 'Potvrdite ispod da su količina i mjesto iz nacrta i dalje tačni.',
@@ -36,6 +38,7 @@ export const createExperienceTranslations = {
     published: 'Oglas je objavljen.',
   },
   en: {
+    addressSearching: 'Finding matching addresses…',
     draftLoading: 'Loading your saved draft…',
     draftPending: 'Choose “Continue” or “Discard draft” at the top of the form.',
     draftReview: 'Confirm below that the draft quantity and pickup point are still correct.',
@@ -54,6 +57,7 @@ export const createExperienceTranslations = {
     published: 'Listing published.',
   },
   fr: {
+    addressSearching: 'Recherche des adresses correspondantes…',
     draftLoading: 'Chargement du brouillon enregistré…',
     draftPending: 'Choisissez « Continuer » ou « Supprimer le brouillon » en haut du formulaire.',
     draftReview: 'Confirmez ci-dessous que la quantité et le point de retrait du brouillon sont toujours corrects.',
@@ -72,6 +76,7 @@ export const createExperienceTranslations = {
     published: 'Annonce publiée.',
   },
   de: {
+    addressSearching: 'Passende Adressen werden gesucht…',
     draftLoading: 'Gespeicherter Entwurf wird geladen…',
     draftPending: 'Wählen Sie oben im Formular „Fortsetzen“ oder „Entwurf verwerfen“.',
     draftReview: 'Bestätigen Sie unten, dass Menge und Abholpunkt des Entwurfs weiterhin stimmen.',

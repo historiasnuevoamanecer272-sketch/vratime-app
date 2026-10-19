@@ -270,10 +270,10 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .wizard-content { scrollbar-width: auto; }
 .address-search { position: relative; }
 .address-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-.address-results { position: relative; z-index: 800; margin-top: 7px; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 14px 35px rgba(4, 91, 99, .14); }
-.address-results button { width: 100%; display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); background: transparent; text-align: left; font-size: .78rem; line-height: 1.4; }
+.address-results { position: relative; z-index: 800; margin-top: 7px; max-height: min(36dvh, 280px); overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); box-shadow: 0 14px 35px rgba(4, 91, 99, .14); }
+.address-results button { width: 100%; min-height: 48px; display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); background: transparent; text-align: left; font-size: .78rem; line-height: 1.4; }
 .address-results button:last-child { border-bottom: 0; }
-.address-results button:hover { background: var(--sea-soft); }
+.address-results button:hover, .address-results button[aria-selected="true"] { background: var(--sea-soft); }
 .address-results svg { flex: 0 0 auto; margin-top: 1px; color: var(--sea); }
 .address-hint { display: block; margin-top: 7px; color: var(--muted); font-weight: 600; line-height: 1.4; }
 .choice-card { width: 100%; min-height: 118px; border: 1px solid var(--line); border-radius: 22px; display: grid; grid-template-columns: 62px 1fr 22px; align-items: center; gap: 15px; padding: 17px; text-align: left; color: var(--forest); background: var(--surface); }

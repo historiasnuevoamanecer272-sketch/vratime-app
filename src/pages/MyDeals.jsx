@@ -20,6 +20,7 @@ import { friendlyError } from '../lib/userErrors';
 import { markInstallMilestone } from '../lib/installExperience';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import ListingPhoto from '../components/ListingPhoto';
 
 const statusIcons = {
   pending: 'clock',
@@ -155,7 +156,7 @@ export default function MyDeals({ active = true }) {
             const returnConfirmed = deal.role === 'giver' ? Boolean(deal.lender_return_confirmed_at) : Boolean(deal.borrower_return_confirmed_at);
             return <article key={deal.transaction_id} className={`deal-card deal-card-${status}`}>
               <div className="flex gap-3">
-                {deal.image_url ? <img src={deal.image_url} alt="" className="deal-thumb" /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
+                {deal.image_url ? <ListingPhoto src={deal.image_url} className="deal-thumb" active={active} /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
                 <div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 truncate text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div><span className={`status-pill status-${status}`}><Icon name={statusIcons[status] || 'clock'} size={12} />{t(`status.${status}`)}</span></div><p className="mt-2 flex items-center gap-1 text-xs font-semibold text-muted"><Icon name="box" size={13} />{t('common.pieces', { count: deal.quantity })}<span aria-hidden="true">·</span><Icon name="calendar" size={13} />{new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</p></div>
               </div>
 

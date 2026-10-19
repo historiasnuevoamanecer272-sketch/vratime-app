@@ -8,6 +8,14 @@
 .media-dialog h2 { font-size: 1.3rem; font-weight: 800; }
 .media-dialog p { margin: .8rem 0; font-size: .9rem; line-height: 1.5; }
 .media-full-preview { display: block; max-width: 100%; max-height: 72dvh; object-fit: contain; margin: 1rem auto 0; }
+.listing-photo-button { display: block; padding: 0; border: 0; max-width: 100%; background: transparent; cursor: zoom-in; line-height: 0; flex-shrink: 0; }
+.listing-photo-button > img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.profile-listing > .listing-photo-button { width: 48px; height: 48px; border-radius: 14px; }
+.media-preview-backdrop { top: var(--app-viewport-top, 0px); bottom: auto; height: var(--app-viewport-height, 100dvh); padding: 0; }
+.media-preview-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; width: 100%; height: 100%; max-height: none; border-radius: 0; overflow: hidden; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); background: var(--paper, #fff); }
+.media-preview-toolbar { display: flex; justify-content: flex-end; }
+.media-preview-close { min-width: 48px; min-height: 48px; }
+.media-preview-dialog .media-full-preview { width: 100%; height: 100%; min-height: 0; max-height: none; margin: 0; object-fit: contain; }
 .avatar-crop-preview { width: min(72vw, 17rem); aspect-ratio: 1; overflow: hidden; border-radius: 50%; margin: 1rem auto; background: #e6eee9; }
 .avatar-crop-preview img { width: 100%; height: 100%; object-fit: cover; }
 .media-crop-control { display: grid; gap: .35rem; margin: .9rem 0; font-size: .85rem; font-weight: 700; }

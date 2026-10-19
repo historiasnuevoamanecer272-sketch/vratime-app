@@ -17,9 +17,11 @@ import { prepareImage, imageErrorKey, MAX_LISTING_PHOTOS } from '../lib/imagePre
 import { uploadUserMedia } from '../lib/mediaUploads';
 import { createListingDraftStore } from '../lib/listingDraft';
 import MediaPreview from '../components/MediaPreview';
+import NativeTextarea from '../components/NativeTextarea';
 import { markInstallMilestone } from '../lib/installExperience';
 import { createFormTaskScope, prepareScopedPreview } from '../lib/formTaskScope';
 import { publishListingOnce } from '../lib/listingPublication';
+import { createAddressAutocomplete, searchAddressSuggestions } from '../lib/addressAutocomplete';
 
 function LocationPicker({ position, type, onChange }) {
   useMapEvents({ click: ({ latlng }) => onChange([latlng.lat, latlng.lng]) });
@@ -78,6 +80,14 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
   const [addressResults, setAddressResults] = useState([]);
   const [addressLoading, setAddressLoading] = useState(false);
   const [locationKind, setLocationKind] = useState(addressVerified ? 'address' : null);
+  const [addressSuggestionStatus, setAddressSuggestionStatus] = useState('idle');
+  const [addressActiveOption, setAddressActiveOption] = useState(-1);
+  const addressAutocomplete = useMemo(() => createAddressAutocomplete({
+    search: (query, options) => searchAddressSuggestions(query, {...options,language}),
+    onResults: (results) => { setAddressResults(results); setAddressActiveOption(-1); },
+    onStatus: setAddressSuggestionStatus,
+  }),[language]);
+  useEffect(() => () => addressAutocomplete.cancel(),[addressAutocomplete]);
 
   useEffect(() => {
     taskScope.activate();
@@ -107,6 +117,8 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
   const restoreDraft = () => {
     const draft = pendingDraft;
     if (!draft) return;
+    addressAutocomplete.cancel(); setAddressResults([]); setAddressSuggestionStatus('idle');
+    locationRequestRef.current += 1;
     setForm((current) => ({ ...current, ...draft.data.form }));
     setSelected(draft.data.selected);
     setPosition(draft.data.position);
@@ -238,6 +250,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
   };
 
   const selectPosition = (point) => {
+    addressAutocomplete.cancel(); setAddressSuggestionStatus('idle');
     setDraftDirty(true);
     const requestId = ++locationRequestRef.current;
     setPosition(point);
@@ -251,6 +264,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
 
   const useLocation = () => {
     if (!navigator.geolocation) return showToast(t('map.locationMissing'), 'error');
+    addressAutocomplete.cancel(); setAddressResults([]); setAddressSuggestionStatus('idle');
     const requestId = ++locationRequestRef.current;
     setAddressLoading(true);
     navigator.geolocation.getCurrentPosition(({ coords }) => {
@@ -263,6 +277,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
 
   const searchAddress = async () => {
     if (address.trim().length < 3) return showToast(t('create.addressShort'), 'error');
+    addressAutocomplete.cancel(); setAddressSuggestionStatus('idle');
     const requestId = ++locationRequestRef.current;
     setAddressLoading(true);
     try {
@@ -285,6 +300,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     event.stopPropagation();
     const point = [Number(result.lat), Number(result.lon)];
     if (!hasVerifiedLocation({ address: result.display_name, verified: true, position: point })) return;
+    addressAutocomplete.cancel(); setAddressSuggestionStatus('idle');
     locationRequestRef.current += 1;
     setDraftDirty(true);
     setPosition(point);
@@ -293,6 +309,26 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     setAddressVerified(true);
     setLocationKind('address');
     setAddressLoading(false);
+  };
+
+  const changeAddress = (event) => {
+    const value = event.target.value;
+    locationRequestRef.current += 1;
+    setAddress(value); setAddressVerified(false); setLocationKind(null); setAddressLoading(false);
+    addressAutocomplete.update(value);
+  };
+  const addressKeyDown = (event) => {
+    if (event.nativeEvent?.isComposing || event.isComposing || event.keyCode === 229) return;
+    if (addressResults.length && ['ArrowDown','ArrowUp'].includes(event.key)) {
+      event.preventDefault();
+      setAddressActiveOption((current) => event.key === 'ArrowDown' ? (current+1)%addressResults.length : (current-1+addressResults.length)%addressResults.length);
+    } else if (event.key === 'Escape' && addressResults.length) {
+      event.preventDefault(); event.stopPropagation(); addressAutocomplete.cancel(); setAddressResults([]); setAddressSuggestionStatus('idle');
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (addressActiveOption >= 0 && addressResults[addressActiveOption]) chooseAddress(event,addressResults[addressActiveOption]);
+      else searchAddress();
+    }
   };
 
   const blockers = listingFormBlockers({ selected, form, photos, locationConfirmed: hasVerifiedLocation({ address, verified: addressVerified, position }) });
@@ -411,12 +447,22 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
               {photos.length ? <div className="photo-preview-grid">{photos.map((photo) => <div key={photo.operationId || photo.preview} className="photo-preview">{photo.preview ? <button type="button" className="media-photo-open" aria-label={t('mediaExperience.preview')} onClick={() => setPreviewPhoto(photo)}><img src={photo.preview} alt={photo.file?.name || ''} /></button> : <p className="media-photo-state">{photo.file?.name}</p>}{photo.preparing ? <p className="media-photo-state" role="status">{t('mediaExperience.preparing')}</p> : photo.error ? <div className="media-photo-state"><p className="field-error" role="alert">{t(photo.error)}</p><button type="button" className="btn-link" disabled={loading} onClick={() => preparePhoto(photo)}>{t('mediaExperience.retry')}</button></div> : null}<button type="button" className="icon-button photo-preview-remove" disabled={loading} aria-label={t('common.remove')} title={t('common.remove')} onClick={() => removePhoto(photo)}><Icon name="close" size={18} /></button></div>)}</div> : null}
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')} *</span><input name="quantity" className="field" type="number" min="1" max="10000" step="1" inputMode="numeric" required aria-invalid={blockers.includes('quantity')} aria-describedby="create-quantity-error" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} />{blockers.includes('quantity') ? <small id="create-quantity-error" className="field-error">{t('createExperience.blockers.quantity')}</small> : null}</label>
-            <label className="mt-4 block"><span className="field-label">{t('create.description')} {form.type === 'lend' ? '*' : <span className="create-optional">({t('createExperience.optional')})</span>}</span><textarea name="description" className="field min-h-24 resize-y py-3" required={form.type === 'lend'} minLength={form.type === 'lend' ? 5 : undefined} maxLength={500} aria-invalid={form.type === 'lend' && blockers.includes('loanDescription')} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
+            <label className="mt-4 block"><span className="field-label">{t('create.description')} {form.type === 'lend' ? '*' : <span className="create-optional">({t('createExperience.optional')})</span>}</span><NativeTextarea name="description" className="field min-h-24 resize-y py-3" required={form.type === 'lend'} minLength={form.type === 'lend' ? 5 : undefined} maxLength={500} aria-invalid={form.type === 'lend' && blockers.includes('loanDescription')} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
             {showCondition ? <label className="mt-4 block"><span className="field-label">{t('create.condition')}{form.type === 'lend' ? ' *' : ''}</span><select className="field" value={form.condition} onChange={(event) => setForm((current) => ({ ...current, condition: event.target.value }))}><option value="new">{t('create.conditionNew')}</option><option value="usable">{t('create.conditionUsable')}</option><option value="worn">{t('create.conditionWorn')}</option><option value="repair">{t('create.conditionRepair')}</option></select></label> : null}
             {form.type !== 'lend' ? <label className="mt-4 block"><span className="field-label">{t('create.weightKg')} <span className="create-optional">({t('createExperience.optional')})</span></span><input className="field" type="number" min="0" step="0.1" inputMode="decimal" value={form.weight_kg} onChange={(event) => setForm((current) => ({ ...current, weight_kg: event.target.value }))} /></label> : null}
             {form.type === 'lend' ? <label className="mt-4 block"><span className="field-label">{t('loanExperience.duration')} *</span><input name="loan_duration_days" className="field" type="number" min="1" max="365" step="1" inputMode="numeric" required aria-invalid={blockers.includes('loanDuration')} aria-describedby="create-loan-error" value={form.loan_duration_days} onChange={(event) => setForm((current) => ({ ...current, loan_duration_days: event.target.value }))} />{blockers.includes('loanDuration') ? <small id="create-loan-error" className="field-error">{t('createExperience.blockers.loanDuration')}</small> : null}<small className="address-hint">{t('loanExperience.returnHint')}</small></label> : null}
             <label className="mt-4 block"><span className="field-label">{t('createExperience.pickupTime')} <span className="create-optional">({t('createExperience.optional')})</span></span><input name="pickup_time" className="field" value={form.pickup_time} placeholder={t('createExperience.pickupTimePlaceholder')} onChange={(event) => setForm((current) => ({ ...current, pickup_time: event.target.value }))} /></label>
-            <div className={`address-search mt-4 ${addressVerified ? 'is-verified' : ''}`}><label className="block"><span className="field-label">{t('createExperience.address')} *</span><div className="address-search-row"><input name="address" className="field" value={address} aria-required="true" aria-invalid={!addressVerified} aria-describedby="create-location-hint" placeholder={t('create.addressPlaceholder')} onChange={(event) => { locationRequestRef.current += 1; setAddress(event.target.value); setAddressResults([]); setAddressVerified(false); setLocationKind(null); setAddressLoading(false); }} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); searchAddress(); } }} /><button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button></div></label>{addressResults.length ? <div className="address-results">{addressResults.map((result) => <button type="button" key={`${result.place_id}-${result.lat}`} onClick={(event) => chooseAddress(event, result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}<small id="create-location-hint" className="address-hint" aria-live="polite">{addressVerified ? t(locationKind === 'pin' ? addressLoading ? 'createExperience.pinResolving' : 'createExperience.pinConfirmed' : 'createExperience.addressConfirmed') : t(address.trim().length < 3 ? 'createExperience.addressShort' : 'createExperience.addressUnconfirmed')}</small>{addressVerified ? <small className="address-hint create-location-coordinates">{t('createExperience.coordinates', { latitude: position[0].toFixed(5), longitude: position[1].toFixed(5) })}</small> : null}</div>
+            <div className={`address-search mt-4 ${addressVerified ? 'is-verified' : ''}`}>
+              <label className="block"><span className="field-label">{t('createExperience.address')} *</span><div className="address-search-row">
+                <input name="address" className="field" value={address} role="combobox" autoComplete="off" aria-autocomplete="list" aria-expanded={addressResults.length > 0} aria-controls="create-address-options" aria-activedescendant={addressActiveOption >= 0 ? `create-address-option-${addressActiveOption}` : undefined} aria-required="true" aria-invalid={!addressVerified} aria-describedby="create-location-hint" placeholder={t('create.addressPlaceholder')} onChange={changeAddress} onKeyDown={addressKeyDown} />
+                <button type="button" className="btn-secondary min-h-12 px-4" disabled={addressLoading} onClick={searchAddress}><Icon name="search" size={18} /><span className="sr-only">{t('create.findAddress')}</span></button>
+              </div></label>
+              {addressResults.length ? <div id="create-address-options" className="address-results" role="listbox" aria-label={t('createExperience.address')}>{addressResults.map((result,index) => <button type="button" id={`create-address-option-${index}`} role="option" aria-selected={addressActiveOption === index} key={`${result.place_id}-${result.lat}`} onClick={(event) => chooseAddress(event,result)}><Icon name="location" size={16} /><span>{result.display_name}</span></button>)}</div> : null}
+              {addressResults.length ? <small className="address-hint">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> · <a href="https://github.com/komoot/photon" target="_blank" rel="noreferrer">Photon</a></small> : null}
+              {!addressVerified && ['loading','empty','error'].includes(addressSuggestionStatus) ? <small className="address-hint" role="status">{t(addressSuggestionStatus === 'loading' ? 'createExperience.addressSearching' : addressSuggestionStatus === 'empty' ? 'create.addressNotFound' : 'create.addressError')}</small> : null}
+              <small id="create-location-hint" className="address-hint" aria-live="polite">{addressVerified ? t(locationKind === 'pin' ? addressLoading ? 'createExperience.pinResolving' : 'createExperience.pinConfirmed' : 'createExperience.addressConfirmed') : t(address.trim().length < 3 ? 'createExperience.addressShort' : 'createExperience.addressUnconfirmed')}</small>
+              {addressVerified ? <small className="address-hint create-location-coordinates">{t('createExperience.coordinates', { latitude: position[0].toFixed(5), longitude: position[1].toFixed(5) })}</small> : null}
+            </div>
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" disabled={addressLoading} onClick={useLocation}><Icon name="location" size={16} />{addressLoading ? t('map.locating') : t('create.useLocation')}</button></div>
             <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={selectPosition} /></MapContainer></div>
             <p className="mt-2 text-xs font-semibold text-muted">{t('createExperience.mapHint')}</p>

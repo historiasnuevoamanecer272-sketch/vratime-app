@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import './address-autocomplete-check.mjs';
 import './feedback-contact-check.mjs';
 import './popup-viewport-check.mjs';
 import './loan-item-check.mjs';

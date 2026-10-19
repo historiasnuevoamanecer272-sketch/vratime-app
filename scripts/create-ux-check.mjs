@@ -16,9 +16,10 @@ const reactUrl = import.meta.resolve('react');
 const runtimeUrl = import.meta.resolve('react/jsx-runtime');
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (context.parentURL?.endsWith('/components/NativeTextarea.jsx') && specifier === 'react/jsx-runtime') return {url:'create-ux-test:capture',shortCircuit:true};
     if (context.parentURL?.startsWith(srcUrl) && /^\.\.\/supabaseClient(?:\.js)?$/.test(specifier)) return {url:'create-ux-test:supabase',shortCircuit:true};
     if (context.parentURL?.endsWith('/pages/CreateListing.jsx')) {
-      const seams = { react: 'hooks', 'react/jsx-runtime': 'capture', 'react-leaflet': 'map', '../lib/basemap': 'basemap', '../lib/mapMarkers': 'markers', '../supabaseClient': 'supabase', '../lib/api': 'api' };
+      const seams = { react: 'hooks', 'react/jsx-runtime': 'capture', 'react-leaflet': 'map', '../lib/basemap': 'basemap', '../lib/mapMarkers': 'markers', '../supabaseClient': 'supabase', '../lib/api': 'api', '../lib/addressAutocomplete':'addresses' };
       if (seams[specifier]) return { url: `create-ux-test:${seams[specifier]}`, shortCircuit: true };
     }
     if (context.parentURL?.startsWith(srcUrl) && specifier.startsWith('.')) {
@@ -32,6 +33,12 @@ const hooks = registerHooks({
   },
   load(url, context, nextLoad) {
     const module = (source) => ({ format: 'module', source, shortCircuit: true });
+    if (url === 'create-ux-test:addresses') return module(`
+      import { createAddressAutocomplete as real, searchAddressSuggestions } from ${JSON.stringify(new URL('../src/lib/addressAutocomplete.js',import.meta.url).href)};
+      export { searchAddressSuggestions };
+      export const timers = new Map(); let serial = 0;
+      export const createAddressAutocomplete = options => real({...options,schedule:(callback)=>{const id=++serial;timers.set(id,callback);return id;},unschedule:id=>timers.delete(id)});
+    `);
     if (url.startsWith(srcUrl) && url.endsWith('.css')) return module('export default {};');
     if (url === 'create-ux-test:hooks') return module(`
       export * from ${JSON.stringify(reactUrl)};
@@ -103,6 +110,7 @@ try {
   const map = await import('create-ux-test:map');
   const { writes } = await import('create-ux-test:supabase');
   const { updates } = await import('create-ux-test:api');
+  const addressMocks = await import('create-ux-test:addresses');
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
   globalThis.window = { setTimeout: () => 0, dispatchEvent: () => {} };
@@ -121,6 +129,7 @@ try {
     return renderToStaticMarkup(createElement(CreateListing, props));
   };
   const start = async (editingListing = fixture) => {
+    addressMocks.timers.clear();
     state.reset(); writes.length = 0; updates.length = 0; toasts.length = 0;
     props = { userId: 'user-fixture', editingListing, onBack: () => {}, onSuccess: () => {} };
     render(); await state.flush(); return render();
@@ -175,6 +184,44 @@ try {
     assert.equal(input('quantity').value, '');
     assert.ok(publishButton().disabled);
     assert.match(html, /whole number from 1 to 10,000/i);
+  });
+  await check('native keyboard replacement input reaches the description without a controlled value reset', async () => {
+    for (const eventName of ['onInput','onCompositionEnd','onBlur']) {
+      await start();
+      const description = () => elements('textarea').find(item => item.name === 'description');
+      assert.equal(typeof description()[eventName],'function','Native replacement input must be handled even without a React change event');
+      assert.equal(description().value,undefined,'The browser must own the textarea value during keyboard predictions');
+      assert.equal(description().autoCorrect,'on');
+      description()[eventName]({target:{value:'Хэллоуин'}});render();
+      await publishButton().onClick();
+      assert.equal(updates[0].description,'Хэллоуин');
+    }
+  });
+  await check('give and take forms automatically suggest addresses and keep the selected coordinates', async () => {
+    for (const type of ['give','take']) {
+      await start({...fixture,type});
+      let lookups=0;
+      globalThis.fetch=async(url)=>{
+        lookups++;
+        assert.equal(new URL(url).hostname,'photon.komoot.io');
+        return {ok:true,json:async()=>({features:[{geometry:{coordinates:[18.52279,42.45965]},properties:{osm_id:1,osm_type:'W',name:'Braće Grbića',city:'Herceg Novi',countrycode:'ME'}}]})};
+      };
+      change(input('address'),'Br'); assert.equal(addressMocks.timers.size,0);
+      change(input('address'),'Braće');
+      assert.equal(input('address').role,'combobox');
+      assert.equal(input('address')['aria-invalid'],true);
+      assert.equal(lookups,0,'Typing is debounced');
+      const [id,run]=[...addressMocks.timers][0]; addressMocks.timers.delete(id); await run();render();
+      assert.equal(lookups,1); assert.equal(input('address')['aria-expanded'],true);
+      input('address').onKeyDown({key:'ArrowDown',preventDefault(){}});render();
+      assert.equal(input('address')['aria-activedescendant'],'create-address-option-0');
+      input('address').onKeyDown({key:'Enter',preventDefault(){},stopPropagation(){}});render();
+      assert.equal(input('address')['aria-invalid'],false);
+      assert.equal(input('address')['aria-expanded'],false);
+      assert.equal(publishButton().disabled,false);
+      await publishButton().onClick();
+      assert.deepEqual([updates[0].lat,updates[0].lng],[42.45965,18.52279]);
+    }
   });
   await check('optional fields and mandatory markers are visible; material has no condition or handover selector', async () => {
     const html = await start();

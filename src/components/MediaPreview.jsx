@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import Icon from './Icon';
 import '../styles/media-ux.css';
 
-function MediaDialog({ children, title, onClose, active = true }) {
+function MediaDialog({ children, title, onClose, active = true, fullScreen = false }) {
   const dialogRef = useRef(null);
   useAppOverlay(active, onClose, 'media-preview');
   useDialogFocus({ open: active, onClose, dialogRef });
   if (!active) return null;
-  return <div className="media-dialog-backdrop"><section ref={dialogRef} className="media-dialog" role="dialog" aria-modal="true" aria-label={title}>{children}</section></div>;
+  const content = <div className={`media-dialog-backdrop${fullScreen ? ' media-preview-backdrop' : ''}`}><section ref={dialogRef} className={`media-dialog${fullScreen ? ' media-preview-dialog' : ''}`} role="dialog" aria-modal="true" aria-label={title}>{children}</section></div>;
+  return globalThis.document?.body ? createPortal(content,document.body) : content;
 }
 
 export default function MediaPreview({ src, alt = '', onClose, active = true }) {
   const { t } = useTranslation();
-  return <MediaDialog active={active} title={t('mediaExperience.preview')} onClose={onClose}><button type="button" className="btn-secondary" onClick={onClose}>{t('mediaExperience.closePreview')}</button><img className="media-full-preview" src={src} alt={alt} /></MediaDialog>;
+  return <MediaDialog active={active} fullScreen title={t('mediaExperience.preview')} onClose={onClose}><div className="media-preview-toolbar"><button type="button" className="btn-secondary media-preview-close" onClick={onClose}><Icon name="close" size={24} /><span>{t('mediaExperience.closePreview')}</span></button></div><img className="media-full-preview" src={src} alt={alt} draggable={false} /></MediaDialog>;
 }
 
 export function AvatarCrop({ file, onApply, onClose, saving, error, active = true }) {

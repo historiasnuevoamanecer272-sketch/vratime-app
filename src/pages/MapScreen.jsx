@@ -7,6 +7,7 @@ import { categoryLabel, categorySearchText, listingCategoryLabel, normalizeSearc
 import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import ListingPhoto from '../components/ListingPhoto';
 import CategoryIcon from '../components/CategoryIcon';
 import { mapMarkerIcons } from '../lib/mapMarkers';
 import { baseMap } from '../lib/basemap';
@@ -252,7 +253,7 @@ export default function MapScreen({ userId, active = true }) {
   };
   const listingCard = (item, compact = false) => (
     <article key={`${compact ? 'sheet' : 'popup'}-${item.id}`} className={`listing-card ${compact ? 'listing-card-row' : ''} ${isOwnMapListing(item, userId) ? 'is-owned' : ''} ${requestedListingIds.has(item.id) ? 'is-requested' : ''}`}>
-      {listingImages(item)[0] ? <img src={listingImages(item)[0]} alt="" className="listing-image" /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
+      {listingImages(item)[0] ? <ListingPhoto src={listingImages(item)[0]} alt={listingCategoryLabel(item,language)} className="listing-image" active={active} /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
       <div className="min-w-0 flex-1">
         <div className={`listing-kind ${item.type}`}><Icon name={typeIcon(item)} size={13} />{t(typeLabel(item))}</div>
         {isOwnMapListing(item, userId) ? <div className="listing-owner">{t('mapExperience.myListing')}</div> : null}
@@ -320,7 +321,7 @@ export default function MapScreen({ userId, active = true }) {
         <section ref={detailRef} {...detailFocus} inert={Boolean(bookingListing || reportListing) || undefined} className="listing-dialog listing-dialog-with-actions card" aria-label={t('map.details')} onMouseDown={(event) => event.stopPropagation()}>
           <button type="button" className="icon-button listing-dialog-close" onClick={() => setSelectedListing(null)} aria-label={t('common.close')}><Icon name="close" size={18} /></button>
           <div className="listing-dialog-scroll">
-          {listingImages(selectedListing).length ? <div className="listing-dialog-gallery">{listingImages(selectedListing).map((imageUrl) => <img key={imageUrl} src={imageUrl} alt="" className="listing-dialog-image" />)}</div> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
+          {listingImages(selectedListing).length ? <div className="listing-dialog-gallery">{listingImages(selectedListing).map((imageUrl) => <ListingPhoto key={imageUrl} src={imageUrl} alt={listingCategoryLabel(selectedListing,language)} className="listing-dialog-image" active={active} />)}</div> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
           <div className={`listing-kind mt-4 ${selectedListing.type}`}><Icon name={typeIcon(selectedListing)} size={14} />{t(typeLabel(selectedListing))}</div>
           {isOwnMapListing(selectedListing, userId) ? <p className="listing-owner">{t('mapExperience.myListing')}</p> : null}
           <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>

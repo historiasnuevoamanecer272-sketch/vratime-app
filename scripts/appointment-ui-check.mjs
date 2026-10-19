@@ -88,6 +88,7 @@ if (!process.argv.includes('--timezone-fixture')) {
           export const jsxs = (...args) => capture(realJsxs, ...args);
         ` };
       }
+      if (url.startsWith(srcUrl) && url.endsWith('.css')) return {format:'module',source:'export default {};',shortCircuit:true};
       if (url.startsWith(srcUrl) && /\.(webp|png)$/.test(url)) {
         return { format: 'module', shortCircuit: true, source: `export default ${JSON.stringify(url)};` };
       }
