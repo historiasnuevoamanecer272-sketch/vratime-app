@@ -18,3 +18,25 @@ export function revealMapPopup(map, popup, closeLabel) {
   const offset = popupPanOffset(element.getBoundingClientRect(), map.getContainer().getBoundingClientRect());
   if (offset.some(Boolean)) { map.stop(); map.panBy(offset, { animate: false }); }
 }
+
+export function bindMapPopupReveal(map, closeLabel, frames = {
+  request: (action) => requestAnimationFrame(action),
+  cancel: (id) => cancelAnimationFrame(id),
+}) {
+  let pending = null;
+  const cancel = () => { if (pending !== null) frames.cancel(pending); pending = null; };
+  const opened = ({ popup }) => {
+    cancel();
+    // React-Leaflet commits the portal after popupopen. Recompute its dimensions
+    // in the next frame, then reveal once without continuous map recentering.
+    pending = frames.request(() => {
+      pending = null;
+      if (!popup.isOpen()) return;
+      popup.update();
+      revealMapPopup(map, popup, closeLabel);
+    });
+  };
+  map.on('popupopen', opened);
+  map.on('popupclose', cancel);
+  return () => { cancel(); map.off('popupopen', opened); map.off('popupclose', cancel); };
+}

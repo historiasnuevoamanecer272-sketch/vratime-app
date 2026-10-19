@@ -21,7 +21,7 @@ import { friendlyError } from '../lib/userErrors';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { requestBrowserLocation } from '../lib/geolocationRequest';
-import { revealMapPopup } from '../lib/popupViewport';
+import { bindMapPopupReveal } from '../lib/popupViewport';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -57,11 +57,7 @@ function MapView({ location, recenterRequest, active, resultsViewport, closeLabe
     map.closePopup?.();
     map.fitBounds(resultsViewport.positions, { paddingTopLeft: [24, 90], paddingBottomRight: [24, 120], maxZoom: 14, animate: false });
   }, [active, map, resultsViewport]);
-  useEffect(() => {
-    const opened = (event) => revealMapPopup(map, event.popup, closeLabel);
-    map.on('popupopen', opened);
-    return () => map.off('popupopen', opened);
-  }, [map, closeLabel]);
+  useEffect(() => bindMapPopupReveal(map, closeLabel), [map, closeLabel]);
   return null;
 }
 
