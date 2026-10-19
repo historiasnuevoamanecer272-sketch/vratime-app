@@ -1,0 +1,40 @@
+:root {
+  --app-viewport-height: 100dvh;
+  --app-viewport-top: 0px;
+  --app-keyboard-height: 0px;
+}
+
+.app-tab { min-width: 0; }
+.app-tab[hidden] { display: none !important; }
+.app-shell .app-tab > .app-screen { min-height: var(--app-viewport-height); }
+.creation-layer { outline: 0; }
+.app-shell > .install-banner { position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom)); margin: 0; transform: translateX(-50%); }
+
+.modal-backdrop,
+.listing-dialog-backdrop {
+  top: var(--app-viewport-top);
+  bottom: auto;
+  height: var(--app-viewport-height);
+  max-height: var(--app-viewport-height);
+}
+
+.modal-backdrop .wizard-shell {
+  height: var(--app-viewport-height);
+  max-height: var(--app-viewport-height);
+}
+
+.listing-dialog-backdrop .listing-dialog,
+.listing-dialog-backdrop .booking-confirm,
+.modal-backdrop .report-dialog,
+.modal-backdrop .collection-point-dialog,
+.modal-backdrop .levels-dialog,
+.modal-backdrop .rating-dialog {
+  max-height: calc(var(--app-viewport-height) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+
+[data-keyboard-open="true"] .bottom-nav { visibility: hidden; pointer-events: none; }
+[data-keyboard-open="true"] .wizard-footer { padding-bottom: 10px; }
+
+.auth-return-notice { position: relative; z-index: 10; width: min(calc(100% - 2rem), 430px); margin: 1rem auto; padding: 1rem; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); color: var(--ink); }
+.auth-return-notice p { margin: 0; }
+.auth-return-notice button { margin-top: .6rem; }

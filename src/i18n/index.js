@@ -1,7 +1,27 @@
+import { staffExperienceTranslations } from './uxStaff.js';
+import { pwaExperienceByLanguage } from './uxPwa.js';
+import { pushExperienceByLanguage } from './uxPush.js';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import frTranslation from './locales/fr.json' with { type: 'json' };
+import deTranslation from './locales/de.json' with { type: 'json' };
+import ruLegal from './locales/legal.ru.json' with { type: 'json' };
+import meLegal from './locales/legal.me.json' with { type: 'json' };
+import enLegal from './locales/legal.en.json' with { type: 'json' };
+import frLegal from './locales/legal.fr.json' with { type: 'json' };
+import deLegal from './locales/legal.de.json' with { type: 'json' };
+import { supportedLanguages, normalizeAppLanguage, resolveInitialLanguage } from './languages.js';
+import { mapExperienceTranslations } from './uxMap.js';
+import { createExperienceTranslations } from './uxCreate.js';
+import { authExperienceByLanguage } from './uxAuth.js';
+import { dealExperienceTranslations } from './uxDeals.js';
+import { feedbackExperienceTranslations } from './uxFeedback.js';
+import { reliabilityExperienceTranslations } from './uxReliability.js';
+import { navigationExperienceByLanguage } from './uxNavigation.js';
+import { mediaExperienceTranslations } from './uxMedia.js';
+import { draftExperienceTranslations } from './uxDraft.js';
 
-export const supportedLanguages = ['ru', 'me', 'en'];
+export { languageOptions, supportedLanguages } from './languages.js';
 
 export const resources = {
   ru: {
@@ -20,7 +40,7 @@ export const resources = {
         eyebrow: 'Круговорот с пользой', title: 'Вещи находят новый дом',
         subtitle: 'Отдавайте тару и материалы рядом — легко, бережно и без лишних отходов.',
         email: 'Email для входа', magic: 'Получить ссылку', sending: 'Отправляем…', google: 'Продолжить с Google',
-        divider: 'или', hint: 'Мы отправим безопасную ссылку. Пароль не нужен.', invalid: 'Введите корректный email.',
+        divider: 'или', hint: 'Впервые здесь? Первый вход создаст аккаунт. Войдите через Google или ссылку на почту — пароль не нужен. Затем заполните имя и контакт.', invalid: 'Введите корректный email.',
         sentTitle: 'Ссылка уже в пути', sentText: 'Мы отправили письмо на {{email}}. Откройте его на этом устройстве.',
         another: 'Использовать другой email', resend: 'Отправить ещё раз', spam: 'Если письма нет, проверьте папку «Спам».',
         rateLimit: 'Слишком много попыток. Подождите минуту и попробуйте снова.', googleUnavailable: 'Google-вход будет доступен после подключения OAuth.',
@@ -91,7 +111,7 @@ export const resources = {
       common: { loading: 'Učitavanje…', back: 'Nazad', close: 'Zatvori', ok: 'U redu', save: 'Sačuvaj', cancel: 'Otkaži', retry: 'Pokušaj ponovo', choose: 'Izaberi', remove: 'Ukloni', optional: 'Nije obavezno', pieces: '{{count}} kom.', partner: 'Partner', error: 'Nešto nije u redu' },
       nav: { map: 'Mapa', deals: 'Dogovori', create: 'Dodaj', profile: 'Profil', label: 'Glavna navigacija' },
       install: { title: 'Instaliraj VratiMe', android: 'Otvara se kao aplikacija i duže čuva prijavu.', ios: 'Na iPhone-u pritisnite „Share“, zatim „Add to Home Screen“.', manual: 'U meniju pregledača izaberite „Install app“.', action: 'Instaliraj', done: 'Aplikacija je instalirana' },
-      auth: { eyebrow: 'Kružna upotreba', title: 'Stvari nalaze novi dom', subtitle: 'Poklonite ambalažu i materijale u blizini — jednostavno i bez otpada.', email: 'Email za prijavu', magic: 'Pošalji link', sending: 'Šaljemo…', google: 'Nastavi sa Google-om', divider: 'ili', hint: 'Poslaćemo siguran link. Lozinka nije potrebna.', invalid: 'Unesite ispravan email.', sentTitle: 'Link je na putu', sentText: 'Poslali smo poruku na {{email}}. Otvorite je na ovom uređaju.', another: 'Drugi email', resend: 'Pošalji ponovo', spam: 'Ako poruke nema, provjerite Spam.', rateLimit: 'Previše pokušaja. Sačekajte minut.', googleUnavailable: 'Google prijava biće dostupna nakon OAuth podešavanja.' },
+      auth: { eyebrow: 'Kružna upotreba', title: 'Stvari nalaze novi dom', subtitle: 'Poklonite ambalažu i materijale u blizini — jednostavno i bez otpada.', email: 'Email za prijavu', magic: 'Pošalji link', sending: 'Šaljemo…', google: 'Nastavi sa Google-om', divider: 'ili', hint: 'Prvi put ste ovdje? Prva prijava kreira nalog. Koristite Google ili link na email — bez lozinke. Zatim unesite ime i kontakt.', invalid: 'Unesite ispravan email.', sentTitle: 'Link je na putu', sentText: 'Poslali smo poruku na {{email}}. Otvorite je na ovom uređaju.', another: 'Drugi email', resend: 'Pošalji ponovo', spam: 'Ako poruke nema, provjerite Spam.', rateLimit: 'Previše pokušaja. Sačekajte minut.', googleUnavailable: 'Google prijava biće dostupna nakon OAuth podešavanja.' },
       onboarding: { eyebrow: 'Prvi korak', title: 'Da se upoznamo?', text: 'Ime i kontakt vidi samo učesnik sa kojim ste razmijenili zahtjev.', name: 'Kako da vas zovemo', namePlaceholder: 'Na primjer, Marko', language: 'Jezik aplikacije', messenger: 'Gdje da vas kontaktiraju', contact: 'Broj ili korisničko ime', contactPlaceholder: '+382… ili @username', submit: 'Sačuvaj i nastavi', saving: 'Čuvamo…', returningTitle: 'Već ste koristili VratiMe?', returningText: 'Možda ste prijavljeni drugim emailom. Vratite se na prijavu — vaš stari profil ostaje sačuvan.', returningAction: 'Prijavi se drugim emailom' },
       contacts: { title: 'Kako da vas kontaktiraju', note: 'Izaberite jedan ili više messengera. Vidi ih samo učesnik nakon razmjene zahtjeva.', telegramMethod: 'Kontakt preko Telegrama', telegramAlias: 'Preko aliasa', telegramPhone: 'Preko broja', telegramAliasPlaceholder: '@vasiliy', telegramPhonePlaceholder: '+382 67 123 456', telegramAliasHint: 'Javni Telegram alias — broj telefona nije potreban.', telegramPhoneHint: 'Broj u međunarodnom formatu. Može se razlikovati od Viber i WhatsApp brojeva.', contactRequired: 'Izaberite najmanje jedan messenger.', contactInvalid: 'Provjerite uneseni kontakt.', telegramInvalid: 'Telegram: unesite @username ili broj u međunarodnom formatu, npr. +38267123456.', migrationRequired: 'Više messengera biće dostupno nakon ažuriranja baze. Stari kontakt je sačuvan.', },
       map: { eyebrow: 'Crna Gora · u blizini', title: 'Mapa razmjene', search: 'Tegle, karton, odjeća…', searchGiveHint: 'Pretražujemo samo oglase „Poklanjaju“', all: 'Sve', filters: 'Filteri', anyDistance: 'Bilo koja udaljenost', km1: 'Do 1 km', km5: 'Do 5 km', km10: 'Do 10 km', nearby: 'Moja lokacija', locating: 'Tražimo vašu lokaciju…', located: 'Prikazujemo oglase u blizini', locationDenied: 'Lokacija nije dostupna', locationMissing: 'Geolokacija nije podržana', offers_one: '{{count}} oglas', offers_few: '{{count}} oglasa', offers_many: '{{count}} oglasa', offers_other: '{{count}} oglasa', mine: 'Mojih: {{count}}', give: 'Poklanjaju', take: 'Traže', quantity: 'Količina', bookGive: 'Želim da preuzmem', bookTake: 'Mogu da predam', booking: 'Šaljemo…', bookedGive: 'Zahtjev je poslat. Kontakt je već dostupan u „Dogovorima“.', bookedTake: 'Ponuda je poslata. Kontakt je već dostupan u „Dogovorima“.', requested: 'Zahtjev poslat', requestedHint: 'Već ste poslali zahtjev. Kontakt je dostupan u „Dogovorima“.', own: 'Ne možete tražiti svoj oglas.', ownLabel: 'Vaš oglas', emptyTitle: 'Nema odgovarajućih oglasa', emptyText: 'Promijenite filter ili dodajte prvi oglas.', listTitle: 'U vašoj blizini', expand: 'Prikaži listu', collapse: 'Sakrij listu', refresh: 'Osvježi', resetFilters: 'Poništi filtere', hoverHint: 'kliknite za detalje', details: 'Detalji', distance: '{{value}} km', distanceUnknown: 'Udaljenost nije poznata', noDescription: 'Opis još nije dodat.', contactNote: 'Poslije slanja zahtjeva kontakti su odmah dostupni objema stranama u „Dogovorima“.', confirmGiveTitle: 'Želite da preuzmete?', confirmGiveText: 'Vlasnik dobija zahtjev, a kontakti su odmah dostupni objema stranama. Do prihvatanja oglas ostaje na mapi sa oznakom „Zahtjev poslat“.', confirmGiveYes: 'Pošalji zahtjev', confirmTakeTitle: 'Možete da predate?', confirmTakeText: 'Autor oglasa traži ovu stvar. Pošaljite ponudu — kontakti će odmah biti dostupni objema stranama.', confirmTakeYes: 'Mogu da predam' },
@@ -108,7 +128,7 @@ export const resources = {
       common: { loading: 'Loading…', back: 'Back', close: 'Close', ok: 'OK', save: 'Save', cancel: 'Cancel', retry: 'Try again', choose: 'Choose', remove: 'Remove', optional: 'Optional', pieces: '{{count}} pcs.', partner: 'Partner', error: 'Something went wrong' },
       nav: { map: 'Map', deals: 'Deals', create: 'Create', profile: 'Profile', label: 'Main navigation' },
       install: { title: 'Install VratiMe', android: 'Open it like a regular app and stay signed in longer.', ios: 'On iPhone, tap Share, then Add to Home Screen.', manual: 'Choose “Install app” in your browser menu.', action: 'Install', done: 'App installed' },
-      auth: { eyebrow: 'Circular by design', title: 'Give things another life', subtitle: 'Share packaging and materials nearby — simply, thoughtfully, with less waste.', email: 'Email address', magic: 'Send sign-in link', sending: 'Sending…', google: 'Continue with Google', divider: 'or', hint: 'We will send a secure link. No password needed.', invalid: 'Enter a valid email.', sentTitle: 'Your link is on its way', sentText: 'We sent an email to {{email}}. Open it on this device.', another: 'Use another email', resend: 'Send again', spam: 'If it is not there, check your Spam folder.', rateLimit: 'Too many attempts. Wait a minute and try again.', googleUnavailable: 'Google sign-in will work after OAuth is connected.' },
+      auth: { eyebrow: 'Circular by design', title: 'Give things another life', subtitle: 'Share packaging and materials nearby — simply, thoughtfully, with less waste.', email: 'Email address', magic: 'Send sign-in link', sending: 'Sending…', google: 'Continue with Google', divider: 'or', hint: 'New here? Your first sign-in creates an account. Use Google or an email link — no password needed. Then add your name and contact details.', invalid: 'Enter a valid email.', sentTitle: 'Your link is on its way', sentText: 'We sent an email to {{email}}. Open it on this device.', another: 'Use another email', resend: 'Send again', spam: 'If it is not there, check your Spam folder.', rateLimit: 'Too many attempts. Wait a minute and try again.', googleUnavailable: 'Google sign-in will work after OAuth is connected.' },
       onboarding: { eyebrow: 'First step', title: 'Let’s meet', text: 'Your name and contact are visible only to the participant with whom you exchange a request.', name: 'Display name', namePlaceholder: 'For example, Marko', language: 'App language', messenger: 'Preferred messenger', contact: 'Number or username', contactPlaceholder: '+382… or @username', submit: 'Save and continue', saving: 'Saving…', returningTitle: 'Used VratiMe before?', returningText: 'You may have signed in with another email. Return to sign-in — your existing profile is still there.', returningAction: 'Use another email' },
       contacts: { title: 'How should people contact you?', note: 'Choose one or more messengers. Only the participant who exchanges a request with you can see them.', telegramMethod: 'Telegram contact method', telegramAlias: 'Username', telegramPhone: 'Phone number', telegramAliasPlaceholder: '@vasiliy', telegramPhonePlaceholder: '+382 67 123 456', telegramAliasHint: 'A public Telegram username — no phone number needed.', telegramPhoneHint: 'Use international format. It can differ from your Viber and WhatsApp numbers.', contactRequired: 'Choose at least one messenger.', contactInvalid: 'Check the contact details.', telegramInvalid: 'Telegram: enter @username or an international phone number, e.g. +38267123456.', migrationRequired: 'Multiple messengers will be available after the database update. Your existing contact is safe.', },
       map: { eyebrow: 'Montenegro · nearby', title: 'Exchange map', search: 'Jars, cardboard, clothes…', searchGiveHint: 'Searching only listings marked “Offering”', all: 'All', filters: 'Filters', anyDistance: 'Any distance', km1: 'Within 1 km', km5: 'Within 5 km', km10: 'Within 10 km', nearby: 'My location', locating: 'Finding your location…', located: 'Showing listings nearby', locationDenied: 'Could not access location', locationMissing: 'Geolocation is unavailable', offers_one: '{{count}} listing', offers_few: '{{count}} listings', offers_many: '{{count}} listings', offers_other: '{{count}} listings', mine: 'Mine: {{count}}', give: 'Offering', take: 'Looking for', quantity: 'Quantity', bookGive: 'I want to collect', bookTake: 'I can provide it', booking: 'Sending…', bookedGive: 'Request sent. Contact details are already available in Deals.', bookedTake: 'Offer sent. Contact details are already available in Deals.', requested: 'Request sent', requestedHint: 'You already sent a request. Contact details are available in Deals.', own: 'You cannot request your own listing.', ownLabel: 'Your listing', emptyTitle: 'Nothing matches yet', emptyText: 'Change the filters or create the first listing.', listTitle: 'Near you', expand: 'Show list', collapse: 'Hide list', refresh: 'Refresh', resetFilters: 'Reset filters', hoverHint: 'click for details', details: 'Details', distance: '{{value}} km away', distanceUnknown: 'Distance unavailable', noDescription: 'No description yet.', contactNote: 'After a request is sent, both participants can immediately see contact details in Deals.', confirmGiveTitle: 'Want to collect it?', confirmGiveText: 'The owner will receive your request and both of you will immediately see contact details. Until acceptance, the listing stays on the map marked “Request sent”.', confirmGiveYes: 'Send request', confirmTakeTitle: 'Can you provide it?', confirmTakeText: 'The listing author is looking for this item. Send an offer and both of you will immediately see contact details.', confirmTakeYes: 'I can provide it' },
@@ -167,7 +187,7 @@ const serviceTranslations = {
     points: { title: 'Пункты сбора', verified: 'Подтверждён пользователями', unverified: 'Пока не подтверждён', exists: 'Пункт существует', missing: 'Пункта нет', add: 'Добавить пункт сбора', addText: 'Укажите место и материалы. Пункт сразу появится как неподтверждённый.', name: 'Название', address: 'Адрес или ориентир', latitude: 'Широта', longitude: 'Долгота', materials: 'Что принимают', publish: 'Опубликовать', required: 'Заполните название, место и выберите хотя бы один материал.', created: 'Пункт добавлен. Другие пользователи смогут подтвердить его.', voteSaved: 'Ваше подтверждение сохранено.', voteSummary: 'Существует: {{exists}} · не найден: {{missing}}', details: 'Подробнее', mapHint: 'Пункты добавляет и подтверждает сообщество.', empty: 'Пунктов сбора пока нет' },
     lending: { publish: 'Опубликовать для займа', durationDays: 'Срок займа, дней', conditionPhotoHint: 'Фотография фиксирует состояние вещи до передачи.', photoRequired: 'Для займа добавьте фотографию состояния вещи.', returnDue: 'Вернуть до', return: 'Возврат', confirmHandover: 'Подтвердить выдачу', confirmReturn: 'Подтвердить возврат', confirmed: 'Вы подтвердили', handedOver: 'Выдача подтверждена обеими сторонами.', waitingHandover: 'Подтверждение сохранено. Ждём второго участника.', returned: 'Возврат подтверждён обеими сторонами.', waitingReturn: 'Подтверждение возврата сохранено. Ждём второго участника.' },
     impact: { title: 'Повторное использование', personalItems: 'Мои вещи', communityItems: 'Всего в сообществе', declaredKg: 'Заявлено кг', categories: 'Категории', noCo2: 'Показываем только вещи и заявленный вес. CO₂ не рассчитывается без утверждённой методики.' },
-    appointment: { title: 'Встреча', schedule: 'Назначить', reschedule: 'Перенести', completed: 'Встреча прошла', needsReschedule: 'Нужно перенести', noShow: 'Не состоялась', state: 'Статус встречи: {{state}}', saveError: 'Не удалось сохранить встречу' },
+    appointment: { title: 'Встреча', schedule: 'Назначить', reschedule: 'Перенести', completed: 'Встреча прошла', needsReschedule: 'Нужно перенести', noShow: 'Не состоялась', state: 'Статус встречи: {{state}}', saveError: 'Не удалось сохранить встречу', states: { scheduled: 'Назначена', reschedule_requested: 'Запрошен перенос', completed: 'Состоялась', no_show_reported: 'Сообщено о неявке', no_show_confirmed: 'Неявка подтверждена', canceled: 'Отменена' } },
     reliability: { title: 'Надёжность', completed: 'завершено', cancellations: 'отмены', noShows: 'no-show 90д', note: 'No-show не снижает рейтинг автоматически. Он становится сигналом только после подтверждения или решения модератора.' },
   },
   me: {
@@ -175,7 +195,7 @@ const serviceTranslations = {
     points: { title: 'Mjesta za sakupljanje', verified: 'Potvrdili korisnici', unverified: 'Još nije potvrđeno', exists: 'Mjesto postoji', missing: 'Mjesta nema', add: 'Dodaj mjesto za sakupljanje', addText: 'Unesite mjesto i materijale. Objavljuje se odmah kao nepotvrđeno.', name: 'Naziv', address: 'Adresa ili orijentir', latitude: 'Širina', longitude: 'Dužina', materials: 'Šta se prima', publish: 'Objavi', required: 'Unesite naziv, mjesto i najmanje jedan materijal.', created: 'Mjesto je dodato. Drugi korisnici ga mogu potvrditi.', voteSaved: 'Vaša potvrda je sačuvana.', voteSummary: 'Postoji: {{exists}} · nije nađeno: {{missing}}', details: 'Detalji', mapHint: 'Mjesta dodaje i potvrđuje zajednica.', empty: 'Još nema mjesta za sakupljanje' },
     lending: { publish: 'Objavi za pozajmicu', durationDays: 'Trajanje pozajmice, dana', conditionPhotoHint: 'Fotografija bilježi stanje prije predaje.', photoRequired: 'Dodajte fotografiju stanja stvari.', returnDue: 'Vratiti do', return: 'Povrat', confirmHandover: 'Potvrdi predaju', confirmReturn: 'Potvrdi povrat', confirmed: 'Potvrdili ste', handedOver: 'Obje strane su potvrdile predaju.', waitingHandover: 'Potvrda je sačuvana. Čekamo drugu stranu.', returned: 'Obje strane su potvrdile povrat.', waitingReturn: 'Potvrda povrata je sačuvana. Čekamo drugu stranu.' },
     impact: { title: 'Ponovna upotreba', personalItems: 'Moje stvari', communityItems: 'Ukupno u zajednici', declaredKg: 'Prijavljeno kg', categories: 'Kategorije', noCo2: 'Prikazujemo samo stvari i prijavljenu masu. CO₂ se ne računa bez odobrene metodologije.' },
-    appointment: { title: 'Susret', schedule: 'Zakaži', reschedule: 'Pomjeri', completed: 'Susret je održan', needsReschedule: 'Treba pomjeriti', noShow: 'Nije održan', state: 'Status susreta: {{state}}', saveError: 'Susret nije sačuvan' },
+    appointment: { title: 'Susret', schedule: 'Zakaži', reschedule: 'Pomjeri', completed: 'Susret je održan', needsReschedule: 'Treba pomjeriti', noShow: 'Nije održan', state: 'Status susreta: {{state}}', saveError: 'Susret nije sačuvan', states: { scheduled: 'Zakazan', reschedule_requested: 'Zatraženo pomjeranje', completed: 'Održan', no_show_reported: 'Prijavljen nedolazak', no_show_confirmed: 'Nedolazak potvrđen', canceled: 'Otkazan' } },
     reliability: { title: 'Pouzdanost', completed: 'završeno', cancellations: 'otkazivanja', noShows: 'nedolasci 90d', note: 'Nedolazak ne umanjuje ocjenu automatski. Postaje signal tek poslije potvrde ili odluke moderatora.' },
   },
   en: {
@@ -183,12 +203,12 @@ const serviceTranslations = {
     points: { title: 'Collection points', verified: 'Community verified', unverified: 'Not verified yet', exists: 'Point exists', missing: 'Point is missing', add: 'Add collection point', addText: 'Provide the place and materials. It appears immediately as unverified.', name: 'Name', address: 'Address or landmark', latitude: 'Latitude', longitude: 'Longitude', materials: 'Accepted materials', publish: 'Publish', required: 'Enter a name and place and choose at least one material.', created: 'Point added. Other users can now verify it.', voteSaved: 'Your confirmation was saved.', voteSummary: 'Exists: {{exists}} · missing: {{missing}}', details: 'Details', mapHint: 'Collection points are added and verified by the community.', empty: 'No collection points yet' },
     lending: { publish: 'Publish for lending', durationDays: 'Loan duration, days', conditionPhotoHint: 'The photo records item condition before handover.', photoRequired: 'Add a condition photo for a loan.', returnDue: 'Return by', return: 'Return', confirmHandover: 'Confirm handover', confirmReturn: 'Confirm return', confirmed: 'You confirmed', handedOver: 'Both sides confirmed the handover.', waitingHandover: 'Confirmation saved. Waiting for the other participant.', returned: 'Both sides confirmed the return.', waitingReturn: 'Return confirmation saved. Waiting for the other participant.' },
     impact: { title: 'Reuse impact', personalItems: 'My items', communityItems: 'Community total', declaredKg: 'Declared kg', categories: 'Categories', noCo2: 'Only item counts and declared weight are shown. CO₂ is not calculated without an approved methodology.' },
-    appointment: { title: 'Meeting', schedule: 'Schedule', reschedule: 'Reschedule', completed: 'Meeting completed', needsReschedule: 'Needs rescheduling', noShow: 'Did not happen', state: 'Meeting status: {{state}}', saveError: 'Could not save the meeting' },
+    appointment: { title: 'Meeting', schedule: 'Schedule', reschedule: 'Reschedule', completed: 'Meeting completed', needsReschedule: 'Needs rescheduling', noShow: 'Did not happen', state: 'Meeting status: {{state}}', saveError: 'Could not save the meeting', states: { scheduled: 'Scheduled', reschedule_requested: 'Rescheduling requested', completed: 'Completed', no_show_reported: 'No-show reported', no_show_confirmed: 'No-show confirmed', canceled: 'Canceled' } },
     reliability: { title: 'Reliability', completed: 'completed', cancellations: 'cancellations', noShows: 'no-shows 90d', note: 'A no-show never lowers rating automatically. It becomes a signal only after confirmation or a moderation decision.' },
   },
 };
 
-for (const language of supportedLanguages) {
+for (const language of ['ru', 'me', 'en']) {
   Object.assign(resources[language].translation, planTranslations[language]);
   resources[language].translation.feedbackStatus = feedbackStatusTranslations[language];
   resources[language].translation.roles = roleTranslations[language];
@@ -210,14 +230,41 @@ Object.assign(resources.ru.translation.status, { handed_over: 'Выдано', re
 Object.assign(resources.me.translation.status, { handed_over: 'Predato', return_due: 'Vrijeme za povrat', returned: 'Vraćeno' });
 Object.assign(resources.en.translation.status, { handed_over: 'Handed over', return_due: 'Return due', returned: 'Returned' });
 
-const normalizeLanguage = (value) => {
-  const code = String(value || '').toLowerCase().split('-')[0];
-  return supportedLanguages.includes(code) ? code : 'ru';
-};
+resources.fr = { translation: frTranslation };
+resources.de = { translation: deTranslation };
+
+for (const [language, legal] of Object.entries({ ru: ruLegal, me: meLegal, en: enLegal, fr: frLegal, de: deLegal })) {
+  resources[language].translation.legal = legal;
+}
+
+Object.assign(resources.ru.translation.discovery, { removeSearch: 'Удалить поиск «{{query}}»', removeSearchConfirm: 'Удалить сохранённый поиск «{{query}}»?', searchRemoved: 'Поиск удалён.' });
+Object.assign(resources.me.translation.discovery, { removeSearch: 'Ukloni pretragu „{{query}}“', removeSearchConfirm: 'Ukloniti sačuvanu pretragu „{{query}}“?', searchRemoved: 'Pretraga je uklonjena.' });
+Object.assign(resources.en.translation.discovery, { removeSearch: 'Remove search “{{query}}”', removeSearchConfirm: 'Remove saved search “{{query}}”?', searchRemoved: 'Search removed.' });
+
+for (const language of supportedLanguages) {
+  resources[language].translation.mapExperience = mapExperienceTranslations[language];
+  resources[language].translation.createExperience = createExperienceTranslations[language];
+  resources[language].translation.authExperience = authExperienceByLanguage[language];
+  resources[language].translation.dealExperience = dealExperienceTranslations[language];
+  resources[language].translation.deals.flowAccepted = dealExperienceTranslations[language].acceptedStep;
+  resources[language].translation.feedbackExperience = feedbackExperienceTranslations[language];
+  resources[language].translation.reliabilityExperience = reliabilityExperienceTranslations[language];
+  resources[language].translation.navigationExperience = navigationExperienceByLanguage[language];
+  resources[language].translation.mediaExperience = mediaExperienceTranslations[language];
+  resources[language].translation.draftExperience = draftExperienceTranslations[language];
+  resources[language].translation.pushExperience = pushExperienceByLanguage[language];
+  resources[language].translation.pwaExperience = pwaExperienceByLanguage[language];
+  resources[language].translation.staffExperience = staffExperienceTranslations[language];
+  resources[language].translation.workflow.ideaText = feedbackExperienceTranslations[language].destination;
+}
+
+for (const [language, label] of Object.entries({ru:'Отменить встречу',me:'Otkaži sastanak',en:'Cancel meeting',fr:'Annuler le rendez-vous',de:'Treffen absagen'})) resources[language].translation.appointment.cancel = label;
+
+const normalizeLanguage = (value) => normalizeAppLanguage(value) || 'ru';
 
 const hasBrowser = typeof window !== 'undefined';
 const storedLanguage = hasBrowser ? window.localStorage.getItem('vratimeLanguage') : null;
-const initialLanguage = normalizeLanguage(storedLanguage || (hasBrowser ? window.navigator.language : 'ru'));
+const initialLanguage = resolveInitialLanguage(storedLanguage, hasBrowser ? window.navigator.languages : [], hasBrowser ? window.navigator.language : 'ru');
 
 i18n.use(initReactI18next).init({
   resources,

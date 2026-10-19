@@ -1,4 +1,5 @@
 const paths = {
+  globe: <><circle cx="12" cy="12" r="9" /><ellipse cx="12" cy="12" rx="4" ry="9" /><path d="M3 12h18" /></>,
   map: (
     <>
       <path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z" />

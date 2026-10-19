@@ -13,7 +13,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      workbox: { importScripts: ['push-notifications.js'] },
       manifest: {
         name: 'VratiMe',
         short_name: 'VratiMe',

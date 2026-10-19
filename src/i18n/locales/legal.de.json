@@ -1,0 +1,115 @@
+{
+  "eyebrow": "Öffentliche Dokumente von VratiMe",
+  "updatedAt": "Letzte Aktualisierung: {{date}}",
+  "back": "Zurück zu VratiMe",
+  "privacy": {
+    "title": "Datenschutzerklärung",
+    "intro": "Hier erfahren Sie, welche Daten der Dienst VratiMe verarbeitet und wofür sie benötigt werden.",
+    "sections": {
+      "controller": {
+        "title": "1. Wer die Daten verarbeitet",
+        "paragraphs": [
+          "VratiMe ist eine Online-Plattform für die Weitergabe von Gegenständen, Verpackungen und Materialien zwischen Nutzerinnen und Nutzern. Bei Fragen zur Datenverarbeitung können Sie das Team von VratiMe kontaktieren: <contact>{{supportEmail}}</contact>."
+        ]
+      },
+      "data": {
+        "title": "2. Welche Daten wir erhalten",
+        "paragraphs": [
+          "Je nach gewählter Anmeldemethode kann der Dienst Ihre E-Mail-Adresse, Ihren Namen und die Kennung Ihres Google-Kontos erhalten. In Ihrem Profil ergänzen Sie selbst Ihren Namen, Ihre Sprache, Ihre Stadt, Ihren Messenger-Kontakt und Angaben zu Ihren Anzeigen.",
+          "Ihr Standort wird erst mit der Erlaubnis des Browsers abgefragt und dazu verwendet, Anzeigen in Ihrer Nähe anzuzeigen. Die genauen Koordinaten des Kontaktstandorts werden nicht öffentlich angezeigt."
+        ]
+      },
+      "purpose": {
+        "title": "3. Wofür die Daten benötigt werden",
+        "paragraphs": [
+          "Die Daten werden für die Anmeldung bei Ihrem Konto, das Speichern Ihres Profils, das Veröffentlichen und Suchen von Anzeigen, das Reservieren von Übergaben, die Kontaktaufnahme zwischen den Beteiligten einer Übergabe und den Schutz des Dienstes vor Missbrauch benötigt."
+        ]
+      },
+      "storage": {
+        "title": "4. Wo die Daten gespeichert werden",
+        "paragraphs": [
+          "Die Daten der Anwendung werden in der Infrastruktur von Supabase gespeichert. Für die Anmeldung über Google wird Google OAuth verwendet. Wir verkaufen keine Nutzerdaten und verwenden sie nicht für Werbe-E-Mails."
+        ]
+      },
+      "contacts": {
+        "title": "5. Kontaktdaten der an einer Übergabe Beteiligten",
+        "paragraphs": [
+          "Ihre Kontaktdaten werden ab dem Absenden einer Anfrage zur Übergabe eines Gegenstands nur den an dieser Anfrage Beteiligten angezeigt. Nach dem Stornieren der Anfrage sind die Kontaktdaten über diese Anfrage nicht mehr zugänglich. Sie sind dafür verantwortlich, welche Angaben Sie freiwillig in Ihrem Profil ergänzen."
+        ]
+      },
+      "retention": {
+        "title": "6. Speicherdauer und Löschung",
+        "paragraphs": [
+          "Die Daten werden so lange gespeichert, wie das Konto und die damit verbundenen Übergaben für den Betrieb des Dienstes benötigt werden. Eine Anfrage zur Berichtigung oder Löschung Ihrer Daten können Sie an <contact>{{supportEmail}}</contact> senden. Wir klären, um welches Konto es sich handelt, und bearbeiten die Anfrage innerhalb einer angemessenen Frist."
+        ]
+      },
+      "support": {
+        "title": "7. Unterstützung der Anwendung",
+        "paragraphs": [
+          "Freiwillige Spenden werden vom Zahlungsdienst Tribute abgewickelt. VratiMe erhält keine Bankkartendaten und veröffentlicht keine Angaben zu den spendenden Personen. Für eine transparente Erfassung werden nur der Betrag, die Währung, das Zahlungsdatum und eine nicht umkehrbare anonyme Kennung gespeichert."
+        ]
+      },
+      "changes": {
+        "title": "8. Änderungen dieses Dokuments",
+        "paragraphs": [
+          "Bei wesentlichen Änderungen aktualisieren wir das Datum oben auf dieser Seite. Wenn Sie VratiMe nach der Veröffentlichung einer neuen Fassung weiter nutzen, bedeutet dies, dass Sie den aktualisierten Text zur Kenntnis genommen haben."
+        ]
+      }
+    }
+  },
+  "offer": {
+    "title": "Nutzungsbedingungen von VratiMe",
+    "intro": "Bedingungen für die Nutzung der Plattform zur Suche, Weitergabe und Wiederverwendung von Gegenständen und Materialien.",
+    "sections": {
+      "platform": {
+        "title": "1. Was VratiMe anbietet",
+        "paragraphs": [
+          "VratiMe stellt eine technische Plattform bereit, auf der Sie Anzeigen veröffentlichen, passende Gegenstände finden und deren Übergabe vereinbaren können. VratiMe ist kein Verkäufer der Gegenstände und wird nicht Vertragspartei der Vereinbarungen zwischen Nutzerinnen und Nutzern."
+        ]
+      },
+      "account": {
+        "title": "2. Registrierung und Konto",
+        "paragraphs": [
+          "Sie können sich über einen per E-Mail zugesandten Link oder über Google anmelden. Sie sind verpflichtet, wahrheitsgemäße Angaben zu machen, den Zugang zu Ihrem E-Mail-Postfach aufrechtzuerhalten und Ihr Konto nicht an andere Personen weiterzugeben."
+        ]
+      },
+      "listings": {
+        "title": "3. Anzeigen und Reservierungen",
+        "paragraphs": [
+          "Mit der Veröffentlichung einer Anzeige bestätigen Sie, dass Sie berechtigt sind, den angegebenen Gegenstand oder das angegebene Material weiterzugeben. Eine Reservierung hält die Absicht fest, Kontakt aufzunehmen, garantiert jedoch keine Übergabe. Die Beteiligten vereinbaren die Bedingungen, den Ort und den Zeitpunkt selbst."
+        ]
+      },
+      "prohibited": {
+        "title": "4. Verbotene Handlungen",
+        "paragraphs": [
+          "Es ist untersagt, rechtswidrige, gefährliche oder irreführende Angebote oder Angebote für gestohlene Gegenstände zu veröffentlichen, die Rechte anderer Personen zu verletzen, unter Umgehung des Dienstes Kontaktdaten von Nutzerinnen und Nutzern zu sammeln, automatisierte Anfragen zu verwenden oder zu versuchen, auf das Konto einer anderen Person zuzugreifen."
+        ]
+      },
+      "responsibility": {
+        "title": "5. Verantwortung und Haftung",
+        "paragraphs": [
+          "Sie prüfen eigenverantwortlich den Zustand des Gegenstands, die Sicherheit der Übergabe und die Einhaltung der geltenden Gesetze. VratiMe haftet nicht für die Qualität, Rechtmäßigkeit oder Verfügbarkeit der Gegenstände sowie für die Erfüllung von Vereinbarungen zwischen Nutzerinnen und Nutzern."
+        ]
+      },
+      "termination": {
+        "title": "6. Beendigung des Zugangs",
+        "paragraphs": [
+          "Bei einem Verstoß gegen diese Bedingungen, einer Sicherheitsgefährdung oder Missbrauch kann der Dienst eine Anzeige ausblenden oder den Zugang zu einem Konto einschränken. Sie können die Nutzung des Dienstes beenden und eine Anfrage an <contact>{{supportEmail}}</contact> senden."
+        ]
+      },
+      "acceptance": {
+        "title": "7. Annahme der Bedingungen",
+        "paragraphs": [
+          "Mit der Nutzung von VratiMe bestätigen Sie, dass Sie diese Bedingungen gelesen haben und sich bereit erklären, sie einzuhalten. Wenn Sie mit den Bedingungen nicht einverstanden sind, sollten Sie den Dienst nicht nutzen."
+        ]
+      },
+      "support": {
+        "title": "8. Freiwillige Unterstützung",
+        "paragraphs": [
+          "Spenden für den Betrieb von VratiMe sind freiwillig, gelten nicht als Bezahlung für Waren oder Dienstleistungen und gewähren keine Vorteile bei der Bewertung, bei Übergaben oder beim Zugang zu Funktionen der Anwendung. Die Zahlung wird von Tribute zu dessen eigenen Bedingungen abgewickelt."
+        ]
+      }
+    },
+    "link": "Nutzungsbedingungen"
+  }
+}

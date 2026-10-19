@@ -1,0 +1,20 @@
+.field-error { display: block; margin-top: .45rem; color: #a32626; font-size: .82rem; line-height: 1.45; font-weight: 650; }
+.media-hint, .draft-status { display: block; margin-top: .6rem; color: var(--color-muted, #586b64); font-size: .78rem; line-height: 1.5; }
+.media-photo-open { display: block; padding: 0; border: 0; width: 100%; background: transparent; cursor: zoom-in; }
+.media-photo-state { font-size: .75rem; line-height: 1.4; padding: .3rem; }
+.media-dialog-backdrop { position: fixed; inset: 0; z-index: 8000; background: #10271ecc; display: grid; place-items: center; padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); }
+.modal-backdrop.profile-levels-backdrop { z-index: 8000; }
+.media-dialog { background: #fff; color: #183e30; border-radius: 1.5rem; width: min(100%, 40rem); max-height: 92dvh; overflow: auto; padding: 1.25rem; box-shadow: 0 1rem 4rem #0004; }
+.media-dialog h2 { font-size: 1.3rem; font-weight: 800; }
+.media-dialog p { margin: .8rem 0; font-size: .9rem; line-height: 1.5; }
+.media-full-preview { display: block; max-width: 100%; max-height: 72dvh; object-fit: contain; margin: 1rem auto 0; }
+.avatar-crop-preview { width: min(72vw, 17rem); aspect-ratio: 1; overflow: hidden; border-radius: 50%; margin: 1rem auto; background: #e6eee9; }
+.avatar-crop-preview img { width: 100%; height: 100%; object-fit: cover; }
+.media-crop-control { display: grid; gap: .35rem; margin: .9rem 0; font-size: .85rem; font-weight: 700; }
+.media-crop-control input { width: 100%; min-height: 2.4rem; accent-color: #28795d; }
+.draft-banner { margin: 0 0 1rem; padding: 1rem; border: 1px solid #c6dcd1; border-radius: 1rem; background: #f0f8f3; }
+.draft-banner p { margin: .5rem 0; font-size: .85rem; line-height: 1.5; }
+.draft-banner-actions { display: flex; gap: .7rem; flex-wrap: wrap; }
+.feedback-screenshot { display: flex; align-items: center; gap: .8rem; margin-top: 1rem; }
+.feedback-screenshot img { max-width: 8rem; max-height: 8rem; border-radius: .6rem; object-fit: contain; }
+[aria-invalid="true"].field { border-color: #b54b43; }

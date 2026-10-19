@@ -1,0 +1,82 @@
+{
+  "eyebrow": "VratiMe public documents",
+  "updatedAt": "Last updated: {{date}}",
+  "back": "Return to VratiMe",
+  "privacy": {
+    "title": "Privacy Policy",
+    "intro": "This page explains what data VratiMe processes and why it is needed.",
+    "sections": {
+      "controller": {
+        "title": "1. Who processes the data",
+        "paragraphs": ["VratiMe is an online platform for handing over items, packaging and materials between users. For questions about data processing, contact the VratiMe team at <contact>{{supportEmail}}</contact>."]
+      },
+      "data": {
+        "title": "2. What data we receive",
+        "paragraphs": ["Depending on the sign-in method, the service may receive your email address, name and Google account identifier. Users add their name, language, city, messaging contact and listing information to their profile themselves.", "Location access is requested only with the browser's permission and is used to display nearby listings. Precise handover coordinates are not made public."]
+      },
+      "purpose": {
+        "title": "3. Why the data is needed",
+        "paragraphs": ["The data is needed to sign in, save profiles, publish and find listings, reserve handovers, connect participants in an exchange and protect the service against abuse."]
+      },
+      "storage": {
+        "title": "4. Where the data is stored",
+        "paragraphs": ["Application data is stored in Supabase infrastructure. Google OAuth is used for Google sign-in. We do not sell user data or use it for promotional mailings."]
+      },
+      "contacts": {
+        "title": "5. Participants' contact details",
+        "paragraphs": ["A user's contact details are shown only to participants in the relevant handover request, from the moment the request is sent. Once the request is cancelled, contact details are no longer accessible through it. Users are responsible for the information they voluntarily add to their profile."]
+      },
+      "retention": {
+        "title": "6. Retention and deletion",
+        "paragraphs": ["Data is retained while the account and its associated exchanges are needed to operate the service. Requests to correct or delete data can be sent to <contact>{{supportEmail}}</contact>. We will verify the account and handle the request within a reasonable time."]
+      },
+      "support": {
+        "title": "7. Supporting the application",
+        "paragraphs": ["Voluntary donations are processed by the payment service Tribute. VratiMe does not receive bank card details or publish donor information. For transparent accounting, only the amount, currency, payment date and an irreversible anonymous identifier are stored."]
+      },
+      "changes": {
+        "title": "8. Changes to this document",
+        "paragraphs": ["For significant changes, we will update the date at the top of this page. Continuing to use VratiMe after a new version is published means that you have read the updated text."]
+      }
+    }
+  },
+  "offer": {
+    "title": "VratiMe Terms of Use",
+    "intro": "Terms for using the platform to find, hand over and reuse items and materials.",
+    "sections": {
+      "platform": {
+        "title": "1. What VratiMe provides",
+        "paragraphs": ["VratiMe provides a technical platform where users can publish listings, find suitable items and arrange handovers. VratiMe is not the seller of the items and does not become a party to agreements between users."]
+      },
+      "account": {
+        "title": "2. Registration and accounts",
+        "paragraphs": ["Users can sign in through an email link or Google. Users must provide accurate information, keep access to their email secure and not give their account to other people."]
+      },
+      "listings": {
+        "title": "3. Listings and reservations",
+        "paragraphs": ["By publishing a listing, users confirm that they have the right to hand over the item or material concerned. A reservation records an intention to make contact but does not guarantee a handover. Participants agree on the terms, place and time themselves."]
+      },
+      "prohibited": {
+        "title": "4. Prohibited actions",
+        "paragraphs": ["Users must not post illegal, dangerous, stolen or misleading offers, infringe other people's rights, collect users' contact details outside the service's permitted processes, use automated requests or attempt to access another person's account."]
+      },
+      "responsibility": {
+        "title": "5. Responsibility",
+        "paragraphs": ["Users are responsible for checking the condition of an item, the safety of a handover and compliance with applicable laws. VratiMe is not responsible for the quality, legality or availability of items, or for the fulfilment of agreements between users."]
+      },
+      "termination": {
+        "title": "6. Ending access",
+        "paragraphs": ["For breaches of these terms, security threats or abuse, the service may hide a listing or restrict access to an account. Users may stop using the service and send a request to <contact>{{supportEmail}}</contact>."]
+      },
+      "acceptance": {
+        "title": "7. Acceptance of the terms",
+        "paragraphs": ["By using VratiMe, users confirm that they have read these terms and agree to follow them. If the terms are not acceptable, the service should not be used."]
+      },
+      "support": {
+        "title": "8. Voluntary support",
+        "paragraphs": ["Donations towards operating VratiMe are voluntary, are not payment for goods or services, and do not provide advantages in rankings, exchanges or access to application features. Payments are processed by Tribute under its own terms."]
+      }
+    },
+    "link": "Terms of Use"
+  }
+}

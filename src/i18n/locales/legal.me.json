@@ -1,0 +1,82 @@
+{
+  "eyebrow": "Javna dokumenta VratiMe",
+  "updatedAt": "Datum ažuriranja: {{date}}",
+  "back": "Povratak u VratiMe",
+  "privacy": {
+    "title": "Politika privatnosti",
+    "intro": "Ovdje je objašnjeno koje podatke servis VratiMe obrađuje i zašto su potrebni.",
+    "sections": {
+      "controller": {
+        "title": "1. Ko obrađuje podatke",
+        "paragraphs": ["VratiMe je onlajn platforma za predaju stvari, ambalaže i materijala između korisnika. Za pitanja o obradi podataka možete kontaktirati tim VratiMe na adresi <contact>{{supportEmail}}</contact>."]
+      },
+      "data": {
+        "title": "2. Koje podatke dobijamo",
+        "paragraphs": ["U zavisnosti od načina prijave, servis može dobiti email adresu, ime i identifikator Google naloga. Korisnik sam dodaje ime, jezik, grad, kontakt za dopisivanje i podatke o oglasima u svoj profil.", "Pristup lokaciji traži se samo uz dozvolu pregledača i koristi se za prikaz oglasa u blizini. Tačne koordinate mjesta predaje ne objavljuju se javno."]
+      },
+      "purpose": {
+        "title": "3. Zašto su podaci potrebni",
+        "paragraphs": ["Podaci su potrebni za prijavu na nalog, čuvanje profila, objavljivanje i pretragu oglasa, rezervaciju predaje, povezivanje učesnika dogovora i zaštitu servisa od zloupotrebe."]
+      },
+      "storage": {
+        "title": "4. Gdje se podaci čuvaju",
+        "paragraphs": ["Podaci aplikacije čuvaju se u infrastrukturi Supabase. Za prijavu preko Google-a koristi se Google OAuth. Ne prodajemo podatke korisnika i ne koristimo ih za reklamne email poruke."]
+      },
+      "contacts": {
+        "title": "5. Kontakti učesnika dogovora",
+        "paragraphs": ["Kontakt podaci korisnika prikazuju se samo učesnicima odgovarajućeg zahtjeva za predaju stvari, od trenutka slanja zahtjeva. Poslije otkazivanja zahtjeva kontakti više nijesu dostupni preko njega. Korisnik je odgovoran za podatke koje dobrovoljno dodaje u profil."]
+      },
+      "retention": {
+        "title": "6. Čuvanje i brisanje podataka",
+        "paragraphs": ["Podaci se čuvaju dok su nalog i povezani dogovori potrebni za rad servisa. Zahtjev za ispravku ili brisanje podataka možete poslati na <contact>{{supportEmail}}</contact>. Provjerićemo nalog i obraditi zahtjev u razumnom roku."]
+      },
+      "support": {
+        "title": "7. Podrška aplikaciji",
+        "paragraphs": ["Dobrovoljne donacije obrađuje platni servis Tribute. VratiMe ne dobija podatke bankovne kartice i ne objavljuje podatke o donatorima. Radi transparentnog obračuna čuvaju se samo iznos, valuta, datum uplate i nepovratni anonimni identifikator."]
+      },
+      "changes": {
+        "title": "8. Izmjene dokumenta",
+        "paragraphs": ["Prilikom značajnih izmjena ažuriraćemo datum na vrhu ove stranice. Nastavak korišćenja servisa VratiMe poslije objavljivanja nove verzije znači da ste se upoznali sa ažuriranim tekstom."]
+      }
+    }
+  },
+  "offer": {
+    "title": "Uslovi korišćenja VratiMe",
+    "intro": "Uslovi korišćenja platforme za pronalaženje, predaju i ponovnu upotrebu stvari i materijala.",
+    "sections": {
+      "platform": {
+        "title": "1. Šta pruža VratiMe",
+        "paragraphs": ["VratiMe pruža tehničku platformu na kojoj korisnici mogu objavljivati oglase, pronalaziti odgovarajuće stvari i dogovarati predaju. VratiMe nije prodavac stvari i ne postaje strana u dogovoru između korisnika."]
+      },
+      "account": {
+        "title": "2. Registracija i nalog",
+        "paragraphs": ["Korisnik se može prijaviti preko email linka ili Google-a. Korisnik mora navoditi tačne podatke, čuvati pristup svojoj email adresi i ne ustupati nalog drugim osobama."]
+      },
+      "listings": {
+        "title": "3. Oglasi i rezervacije",
+        "paragraphs": ["Objavljivanjem oglasa korisnik potvrđuje da ima pravo da preda navedenu stvar ili materijal. Rezervacija bilježi namjeru da se stupi u kontakt, ali ne garantuje predaju. Učesnici samostalno dogovaraju uslove, mjesto i vrijeme."]
+      },
+      "prohibited": {
+        "title": "4. Zabranjene radnje",
+        "paragraphs": ["Nije dozvoljeno objavljivanje nezakonitih, opasnih, ukradenih ili obmanjujućih ponuda, kršenje tuđih prava, prikupljanje kontakata korisnika mimo pravila servisa, korišćenje automatizovanih zahtjeva ili pokušavanje pristupa tuđem nalogu."]
+      },
+      "responsibility": {
+        "title": "5. Odgovornost",
+        "paragraphs": ["Korisnik samostalno provjerava stanje stvari, bezbjednost predaje i poštovanje važećih zakona. VratiMe nije odgovoran za kvalitet, zakonitost ili dostupnost stvari, niti za izvršenje dogovora između korisnika."]
+      },
+      "termination": {
+        "title": "6. Prestanak pristupa",
+        "paragraphs": ["U slučaju kršenja ovih uslova, prijetnje bezbjednosti ili zloupotrebe, servis može sakriti oglas ili ograničiti pristup nalogu. Korisnik može prestati da koristi servis i poslati zahtjev na adresu <contact>{{supportEmail}}</contact>."]
+      },
+      "acceptance": {
+        "title": "7. Prihvatanje uslova",
+        "paragraphs": ["Korišćenjem servisa VratiMe korisnik potvrđuje da je pročitao ove uslove i da je saglasan da ih poštuje. Ako uslovi nijesu prihvatljivi, servis ne treba koristiti."]
+      },
+      "support": {
+        "title": "8. Dobrovoljna podrška",
+        "paragraphs": ["Donacije za rad servisa VratiMe dobrovoljne su, nijesu plaćanje robe ili usluge i ne donose prednosti u rangiranju, dogovorima ili pristupu funkcijama aplikacije. Uplatu obrađuje Tribute prema svojim uslovima."]
+      }
+    },
+    "link": "Uslovi korišćenja"
+  }
+}

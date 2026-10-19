@@ -1,94 +1,62 @@
+import { Trans, useTranslation } from 'react-i18next';
 import logo from '../assets/images/app-logo.png';
+import LanguageMenu from '../components/LanguageMenu';
+import { getAppLanguage, setAppLanguage } from '../i18n';
+import Icon from '../components/Icon';
 
-const updatedAt = '20 сентября 2026 года';
+const supportEmail = 'historiasnuevoamanecer272@gmail.com';
+const sectionOrder = {
+  privacy: ['controller', 'data', 'purpose', 'storage', 'contacts', 'retention', 'support', 'changes'],
+  offer: ['platform', 'account', 'listings', 'prohibited', 'responsibility', 'termination', 'acceptance', 'support'],
+};
 
-function LegalLayout({ children, title, intro }) {
+function LegalDocument({ document }) {
+  const { t } = useTranslation();
+  const language = getAppLanguage();
+  const updatedAt = new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, {
+    dateStyle: 'long', timeZone: 'UTC',
+  }).format(new Date('2026-10-18T00:00:00Z'));
+
   return (
     <main className="legal-page">
       <article className="legal-card">
-        <a className="legal-brand" href="/" aria-label="VratiMe">
-          <img src={logo} alt="" />
-          <span>VratiMe</span>
-        </a>
-        <p className="eyebrow text-sea">Публичные документы VratiMe</p>
-        <h1 className="font-display text-4xl text-forest">{title}</h1>
-        <p className="legal-intro">{intro}</p>
-        <p className="legal-updated">Дата обновления: {updatedAt}</p>
-        {children}
+        <a className="legal-back" href={import.meta.env.BASE_URL || '/'}><Icon name="arrowLeft" size={28} /><span>{t('authExperience.back')}</span></a>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <a className="legal-brand" href="/" aria-label="VratiMe">
+            <img src={logo} alt="" />
+            <span>VratiMe</span>
+          </a>
+          <LanguageMenu value={language} onChange={setAppLanguage} label={t('profile.language')} />
+        </div>
+        <p className="eyebrow text-sea">{t('legal.eyebrow')}</p>
+        <h1 className="font-display text-4xl text-forest">{t(`legal.${document}.title`)}</h1>
+        <p className="legal-intro">{t(`legal.${document}.intro`)}</p>
+        <p className="legal-updated">{t('legal.updatedAt', { date: updatedAt })}</p>
+        {sectionOrder[document].map((section) => {
+          const key = `legal.${document}.sections.${section}`;
+          const paragraphs = t(`${key}.paragraphs`, { returnObjects: true });
+          return <section className="legal-section" key={section}>
+            <h2>{t(`${key}.title`)}</h2>
+            {paragraphs.map((_, index) => <p key={index}>
+              <Trans t={t} i18nKey={`${key}.paragraphs.${index}`} values={{ supportEmail }} components={{ contact: <a href={`mailto:${supportEmail}`} /> }} />
+            </p>)}
+          </section>;
+        })}
         <footer className="legal-footer">
-          <a href="/support">Поддержать VratiMe</a>
-          <a href="/privacy">Политика конфиденциальности</a>
-          <a href="/offer">Публичная оферта</a>
-          <a href="/">Вернуться в VratiMe</a>
+          <a href="/support">{t('support.action')}</a>
+          <a href="/privacy">{t('legal.privacy.title')}</a>
+          <a href="/offer">{t('legal.offer.link')}</a>
+          <a href="/">{t('legal.back')}</a>
         </footer>
       </article>
     </main>
   );
 }
 
-function Section({ title, children }) {
-  return <section className="legal-section"><h2>{title}</h2>{children}</section>;
-}
-
 export function PrivacyPage() {
-  return (
-    <LegalLayout title="Политика конфиденциальности" intro="Здесь объясняется, какие данные обрабатывает сервис VratiMe и для чего они нужны.">
-      <Section title="1. Кто обрабатывает данные">
-        <p>Сервис VratiMe — это онлайн-платформа для передачи вещей, упаковки и материалов между пользователями. По вопросам обработки данных можно связаться с командой VratiMe: <a href="mailto:historiasnuevoamanecer272@gmail.com">historiasnuevoamanecer272@gmail.com</a>.</p>
-      </Section>
-      <Section title="2. Какие данные мы получаем">
-        <p>В зависимости от выбранного способа входа сервис может получить адрес электронной почты, имя и идентификатор аккаунта Google. В профиле пользователь сам добавляет имя, язык, город, контактный мессенджер и сведения об объявлениях.</p>
-        <p>Геолокация запрашивается только после разрешения браузера и используется для показа объявлений рядом. Точные координаты контакта не публикуются в открытом виде.</p>
-      </Section>
-      <Section title="3. Для чего нужны данные">
-        <p>Данные нужны для входа в аккаунт, сохранения профиля, публикации и поиска объявлений, бронирования передачи, связи между участниками сделки и защиты сервиса от злоупотреблений.</p>
-      </Section>
-      <Section title="4. Где хранятся данные">
-        <p>Данные приложения хранятся в инфраструктуре Supabase. Для входа через Google используется OAuth Google. Мы не продаём пользовательские данные и не используем их для рекламных рассылок.</p>
-      </Section>
-      <Section title="5. Контакты участников сделки">
-        <p>Контактные данные пользователя показываются только участникам соответствующей подтверждённой сделки. Пользователь отвечает за то, какие сведения он добровольно добавляет в профиль.</p>
-      </Section>
-      <Section title="6. Срок хранения и удаление">
-        <p>Данные хранятся, пока аккаунт и связанные с ним сделки нужны для работы сервиса. Запрос на исправление или удаление данных можно направить на <a href="mailto:historiasnuevoamanecer272@gmail.com">historiasnuevoamanecer272@gmail.com</a>. Мы уточним аккаунт и обработаем запрос в разумный срок.</p>
-      </Section>
-      <Section title="7. Поддержка приложения">
-        <p>Добровольные пожертвования обрабатывает платёжный сервис Tribute. VratiMe не получает данные банковской карты и не публикует сведения о донаторах. Для прозрачного подсчёта сохраняются только сумма, валюта, дата платежа и необратимый анонимный идентификатор.</p>
-      </Section>
-      <Section title="8. Изменения документа">
-        <p>При существенных изменениях мы обновим дату вверху этой страницы. Продолжение использования VratiMe после публикации новой версии означает ознакомление с обновлённым текстом.</p>
-      </Section>
-    </LegalLayout>
-  );
+  return <LegalDocument document="privacy" />;
 }
 
 export function OfferPage() {
-  return (
-    <LegalLayout title="Публичная оферта VratiMe" intro="Условия использования платформы для поиска, передачи и повторного использования вещей и материалов.">
-      <Section title="1. Что предлагает VratiMe">
-        <p>VratiMe предоставляет техническую площадку, на которой пользователи могут размещать объявления, находить подходящие вещи и договариваться о передаче. VratiMe не является продавцом вещей и не становится стороной договорённости между пользователями.</p>
-      </Section>
-      <Section title="2. Регистрация и аккаунт">
-        <p>Пользователь может войти по ссылке на email или через Google. Пользователь обязан указывать достоверные сведения, хранить доступ к своей почте и не передавать аккаунт другим людям.</p>
-      </Section>
-      <Section title="3. Объявления и бронирование">
-        <p>Публикуя объявление, пользователь подтверждает, что имеет право передать указанную вещь или материал. Бронирование фиксирует намерение связаться, но не гарантирует факт передачи. Условия, место и время участники согласуют самостоятельно.</p>
-      </Section>
-      <Section title="4. Запрещённые действия">
-        <p>Нельзя размещать незаконные, опасные, украденные или вводящие в заблуждение предложения, нарушать права других людей, собирать контакты пользователей в обход сервиса, использовать автоматические запросы и пытаться получить доступ к чужому аккаунту.</p>
-      </Section>
-      <Section title="5. Ответственность">
-        <p>Пользователь самостоятельно проверяет состояние вещи, безопасность передачи и соблюдение применимых законов. VratiMe не отвечает за качество, законность, наличие вещей и исполнение договорённостей между пользователями.</p>
-      </Section>
-      <Section title="6. Прекращение доступа">
-        <p>При нарушении этих условий, угрозе безопасности или злоупотреблении сервис может скрыть объявление или ограничить доступ к аккаунту. Пользователь может прекратить использование сервиса и направить запрос по адресу <a href="mailto:historiasnuevoamanecer272@gmail.com">historiasnuevoamanecer272@gmail.com</a>.</p>
-      </Section>
-      <Section title="7. Принятие условий">
-        <p>Используя VratiMe, пользователь подтверждает, что прочитал эти условия и согласен соблюдать их. Если условия не подходят, пользоваться сервисом не следует.</p>
-      </Section>
-      <Section title="8. Добровольная поддержка">
-        <p>Пожертвования на работу VratiMe являются добровольными, не считаются оплатой товара или услуги и не дают преимуществ в рейтинге, сделках или доступе к функциям приложения. Платёж обрабатывает Tribute на своих условиях.</p>
-      </Section>
-    </LegalLayout>
-  );
+  return <LegalDocument document="offer" />;
 }

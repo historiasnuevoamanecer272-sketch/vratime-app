@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { getAppLanguage, setAppLanguage } from '../i18n';
+import { resolveProfileLanguage } from '../i18n/languages';
 import { saveMyProfile } from '../lib/api';
 import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contacts';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import LanguageMenu from '../components/LanguageMenu';
 import ContactChannelsFields from '../components/ContactChannelsFields';
 import montenegroHero from '../assets/visuals/v2/montenegro-adriatic-hero-v1.webp';
 
@@ -23,7 +25,7 @@ export default function Onboarding({ userId, onComplete }) {
         supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId),
       ]);
       if (!active || !profileResult.data) return;
-      const language = profileResult.data.preferred_language || profileResult.data.language || getAppLanguage();
+      const language = resolveProfileLanguage(profileResult.data, getAppLanguage(), Boolean(contactResult.data?.length));
       setForm((current) => ({
         ...current,
         full_name: profileResult.data.full_name || current.full_name,
@@ -78,7 +80,7 @@ export default function Onboarding({ userId, onComplete }) {
           </div>
           <form className="space-y-4 p-5" onSubmit={handleSave}>
             <label className="block"><span className="field-label">{t('onboarding.name')}</span><input className="field" type="text" value={form.full_name} onChange={(event) => update('full_name', event.target.value)} placeholder={t('onboarding.namePlaceholder')} autoComplete="name" required minLength={2} /></label>
-            <label className="block"><span className="field-label">{t('onboarding.language')}</span><select className="field" value={form.language} onChange={(event) => update('language', event.target.value)}><option value="me">Crnogorski</option><option value="ru">Русский</option><option value="en">English</option></select></label>
+            <div><span className="field-label">{t('onboarding.language')}</span><LanguageMenu className="language-menu-field" value={form.language} onChange={(language) => update('language', language)} label={t('onboarding.language')} /></div>
             <ContactChannelsFields contacts={form.contacts} onChange={(contacts) => update('contacts', contacts)} t={t} />
             <button type="submit" className="btn-primary mt-2 w-full" disabled={loading}><Icon name="check" size={19} />{loading ? t('onboarding.saving') : t('onboarding.submit')}</button>
             <aside className="account-recovery" aria-label={t('onboarding.returningTitle')}>

@@ -1,0 +1,7 @@
+export const feedbackExperienceTranslations = {
+  ru: { destination: 'Получатель идей — @vszaharov. После отправки покажем, подтверждена ли доставка в Telegram.', delivered: 'Идея сохранена и доставлена в Telegram. Спасибо!', queued: 'Идея сохранена. Доставка в Telegram пока не подтверждена.', send: 'Отправить идею' },
+  me: { destination: 'Ideje prima @vszaharov. Poslije slanja prikazujemo da li je isporuka na Telegram potvrđena.', delivered: 'Ideja je sačuvana i dostavljena na Telegram. Hvala!', queued: 'Ideja je sačuvana. Isporuka na Telegram još nije potvrđena.', send: 'Pošalji ideju' },
+  en: { destination: 'Ideas go to @vszaharov. After sending, we show whether Telegram delivery is confirmed.', delivered: 'Your idea was saved and delivered to Telegram. Thank you!', queued: 'Your idea was saved. Telegram delivery is not yet confirmed.', send: 'Send idea' },
+  fr: { destination: 'Les idées sont destinées à @vszaharov. Après l’envoi, nous indiquons si la livraison sur Telegram est confirmée.', delivered: 'Votre idée a été enregistrée et livrée sur Telegram. Merci !', queued: 'Votre idée est enregistrée. La livraison sur Telegram n’est pas encore confirmée.', send: 'Envoyer l’idée' },
+  de: { destination: 'Ideen gehen an @vszaharov. Nach dem Senden zeigen wir an, ob die Telegram-Zustellung bestätigt ist.', delivered: 'Ihre Idee wurde gespeichert und an Telegram zugestellt. Vielen Dank!', queued: 'Ihre Idee wurde gespeichert. Die Telegram-Zustellung ist noch nicht bestätigt.', send: 'Idee senden' },
+};

@@ -5,3 +5,30 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/media-upload/index.ts"
 static_files = ["./functions/media-upload/magick.wasm", "./functions/media-upload/vendor/LICENSE", "./functions/media-upload/vendor/NOTICE"]
+
+[functions.feedback-telegram]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/feedback-telegram/index.ts"
+
+# These workers validate separate exact scheduler secrets in their handlers.
+# The dispatch config action exposes only the public VAPID key.
+[functions.notifications-dispatch]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/notifications-dispatch/index.ts"
+
+[functions.daily-digest]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/daily-digest/index.ts"
+
+[functions.media-maintenance]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/media-maintenance/index.ts"
+
+[functions.feedback-telegram-worker]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/feedback-telegram-worker/index.ts"

@@ -1,0 +1,42 @@
+export const dealExperienceTranslations = {
+  ru: {
+    responseDeadline: 'Ожидается ответ владельца', reservationDeadline: 'Оставшееся время подтверждённой брони',
+    helpTitle: 'Как работают запрос и бронь?',
+    pendingHelp: 'Пока это запрос, а не подтверждённая бронь. Владелец должен его принять до истечения показанного срока. Без ответа запрос закроется автоматически.',
+    reservedHelp: 'Владелец принял запрос и зарезервировал указанное количество. Договоритесь о встрече и подтвердите передачу до окончания брони. Если срок истечёт, бронь снимется, а количество снова станет доступным.',
+    limits: 'Новые запросы: 12 часов на ответ, затем 24 часа брони после принятия. У прежних сделок сохраняется уже назначенный срок. После выдачи займа действует срок возврата, а не таймер брони.',
+    acceptedStep: 'Владелец подтвердил',
+  },
+  me: {
+    responseDeadline: 'Čeka se odgovor vlasnika', reservationDeadline: 'Preostalo vrijeme potvrđene rezervacije',
+    helpTitle: 'Kako rade zahtjev i rezervacija?',
+    pendingHelp: 'Ovo je zahtjev, a ne potvrđena rezervacija. Vlasnik treba da ga prihvati prije prikazanog roka. Bez odgovora zahtjev se automatski zatvara.',
+    reservedHelp: 'Vlasnik je prihvatio zahtjev i rezervisao navedenu količinu. Dogovorite susret i potvrdite predaju prije isteka rezervacije. Po isteku količina ponovo postaje dostupna.',
+    limits: 'Novi zahtjevi: 12 sati za odgovor, zatim 24 sata rezervacije nakon prihvatanja. Postojeći dogovori zadržavaju raniji rok. Poslije predaje pozajmice važi rok povrata, a ne rezervacije.',
+    acceptedStep: 'Vlasnik je potvrdio',
+  },
+  en: {
+    responseDeadline: 'Waiting for the owner’s reply', reservationDeadline: 'Time left on the confirmed reservation',
+    helpTitle: 'How do requests and reservations work?',
+    pendingHelp: 'This is a request, not a confirmed reservation. The owner must accept before the displayed deadline. Without a reply, the request closes automatically.',
+    reservedHelp: 'The owner accepted and reserved the stated quantity. Arrange a meeting and confirm handover before the reservation ends. If it expires, the quantity becomes available again.',
+    limits: 'New requests allow 12 hours for a reply, then 24 hours of reservation after acceptance. Existing deals keep their original deadline. After a loan is handed over, its return deadline applies instead.',
+    acceptedStep: 'Owner confirmed',
+  },
+  fr: {
+    responseDeadline: 'En attente de la réponse du propriétaire', reservationDeadline: 'Temps restant de la réservation confirmée',
+    helpTitle: 'Comment fonctionnent demande et réservation ?',
+    pendingHelp: 'Il s’agit d’une demande, pas encore d’une réservation confirmée. Le propriétaire doit accepter avant l’échéance affichée. Sans réponse, la demande se ferme automatiquement.',
+    reservedHelp: 'Le propriétaire a accepté et réservé la quantité indiquée. Convenez d’un rendez-vous et confirmez la remise avant la fin de la réservation. À l’expiration, la quantité redevient disponible.',
+    limits: 'Nouvelles demandes : 12 heures pour répondre, puis 24 heures de réservation après acceptation. Les échanges existants conservent leur échéance. Après remise d’un prêt, c’est la date de retour qui s’applique.',
+    acceptedStep: 'Propriétaire confirmé',
+  },
+  de: {
+    responseDeadline: 'Antwort des Eigentümers ausstehend', reservationDeadline: 'Verbleibende Zeit der bestätigten Reservierung',
+    helpTitle: 'Wie funktionieren Anfrage und Reservierung?',
+    pendingHelp: 'Dies ist eine Anfrage, noch keine bestätigte Reservierung. Der Eigentümer muss vor der angezeigten Frist annehmen. Ohne Antwort wird die Anfrage automatisch geschlossen.',
+    reservedHelp: 'Der Eigentümer hat die angegebene Menge reserviert. Vereinbaren Sie einen Termin und bestätigen Sie die Übergabe vor Ablauf. Nach Ablauf wird die Menge wieder verfügbar.',
+    limits: 'Neue Anfragen: 12 Stunden für die Antwort, danach 24 Stunden Reservierung ab Annahme. Bestehende Vorgänge behalten ihre Frist. Nach Ausgabe einer Leihgabe gilt deren Rückgabefrist.',
+    acceptedStep: 'Vom Eigentümer bestätigt',
+  },
+};

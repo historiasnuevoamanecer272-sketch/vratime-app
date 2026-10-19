@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { matchesDiscoveryType } from '../src/lib/listingFilters.js';
 import { getDeadlineProgress, getDeadlineState } from '../src/lib/deadlines.js';
 import { LEVELS, getLevelProgress } from '../src/lib/levels.js';
@@ -49,4 +51,10 @@ assert.deepEqual(
 assert.deepEqual(publicListingPosition({ lat: 42.44123, lng: 19.26387, public_lat: 42.4401, public_lng: 19.2601 }), [42.4401, 19.2601]);
 assert.notDeepEqual(publicListingPosition({ lat: 42.44123, lng: 19.26387, public_lat: 42.4401, public_lng: 19.2601 }), [42.44123, 19.26387]);
 
-process.stdout.write('Plan UI logic passed: discovery, deadlines, five levels, privacy, quantities and daily funding.\n');
+await import('./appointment-ui-check.mjs');
+
+for (const script of ['staff-moderation-ui-check.mjs', 'pwa-update-check.mjs', 'auth-ux-check.mjs', 'app-account-scope-check.mjs', 'navigation-resilience-check.mjs', 'reliability-ux-check.mjs', 'image-preparation-check.mjs', 'draft-check.mjs', 'form-task-check.mjs', 'listing-publication-check.mjs', 'map-ux-check.mjs', 'create-ux-check.mjs', 'feedback-submission-check.mjs', 'feedback-telegram-check.mjs']) {
+  execFileSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url))], { stdio: 'inherit' });
+}
+
+process.stdout.write('Plan UI logic passed: discovery, deadlines, five levels, privacy, quantities, daily funding and appointments.\n');

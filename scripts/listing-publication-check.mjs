@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+const subject = await import('../src/lib/listingPublication.js').catch(() => ({}));
+assert.equal(typeof subject.publishListingOnce, 'function', 'A lost publication acknowledgment must reuse the listing ID');
+const payload = { id: '11111111-1111-4111-8111-111111111111', user_id: 'alice', type: 'give', category_id: 1, quantity: 2, image_urls: [], image_url: null, description: 'Chair', lat: 42, lng: 19, pickup_windows: [], weight_kg: null, loan_duration_days: null, status: 'active', moderation_status: 'approved', location_label: 'Square', location_verified_at: '2026-10-19T00:00:00Z' };
+let saved = null, writes = 0, lost = true, reads = 0;
+const insert = async (input) => { writes += 1; if (saved) return { error: { code: '23505' } }; saved = { ...input, category_id: '1' }; if (lost) { lost = false; throw new Error('Lost acknowledgment'); } return { error: null }; };
+const readOwn = async (id, owner) => { reads += 1; assert.equal(id, payload.id); assert.equal(owner, 'alice'); return { data: saved, error: null }; };
+await assert.rejects(subject.publishListingOnce(payload, { insert, readOwn }), /Lost acknowledgment/);
+const result = await subject.publishListingOnce({ ...payload, location_verified_at: '2026-10-20T00:00:00Z' }, { insert, readOwn });
+assert.equal(result.alreadyCreated, true); assert.equal(writes, 2); assert.equal(reads, 1);
+assert.equal(saved.id, payload.id);
+await assert.rejects(subject.publishListingOnce({ ...payload, quantity: 3 }, { insert, readOwn }), { code: 'listing_publication_conflict' });
+await assert.rejects(subject.publishListingOnce(payload, { insert: async () => ({ error: { code: '42501' } }), readOwn }), { code: '42501' });
+assert.equal(reads, 2, 'Only duplicate-key errors can be reconciled as an existing publication');
+await assert.rejects(subject.publishListingOnce(payload, { insert, readOwn: async () => ({ data: { ...saved, user_id: 'bob' } }) }), { code: 'listing_publication_conflict' });
+console.log('Listing publication passed: fixed ID on lost acknowledgment, owner/payload comparison and no overwrite.');

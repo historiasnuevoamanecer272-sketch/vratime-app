@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { createFeedback, deactivateListing, getEcoLeaderboard, getImpactTotals, getMyDeals, getMyReliability, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
+import { createFeedback, requestFeedbackTelegramDelivery, deactivateListing, getEcoLeaderboard, getImpactTotals, getMyDeals, getMyReliability, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
+import { submitFeedback } from '../lib/feedbackSubmission';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contacts';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
+import LanguageMenu from '../components/LanguageMenu';
 import CategoryIcon from '../components/CategoryIcon';
 import ContactChannelsFields from '../components/ContactChannelsFields';
 import SupportFund from '../components/SupportFund';
@@ -15,13 +17,20 @@ import { LEVELS, getLevelProgress } from '../lib/levels';
 import DeadlineCountdown from '../components/DeadlineCountdown';
 import StaffPanel from '../components/StaffPanel';
 import DiscoveryInbox from '../components/DiscoveryInbox';
+import { isAwaitingHandover } from '../lib/appointments';
+import { prepareImage, imageErrorKey } from '../lib/imagePreparation';
+import { uploadUserMedia } from '../lib/mediaUploads';
+import MediaPreview, { AvatarCrop } from '../components/MediaPreview';
+import { createFormTaskScope, prepareScopedPreview } from '../lib/formTaskScope';
+import { useAppOverlay } from '../hooks/useAppNavigation';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 let profileCache = null;
 
 function ProfileDealSection({ title, deals, language, t }) {
-  return <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{title}</h2><span className="count-pill">{deals.length}</span></div>{deals.length ? <div className="mt-4 space-y-3">{deals.map((deal) => <article key={deal.transaction_id} className="profile-deal"><div className="min-w-0 flex-1"><strong>{listingCategoryLabel(deal, language)}</strong><small>{deal.partner_name || t('common.partner')} · {t(`status.${deal.status}`)}</small>{deal.expires_at && !deal.canceled_at && !deal.completed_at ? <DeadlineCountdown compact startedAt={deal.accepted_at || deal.created_at} expiresAt={deal.expires_at} /> : null}</div></article>)}</div> : <p className="empty-copy mt-4">{t('workflow.sectionEmpty')}</p>}</section>;
+  return <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{title}</h2><span className="count-pill">{deals.length}</span></div>{deals.length ? <div className="mt-4 space-y-3">{deals.map((deal) => <article key={deal.transaction_id} className="profile-deal"><div className="min-w-0 flex-1"><strong>{listingCategoryLabel(deal, language)}</strong><small>{deal.partner_name || t('common.partner')} · {t(`status.${deal.status}`)}</small>{deal.expires_at && isAwaitingHandover(deal) ? <DeadlineCountdown compact startedAt={deal.accepted_at || deal.created_at} expiresAt={deal.expires_at} /> : null}</div></article>)}</div> : <p className="empty-copy mt-4">{t('workflow.sectionEmpty')}</p>}</section>;
 }
 
-export default function Profile({ userId, onEditListing }) {
+export default function Profile({ userId, onEditListing, active = true }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const cached = profileCache?.userId === userId ? profileCache : null;
@@ -42,9 +51,35 @@ export default function Profile({ userId, onEditListing }) {
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedback, setFeedback] = useState({ type: 'feature', message: '', screenshot: null });
+  const saveMutex = useRef(false);
+  const avatarMutex = useRef(false);
+  const feedbackMutex = useRef(false);
+  const avatarAttempt = useRef(null);
+  const screenshotRequest = useRef(0);
+  const screenshotUpload = useRef(null);
+  const feedbackSubmissionAttempt = useRef(null);
+  const taskScope = useMemo(() => createFormTaskScope(userId), [userId]);
+  const levelsDialogRef = useRef(null);
+  const [avatarCandidate, setAvatarCandidate] = useState(null);
+  const [avatarPreparing, setAvatarPreparing] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const [screenshotMedia, setScreenshotMedia] = useState(null);
+  const [feedbackError, setFeedbackError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [previewPhoto, setPreviewPhoto] = useState(null);
   const [form, setForm] = useState({ full_name: cached?.profile?.full_name || '', language, contacts: cached?.contacts || emptyContactMap(), ranking_opt_in: cached?.profile?.ranking_opt_in ?? true });
+  useAppOverlay(active && levelsOpen, () => setLevelsOpen(false), 'profile-levels');
+  useDialogFocus({ open: active && levelsOpen, onClose: () => setLevelsOpen(false), dialogRef: levelsDialogRef });
+
+  useEffect(() => {
+    taskScope.activate();
+    const subscription = supabase.auth?.onAuthStateChange?.((_event, session) => { if (session?.user?.id !== userId) taskScope.dispose(); })?.data?.subscription;
+    return () => { taskScope.dispose(); screenshotRequest.current += 1; subscription?.unsubscribe(); };
+  }, [taskScope, userId]);
 
   const load = useCallback(async () => {
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
     if (profileCache?.userId !== userId) setLoading(true);
     setError('');
     if (!userId) return setLoading(false);
@@ -59,6 +94,7 @@ export default function Profile({ userId, onEditListing }) {
       getMyReliability().then((data) => ({ data })).catch(() => ({ data: null })),
       getImpactTotals().then((data) => ({ data })).catch(() => ({ data: null })),
     ]);
+    if (!task.isCurrent()) return;
     const firstError = profileResult.error || contactResult.error || dealResult.error || listingResult.error || reviewResult.error || leaderboardResult.error || feedbackResult.error;
     if (firstError) {
       setError(firstError.message);
@@ -73,7 +109,7 @@ export default function Profile({ userId, onEditListing }) {
       setForm({ full_name: profileResult.data.full_name || '', language: nextLanguage, contacts: nextData.contacts, ranking_opt_in: profileResult.data.ranking_opt_in ?? true });
     }
     setLoading(false);
-  }, [language, userId]);
+  }, [language, userId, taskScope]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(load, 0);
@@ -84,6 +120,10 @@ export default function Profile({ userId, onEditListing }) {
       window.removeEventListener('profile-updated', refresh);
     };
   }, [load]);
+
+  useEffect(() => () => {
+    if (screenshotMedia?.preview) URL.revokeObjectURL(screenshotMedia.preview);
+  }, [screenshotMedia?.preview]);
 
   const completedDeals = useMemo(() => deals.filter((deal) => deal.completed_at && !deal.canceled_at), [deals]);
   const myRequests = useMemo(() => deals.filter((deal) => !deal.is_listing_owner && !deal.accepted_at && !deal.completed_at && !deal.canceled_at), [deals]);
@@ -99,97 +139,186 @@ export default function Profile({ userId, onEditListing }) {
   const rawRating = Number(profile?.rating || 0);
   const rating = rawRating > 0 ? Math.max(1, rawRating - Number(profile?.rating_penalty || 0)) : 0;
   const achievements = [
-    { label: t('profile.firstDeal'), icon: 'gift', unlocked: completedDeals.length >= 1 },
-    { label: t('profile.fiveDeals'), icon: 'deals', unlocked: completedDeals.length >= 5 },
-    { label: t('profile.fiftyItems'), icon: 'leaf', unlocked: itemCount >= 50 },
+    { label: t('profile.firstDeal'), icon: 'handshake', unlocked: completedDeals.length >= 1 },
+    { label: t('profile.fiveDeals'), icon: 'award', unlocked: completedDeals.length >= 5 },
+    { label: t('profile.fiftyItems'), icon: 'box', unlocked: itemCount >= 50 },
     { label: t('profile.topRating'), icon: 'star', unlocked: rating >= 4.8 && completedDeals.length > 0 },
   ];
   const levelMedals = LEVELS.map((level, index) => ({ ...level, label: levels[index], unlocked: index <= levelIndex }));
 
   const save = async () => {
+    if (saveMutex.current) return;
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
+    if (!form.full_name.trim()) { setFormError('mediaExperience.nameRequired'); return; }
     const validationError = validateContacts(form.contacts);
-    if (validationError) return showToast(t(`contacts.${validationError}`), 'error');
+    if (validationError) { setFormError(`contacts.${validationError}`); return; }
+    saveMutex.current = true;
+    setFormError('');
     setSaving(true);
     try {
-      await saveMyProfile({ ...form, full_name: form.full_name.trim() });
-      await setRankingParticipation(Boolean(form.ranking_opt_in));
-      setAppLanguage(form.language); setEditing(false); showToast(t('profile.saved'), 'success'); await load();
-    } catch (saveError) { showToast(saveError.message === 'multi_messenger_migration_required' ? t('contacts.migrationRequired') : `${t('errors.save')} ${saveError.message}`, 'error'); }
-    finally { setSaving(false); }
+      await task.mutate(() => saveMyProfile({ ...form, full_name: form.full_name.trim() }), () => supabase.auth.getUser());
+      await task.mutate(() => setRankingParticipation(Boolean(form.ranking_opt_in)), () => supabase.auth.getUser());
+      setAppLanguage(form.language); setEditing(false); showToast(t('profile.saved', { lng: form.language }), 'success'); await load();
+    } catch (saveError) { if (task.isCurrent()) { const key = saveError.code === 'form_auth_changed' ? 'mediaExperience.errors.authChanged' : saveError.message === 'multi_messenger_migration_required' ? 'contacts.migrationRequired' : 'mediaExperience.errors.upload'; setFormError(key); showToast(t(key), 'error'); } }
+    finally { saveMutex.current = false; if (task.isCurrent()) setSaving(false); }
   };
 
   const deactivate = async (listingId) => {
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
     if (!window.confirm(t('profile.deactivateConfirm'))) return;
     setDeactivating(listingId);
     try {
-      await deactivateListing(listingId);
+      await task.mutate(() => deactivateListing(listingId), () => supabase.auth.getUser());
       window.dispatchEvent(new Event('listings-updated'));
       await load();
-    } catch (updateError) {
-      showToast(updateError.message, 'error');
+    } catch {
+      if (task.isCurrent()) showToast(t('mediaExperience.errors.upload'), 'error');
     } finally {
-      setDeactivating(null);
+      if (task.isCurrent()) setDeactivating(null);
     }
   };
 
-  const changeAvatar = async (event) => {
+  const prepareAvatar = async (file) => {
+    if (avatarMutex.current) return;
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
+    avatarMutex.current = true;
+    setAvatarPreparing(true);
+    setAvatarError('');
+    setAvatarCandidate({ file, operationId: crypto.randomUUID() });
+    try {
+      const previewFile = await prepareImage(file, { kind: 'listing', signal: task.signal });
+      task.assertCurrent();
+      setAvatarCandidate({ file, previewFile, operationId: crypto.randomUUID() });
+      avatarAttempt.current = null;
+    } catch (failure) { if (task.isCurrent()) setAvatarError(imageErrorKey(failure)); }
+    finally { avatarMutex.current = false; if (task.isCurrent()) setAvatarPreparing(false); }
+  };
+
+  const changeAvatar = (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) return showToast(t('workflow.avatarInvalid'), 'error');
+    prepareAvatar(file);
+  };
+
+  const saveAvatar = async (crop) => {
+    if (avatarMutex.current || !avatarCandidate?.previewFile) return;
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
+    avatarMutex.current = true;
     setAvatarSaving(true);
+    setAvatarError('');
     try {
-      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const path = `${userId}/avatar.${extension}`;
-      const { error: uploadError } = await supabase.storage.from('AVATARS').upload(path, file, { contentType: file.type, upsert: true, cacheControl: '3600' });
-      if (uploadError) throw uploadError;
-      const publicUrl = `${supabase.storage.from('AVATARS').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
-      await setMyAvatar(publicUrl);
+      await task.authorize(() => supabase.auth.getUser());
+      const signature = JSON.stringify({ candidate: avatarCandidate.operationId, crop });
+      if (avatarAttempt.current?.signature !== signature) avatarAttempt.current = { signature, operationId: crypto.randomUUID() };
+      if (!avatarAttempt.current.uploaded) {
+        const file = await prepareImage(avatarCandidate.previewFile, { kind: 'avatar', crop, signal: task.signal });
+        task.assertCurrent();
+        avatarAttempt.current.uploaded = await uploadUserMedia({ kind: 'avatar', file, operationId: avatarAttempt.current.operationId, expectedUserId: userId, signal: task.signal });
+        task.assertCurrent();
+      }
+      await task.mutate(() => setMyAvatar(avatarAttempt.current.uploaded.url), () => supabase.auth.getUser());
+      setProfile((current) => ({ ...current, avatar_url: avatarAttempt.current.uploaded.url }));
+      setAvatarCandidate(null);
+      avatarAttempt.current = null;
       profileCache = null;
       await load();
+      task.assertCurrent();
       showToast(t('workflow.avatarSaved'), 'success');
-    } catch (avatarError) {
-      showToast(avatarError.message || t('errors.save'), 'error');
+    } catch (failure) {
+      if (task.isCurrent()) setAvatarError(imageErrorKey(failure));
     } finally {
-      setAvatarSaving(false);
+      avatarMutex.current = false;
+      if (task.isCurrent()) setAvatarSaving(false);
     }
   };
 
   const removeAvatar = async () => {
+    if (avatarMutex.current) return;
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
+    avatarMutex.current = true;
     setAvatarSaving(true);
     try {
-      await setMyAvatar(null);
+      await task.mutate(() => setMyAvatar(null), () => supabase.auth.getUser());
+      setProfile((current) => ({ ...current, avatar_url: null }));
       profileCache = null;
       await load();
-    } catch (avatarError) {
-      showToast(avatarError.message || t('errors.save'), 'error');
+    } catch {
+      if (task.isCurrent()) setAvatarError('mediaExperience.errors.upload');
     } finally {
-      setAvatarSaving(false);
+      avatarMutex.current = false;
+      if (task.isCurrent()) setAvatarSaving(false);
     }
   };
 
+  const prepareScreenshot = async (file, operationId = crypto.randomUUID()) => {
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
+    const request = ++screenshotRequest.current;
+    screenshotUpload.current = null;
+    setFeedback((current) => ({ ...current, screenshot: file }));
+    setScreenshotMedia({ file, operationId, preparing: true });
+    try {
+      const result = await prepareScopedPreview(file, { task, isCurrent: () => request === screenshotRequest.current, prepare: (source, signal) => prepareImage(source, { kind: 'feedback', signal }) });
+      if (!result || !task.isCurrent()) return;
+      setScreenshotMedia({ file, operationId, ...result });
+    } catch (failure) {
+      if (task.isCurrent() && request === screenshotRequest.current) setScreenshotMedia({ file, operationId, error: imageErrorKey(failure) });
+    }
+  };
+
+  const removeScreenshot = () => {
+    screenshotRequest.current += 1;
+    screenshotUpload.current = null;
+    setScreenshotMedia(null);
+    setFeedback((current) => ({ ...current, screenshot: null }));
+  };
+
   const sendFeedback = async () => {
-    if (feedback.message.trim().length < 5) return showToast(t('workflow.feedbackShort'), 'error');
-    if (feedback.screenshot && (!['image/jpeg', 'image/png', 'image/webp'].includes(feedback.screenshot.type) || feedback.screenshot.size > 5 * 1024 * 1024)) return showToast(t('workflow.avatarInvalid'), 'error');
+    if (feedbackMutex.current || screenshotMedia?.preparing) return;
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
+    if (feedback.message.trim().length < 5) { setFeedbackError('workflow.feedbackShort'); return; }
+    if (screenshotMedia?.error) { setFeedbackError(screenshotMedia.error); return; }
+    feedbackMutex.current = true;
+    setFeedbackError('');
     setFeedbackSaving(true);
     try {
+      await task.authorize(() => supabase.auth.getUser());
       let screenshotUrl = null;
       if (feedback.screenshot) {
-        const extension = feedback.screenshot.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const path = `${userId}/feedback/${crypto.randomUUID()}.${extension}`;
-        const { error: uploadError } = await supabase.storage.from('LISTING-PHOTOS').upload(path, feedback.screenshot, { contentType: feedback.screenshot.type, upsert: false });
-        if (uploadError) throw uploadError;
-        screenshotUrl = supabase.storage.from('LISTING-PHOTOS').getPublicUrl(path).data.publicUrl;
+        if (!screenshotUpload.current) {
+          const file = screenshotMedia?.preparedFile || await prepareImage(feedback.screenshot, { kind: 'feedback', signal: task.signal });
+          task.assertCurrent();
+          screenshotUpload.current = await uploadUserMedia({ kind: 'feedback', file, operationId: screenshotMedia?.operationId, expectedUserId: userId, signal: task.signal });
+          task.assertCurrent();
+        }
+        screenshotUrl = screenshotUpload.current.url;
       }
-      await createFeedback({ type: feedback.type, message: feedback.message.trim(), screenshotUrl });
+      const fingerprint = JSON.stringify([feedback.type, feedback.message.trim(), screenshotUrl]);
+      if (feedbackSubmissionAttempt.current?.fingerprint !== fingerprint) feedbackSubmissionAttempt.current = { fingerprint, requestId: crypto.randomUUID() };
+      const result = await submitFeedback({ type: feedback.type, message: feedback.message.trim(), screenshotUrl, requestId: feedbackSubmissionAttempt.current.requestId }, {
+        save: (payload) => task.mutate(() => createFeedback(payload), () => supabase.auth.getUser()),
+        deliver: (feedbackId) => task.mutate(() => requestFeedbackTelegramDelivery(feedbackId), () => supabase.auth.getUser()),
+      });
+      task.assertCurrent();
+      feedbackSubmissionAttempt.current = null;
       setFeedback({ type: 'feature', message: '', screenshot: null });
+      removeScreenshot();
       profileCache = null;
       await load();
-      showToast(t('workflow.feedbackSent'), 'success', { prominent: true });
-    } catch (feedbackError) {
-      showToast(feedbackError.message || t('errors.save'), 'error');
+      task.assertCurrent();
+      showToast(t(result.delivery === 'delivered' ? 'feedbackExperience.delivered' : 'feedbackExperience.queued'), 'success', { prominent: true });
+    } catch (failure) {
+      if (task.isCurrent()) setFeedbackError(imageErrorKey(failure));
     } finally {
-      setFeedbackSaving(false);
+      feedbackMutex.current = false;
+      if (task.isCurrent()) setFeedbackSaving(false);
     }
   };
 
@@ -205,10 +334,11 @@ export default function Profile({ userId, onEditListing }) {
           <div className="mt-5 grid grid-cols-2 gap-3"><div className="hero-stat"><small>{t('profile.ecoPoints')}</small><strong>{ecoPoints}</strong></div><div className="hero-stat"><small>{t('profile.rating')}</small><strong><Icon name="star" size={20} filled />{rating ? rating.toFixed(1) : '—'}</strong></div></div>
         </section>
 
-        <section className="avatar-actions"><label className="btn-secondary cursor-pointer"><Icon name="camera" size={17} />{avatarSaving ? t('onboarding.saving') : t('workflow.changeAvatar')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" disabled={avatarSaving} onChange={changeAvatar} /></label>{profile?.avatar_url ? <button type="button" className="btn-link" disabled={avatarSaving} onClick={removeAvatar}>{t('workflow.removeAvatar')}</button> : null}</section>
+        <section className="avatar-actions"><label className="btn-secondary cursor-pointer"><Icon name="camera" size={17} />{avatarSaving || avatarPreparing ? t('onboarding.saving') : t('workflow.changeAvatar')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" disabled={avatarSaving || avatarPreparing} onChange={changeAvatar} /></label>{profile?.avatar_url ? <button type="button" className="btn-link" disabled={avatarSaving || avatarPreparing} onClick={removeAvatar}>{t('workflow.removeAvatar')}</button> : null}</section>
+        {avatarError && !avatarCandidate?.previewFile ? <div className="card p-4"><p className="field-error" role="alert">{t(avatarError)}</p>{avatarCandidate?.file ? <button type="button" className="btn-link" disabled={avatarPreparing} onClick={() => prepareAvatar(avatarCandidate.file)}>{t('mediaExperience.retry')}</button> : null}</div> : null}
 
         {editing ? <section className="card -mt-4 rounded-t-none p-5">
-          <div className="space-y-4"><label className="block"><span className="field-label">{t('profile.name')}</span><input className="field" value={form.full_name} onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))} /></label><label className="block"><span className="field-label">{t('profile.language')}</span><select className="field" value={form.language} onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}><option value="me">Crnogorski</option><option value="ru">Русский</option><option value="en">English</option></select></label><ContactChannelsFields contacts={form.contacts} onChange={(contacts) => setForm((current) => ({ ...current, contacts }))} t={t} /><label className="ranking-toggle"><input type="checkbox" checked={Boolean(form.ranking_opt_in)} onChange={(event) => setForm((current) => ({ ...current, ranking_opt_in: event.target.checked }))} /><span><strong>{t('profile.rankingParticipation')}</strong><small>{t('profile.rankingPrivacy')}</small></span></label><button type="button" className="btn-primary w-full" disabled={saving} onClick={save}>{saving ? t('onboarding.saving') : t('common.save')}</button></div>
+          <div className="space-y-4"><label className="block"><span className="field-label">{t('profile.name')} *</span><input className="field" required maxLength={120} aria-invalid={formError === 'mediaExperience.nameRequired'} aria-describedby="profile-form-error" value={form.full_name} onChange={(event) => { setFormError(''); setForm((current) => ({ ...current, full_name: event.target.value })); }} /></label><div><span className="field-label">{t('profile.language')}</span><LanguageMenu className="language-menu-field" value={form.language} onChange={(language) => setForm((current) => ({ ...current, language }))} label={t('profile.language')} /></div><ContactChannelsFields contacts={form.contacts} onChange={(contacts) => { setFormError(''); setForm((current) => ({ ...current, contacts })); }} t={t} />{formError ? <p id="profile-form-error" className="field-error" role="alert">{t(formError)}</p> : null}<label className="ranking-toggle"><input type="checkbox" checked={Boolean(form.ranking_opt_in)} onChange={(event) => setForm((current) => ({ ...current, ranking_opt_in: event.target.checked }))} /><span><strong>{t('profile.rankingParticipation')}</strong><small>{t('profile.rankingPrivacy')}</small></span></label><button type="button" className="btn-primary w-full" disabled={saving} onClick={save}>{saving ? t('onboarding.saving') : t('common.save')}</button></div>
         </section> : null}
 
         <section className="impact-grid mt-4"><div className="impact-card"><span><Icon name="deals" size={21} /></span><strong>{completedDeals.length}</strong><small>{t('profile.deals')}</small></div><div className="impact-card"><span><Icon name="leaf" size={21} /></span><strong>{itemCount}</strong><small>{t('profile.items')}</small></div></section>
@@ -234,14 +364,16 @@ export default function Profile({ userId, onEditListing }) {
         <ProfileDealSection title={t('workflow.myReservations')} deals={reservations} language={language} t={t} />
         <ProfileDealSection title={t('workflow.myHistory')} deals={dealHistory} language={language} t={t} />
 
-        <section className="card feedback-card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display text-2xl text-forest">{t('workflow.ideaTitle')}</h2></div><span className="icon-tile"><Icon name="message" size={21} /></span></div><p className="mt-2 text-sm text-muted">{t('workflow.ideaText')}</p><label className="mt-4 block"><span className="field-label">{t('workflow.feedbackType')}</span><select className="field" value={feedback.type} onChange={(event) => setFeedback((current) => ({ ...current, type: event.target.value }))}><option value="feature">{t('workflow.feedbackFeature')}</option><option value="category">{t('workflow.feedbackCategory')}</option><option value="problem">{t('workflow.feedbackProblem')}</option><option value="support">{t('workflow.feedbackSupport')}</option></select></label><label className="mt-4 block"><span className="field-label">{t('workflow.message')}</span><textarea className="field min-h-28 resize-y py-3" maxLength={3000} value={feedback.message} onChange={(event) => setFeedback((current) => ({ ...current, message: event.target.value }))} /></label><label className="btn-secondary mt-4 cursor-pointer"><Icon name="camera" size={17} />{feedback.screenshot ? feedback.screenshot.name : t('workflow.addScreenshot')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={(event) => setFeedback((current) => ({ ...current, screenshot: event.target.files?.[0] || null }))} /></label><button type="button" className="btn-primary mt-4 w-full" disabled={feedbackSaving} onClick={sendFeedback}>{feedbackSaving ? t('onboarding.saving') : t('workflow.send')}</button>{feedbackHistory.length ? <div className="feedback-history mt-5">{feedbackHistory.map((item) => <article key={item.id}><strong>{t(`workflow.feedback${item.feedback_type.charAt(0).toUpperCase()}${item.feedback_type.slice(1)}`)}</strong><span>{t(`feedbackStatus.${item.status}`)}</span><p>{item.message}</p></article>)}</div> : null}</section>
+        <section className="card feedback-card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display text-2xl text-forest">{t('workflow.ideaTitle')}</h2></div><span className="icon-tile"><Icon name="message" size={21} /></span></div><p className="mt-2 text-sm text-muted">{t('workflow.ideaText')}</p><label className="mt-4 block"><span className="field-label">{t('workflow.feedbackType')}</span><select className="field" disabled={feedbackSaving} value={feedback.type} onChange={(event) => setFeedback((current) => ({ ...current, type: event.target.value }))}><option value="feature">{t('workflow.feedbackFeature')}</option><option value="category">{t('workflow.feedbackCategory')}</option><option value="problem">{t('workflow.feedbackProblem')}</option><option value="support">{t('workflow.feedbackSupport')}</option></select></label><label className="mt-4 block"><span className="field-label">{t('mediaExperience.feedbackRequired')}</span><textarea className="field min-h-28 resize-y py-3" required minLength={5} maxLength={3000} disabled={feedbackSaving} aria-invalid={feedbackError === 'workflow.feedbackShort'} aria-describedby="feedback-form-error" value={feedback.message} onChange={(event) => { setFeedbackError(''); setFeedback((current) => ({ ...current, message: event.target.value })); }} /></label><label className="btn-secondary mt-4 cursor-pointer"><Icon name="camera" size={17} />{feedback.screenshot ? feedback.screenshot.name : t('workflow.addScreenshot')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" disabled={feedbackSaving} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) prepareScreenshot(file); }} /></label><small className="media-hint">{t('mediaExperience.screenshotPrivacy')}</small>{screenshotMedia ? <div className="feedback-screenshot">{screenshotMedia.preview ? <button type="button" className="media-photo-open" aria-label={t('mediaExperience.preview')} onClick={() => setPreviewPhoto(screenshotMedia.preview)}><img src={screenshotMedia.preview} alt={feedback.screenshot?.name || ''} /></button> : null}<div>{screenshotMedia.preparing ? <p role="status">{t('mediaExperience.preparing')}</p> : screenshotMedia.error ? <><p className="field-error" role="alert">{t(screenshotMedia.error)}</p><button type="button" className="btn-link" disabled={feedbackSaving} onClick={() => prepareScreenshot(screenshotMedia.file, screenshotMedia.operationId)}>{t('mediaExperience.retry')}</button></> : null}<button type="button" className="btn-link" disabled={feedbackSaving} onClick={removeScreenshot}>{t('common.remove')}</button></div></div> : null}{feedbackError ? <p id="feedback-form-error" className="field-error" role="alert">{t(feedbackError)}</p> : null}<button type="button" className="btn-primary mt-4 w-full" disabled={feedbackSaving || screenshotMedia?.preparing || Boolean(screenshotMedia?.error)} onClick={sendFeedback}>{feedbackSaving ? t('onboarding.saving') : t('feedbackExperience.send')}</button>{feedbackHistory.length ? <div className="feedback-history mt-5">{feedbackHistory.map((item) => <article key={item.id}><strong>{t(`workflow.feedback${item.feedback_type.charAt(0).toUpperCase()}${item.feedback_type.slice(1)}`)}</strong><span>{t(`feedbackStatus.${item.status}`)}</span><p>{item.message}</p></article>)}</div> : null}</section>
 
         {['moderator', 'admin'].includes(profile?.app_role) ? <StaffPanel role={profile.app_role} /> : null}
 
         <section className="card mt-4 p-5"><h2 className="font-display text-2xl text-forest">{t('profile.reviews')}</h2>{reviews.length ? <div className="mt-4 space-y-3">{reviews.map((review) => <article key={review.id} className="review-row"><div><strong>{review.from_user?.full_name || t('common.partner')}</strong><small>{new Date(review.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</small></div><span><Icon name="star" size={17} filled />{Number(review.rating).toFixed(1)}</span></article>)}</div> : <p className="empty-copy mt-4">{t('profile.noReviews')}</p>}</section>
         <button type="button" className="btn-ghost mt-4 w-full" onClick={() => supabase.auth.signOut()}><Icon name="logout" size={19} />{t('profile.logout')}</button>
       </main>
-      {levelsOpen ? <div className="modal-backdrop grid place-items-end sm:place-items-center p-0 sm:p-5"><section className="levels-dialog" role="dialog" aria-modal="true" aria-label={t('profile.allLevels')}><div className="flex items-start justify-between gap-3"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.allLevels')}</h2><p className="mt-2 text-sm text-muted">{t('profile.levelsProgress', { count: levelIndex + 1, total: levels.length })}</p></div><button type="button" className="icon-button" onClick={() => setLevelsOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div><div className="levels-catalog mt-5">{levelMedals.map((medal, index) => <article key={medal.id} className={`levels-catalog-item ${medal.unlocked ? 'unlocked' : ''}`}><span className="level-medal"><Icon name={medal.icon} size={23} /><b>{index + 1}</b></span><div><strong>{medal.label}</strong><small>{t('profile.levelAt', { count: medal.threshold })}</small></div>{medal.unlocked ? <Icon name="check" size={20} /> : <Icon name="lock" size={20} />}</article>)}</div></section></div> : null}
+      {active && avatarCandidate?.previewFile ? <AvatarCrop active={active} key={avatarCandidate.operationId} file={avatarCandidate.previewFile} saving={avatarSaving} error={avatarError} onApply={saveAvatar} onClose={() => { if (avatarMutex.current) return false; setAvatarCandidate(null); setAvatarError(''); return true; }} /> : null}
+      {active && previewPhoto ? <MediaPreview active={active} src={previewPhoto} onClose={() => setPreviewPhoto(null)} /> : null}
+      {active && levelsOpen ? <div className="modal-backdrop profile-levels-backdrop grid place-items-end sm:place-items-center p-0 sm:p-5"><section ref={levelsDialogRef} className="levels-dialog" role="dialog" aria-modal="true" aria-label={t('profile.allLevels')}><div className="flex items-start justify-between gap-3"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.allLevels')}</h2><p className="mt-2 text-sm text-muted">{t('profile.levelsProgress', { count: levelIndex + 1, total: levels.length })}</p></div><button type="button" className="icon-button" onClick={() => setLevelsOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div><div className="levels-catalog mt-5">{levelMedals.map((medal, index) => <article key={medal.id} className={`levels-catalog-item ${medal.unlocked ? 'unlocked' : ''}`}><span className="level-medal"><Icon name={medal.icon} size={23} /><b>{index + 1}</b></span><div><strong>{medal.label}</strong><small>{t('profile.levelAt', { count: medal.threshold })}</small></div>{medal.unlocked ? <Icon name="check" size={20} /> : <Icon name="lock" size={20} />}</article>)}</div></section></div> : null}
     </div>
   );
 }

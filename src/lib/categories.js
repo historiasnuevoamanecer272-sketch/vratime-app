@@ -1,3 +1,5 @@
+import { categoryLanguageAdditions } from './categoryLanguageAdditions.js';
+
 const legacyTranslations = {
   glass: { ru: 'Стекло', me: 'Staklo', en: 'Glass' },
   cloth: { ru: 'Текстиль', me: 'Tekstil', en: 'Textiles' },
@@ -21,10 +23,14 @@ const legacyTranslations = {
   'cloth/clothing/kids-cloth': { ru: 'Детская одежда', me: 'Dječja odjeća', en: "Children's clothing" },
 };
 
+for (const [path, translations] of Object.entries(categoryLanguageAdditions)) {
+  Object.assign(legacyTranslations[path], translations);
+}
+
 export const categoryLabel = (category, language = 'ru') => {
   if (!category) return '';
   const path = category.category_path || category.path || '';
-  const translations = category.translations || legacyTranslations[path];
+  const translations = { ...legacyTranslations[path], ...category.translations };
   return translations?.[language] || translations?.ru || category.name || category.category || path;
 };
 
@@ -50,7 +56,7 @@ export const categorySearchText = (listing, categories = []) => {
 
   paths.forEach((currentPath) => {
     const category = categories.find((item) => (item.category_path || item.path) === currentPath);
-    const translations = category?.translations || legacyTranslations[currentPath];
+    const translations = { ...legacyTranslations[currentPath], ...category?.translations };
     if (translations) values.push(...Object.values(translations));
     values.push(category?.name, category?.category, currentPath.replace(/[/-]/g, ' '));
   });

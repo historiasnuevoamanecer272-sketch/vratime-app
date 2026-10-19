@@ -116,12 +116,18 @@ requireText(lendingMigration, 'text, text, jsonb, text, text, jsonb, numeric, in
 const dailyDigest = await fs.readFile(dailyDigestPath, 'utf8');
 requireText(dailyDigest, "Deno.env.get('DAILY_DIGEST_SECRET')", 'daily digest scheduler secret');
 requireText(dailyDigest, "Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')", 'daily digest server-only service role');
-requireText(dailyDigest, 'user_inbox?on_conflict=user_id,idempotency_key', 'digest inbox idempotency');
-requireText(dailyDigest, 'digest_deliveries?on_conflict=user_id,digest_date', 'daily delivery idempotency');
-requireText(dailyDigest, 'web_push_subscriptions?select=id,endpoint,p256dh,auth,enabled', 'digest opt-in push subscription read');
-requireText(dailyDigest, 'enabled=eq.true', 'digest push only enabled subscriptions');
-requireText(dailyDigest, "queue_handover_reminders", 'daily digest queues appointment reminders');
-requireText(dailyDigest, "queue_loan_return_reminders", 'daily digest queues loan return reminders');
+const digestHandler = await fs.readFile(path.join(root, 'supabase', 'functions', 'daily-digest', 'handler.mjs'), 'utf8');
+const notificationMigration = sources.get('20261019080518_reliable_notifications_and_digest.sql') || '';
+// Atomic SQL now owns these writes; executable notification DB checks verify
+// the leases, retries, ownership, dedupe and provider acknowledgment behavior.
+requireText(notificationMigration, 'on conflict(user_id,idempotency_key) do nothing', 'digest inbox idempotency');
+requireText(notificationMigration, 'on conflict(user_id,digest_date) do update', 'daily delivery idempotency');
+requireText(notificationMigration, 's.user_id=job.user_id and s.enabled', 'digest push only enabled owner subscriptions');
+requireText(notificationMigration, "d.lease_token=claim_token and d.leased_until>now() for update", 'digest completion requires a current lease');
+requireText(notificationMigration, "when final_status='sent' then coalesce(delivered_at,now())", 'provider acknowledgment precedes delivered timestamp');
+requireText(digestHandler, 'claim_daily_digest_jobs', 'daily digest claims a leased batch');
+requireText(digestHandler, "queue_handover_reminders", 'daily digest queues appointment reminders');
+requireText(digestHandler, "queue_loan_return_reminders", 'daily digest queues loan return reminders');
 
 const migrationRunner = await fs.readFile(migrationRunnerPath, 'utf8');
 requireText(migrationRunner, 'public.vratime_schema_migrations', 'ordered migration ledger');
