@@ -107,7 +107,7 @@ try {
   const fixture = { id: 'other-listing', user_id: 'other', category: 'Glass jars', category_path: 'glass/jars', type: 'give', quantity: 4, public_lat: 42.441, public_lng: 19.263, created_at: '2026-10-01T10:00:00Z', description: 'Keep this E2E description intact.' };
   const render = (patch = {}) => {
     values.clear();
-    for (const [key, value] of Object.entries({ 0: [fixture], 3: false, ...patch })) values.set(Number(key), value);
+    for (const [key, value] of Object.entries({ 0: [fixture], 3: false, 12: true, ...patch })) values.set(Number(key), value);
     return rerender();
   };
   const rerender = () => {
@@ -120,6 +120,25 @@ try {
     try { await action(); process.stdout.write(`PASS ${name}\n`); }
     catch (error) { failures.push(name); process.stderr.write(`FAIL ${name}: ${error.message.split('\n')[0]}\n`); }
   };
+  await check('first visit is a clear map even when no listings exist', () => {
+    values.clear(); values.set(0, []); values.set(3, false);
+    const html = rerender();
+    assert.ok(elementWithClass('map-toolbar-restore'), 'Filters must open only when requested');
+    assert.equal(elementWithClass('map-state-empty'), undefined);
+    assert.equal(elementWithClass('list-sheet-peek'), undefined);
+    assert.equal(elementWithClass('map-empty-results'), undefined);
+    assert.doesNotMatch(html, /create your first listing|Create your first listing/);
+  });
+  await check('zero search results are explained only inside explicitly opened filters', () => {
+    render({0:[],6:'nonexistent item'});
+    assert.equal(elementWithClass('map-state-empty'), undefined);
+    assert.ok(elementWithClass('map-empty-results'));
+    assert.equal(elementWithClass('map-show-results').props.disabled, false, 'Zero results must not prevent closing filters');
+    elementWithClass('map-show-results').props.onClick();
+    rerender();
+    assert.equal(elementWithClass('map-empty-results'), undefined);
+    assert.equal(elementWithClass('map-state-empty'), undefined);
+  });
   await check('the map has no persistent bottom-list overlay; the count still opens its list', () => {
     render();
     assert.equal(elementWithClass('list-sheet-peek'), undefined);
@@ -140,7 +159,7 @@ try {
     const fit = effects.find(({ dependencies }) => dependencies?.includes(viewport));
     assert.ok(fit); fit.effect(); fit.effect();
     assert.equal(mapCalls.filter(([name]) => name === 'fitBounds').length, 1, 'One explicit action should fit once');
-    render({ 0: [] }); assert.equal(elementWithClass('map-show-results').props.disabled, true);
+    render({ 0: [] }); assert.equal(elementWithClass('map-show-results').props.disabled, false);
     render({ 3: true }); assert.equal(elementWithClass('map-show-results').props.disabled, true);
   });
   await check('empty collection points leave the map clear and offer one reachable add action', () => {
@@ -202,7 +221,7 @@ try {
     fresh.props.onPointerDown(point(80, 90));
     fresh.props.onPointerUp(point(140, 60));
     fresh.props.onClick({ detail: 1 });
-    assert.equal(values.get(12), undefined);
+    assert.equal(values.get(12), true);
     const search = elements.find(({ type, props }) => type === 'input' && props.type === 'search');
     assert.equal(search.props.onPointerDown, undefined);
     assert.equal(elementWithClass('map-toolbar').props.onPointerDown, undefined);

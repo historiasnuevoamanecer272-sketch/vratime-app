@@ -8,7 +8,6 @@ import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
-import emptyListings from '../assets/visuals/v1/empty-listings-v1.webp';
 import { mapMarkerIcons } from '../lib/mapMarkers';
 import { baseMap } from '../lib/basemap';
 import { matchesDiscoveryType } from '../lib/listingFilters';
@@ -61,7 +60,7 @@ function MapView({ location, recenterRequest, active, resultsViewport, closeLabe
   return null;
 }
 
-export default function MapScreen({ userId, onCreate, active = true }) {
+export default function MapScreen({ userId, active = true }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const [listings, setListings] = useState([]);
@@ -76,7 +75,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
   const [distance, setDistance] = useState('all');
   const [location, setLocation] = useState(null);
   const [locationMessage, setLocationMessage] = useState('');
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [bookingListing, setBookingListing] = useState(null);
@@ -301,7 +300,8 @@ export default function MapScreen({ userId, onCreate, active = true }) {
             {['all', 'give', 'take', 'lend'].map((value) => <button key={value} type="button" disabled={Boolean(query.trim())} className={`chip chip-small ${(query.trim() ? value === (type === 'lend' ? 'lend' : 'give') : type === value) ? 'chip-active' : ''}`} onClick={() => {setType(value);if(value === 'lend')setCategory('all');}}>{value === 'all' ? null : <Icon name={value === 'give' ? 'gift' : value === 'take' ? 'search' : 'clock'} size={13} />}{value === 'all' ? t('map.all') : t(value === 'give' ? 'map.give' : value === 'take' ? 'map.take' : 'map.lend')}</button>)}
             {distances.map((value) => <button key={value} type="button" className={`chip chip-small ${distance === value ? 'chip-active' : ''}`} onClick={() => { setDistance(value); if (value !== 'all' && !location) locate(); }}>{distanceLabel[value]}</button>)}
           </div>
-          <button type="button" className="btn-primary map-show-results mt-3 w-full" disabled={loading || Boolean(loadError) || filtered.length === 0 || locationPending} onClick={() => { setFiltersOpen(false); setSheetOpen(false); setResultsViewport({ positions: filtered.map(publicListingPosition) }); }}>{loading ? t('common.loading') : t('mapExperience.showResults', { count: filtered.length })}</button>
+          {!loading && !loadError && hasFilters && filtered.length === 0 ? <div className="map-empty-results" role="status"><p>{t('mapExperience.noResults')}</p><button type="button" className="btn-link" onClick={resetFilters}>{t('map.resetFilters')}</button></div> : null}
+          <button type="button" className="btn-primary map-show-results mt-3 w-full" disabled={loading || Boolean(loadError) || locationPending} onClick={() => { setFiltersOpen(false); setSheetOpen(false); setResultsViewport({ positions: filtered.map(publicListingPosition) }); }}>{loading ? t('common.loading') : t('mapExperience.showResults', { count: filtered.length })}</button>
           </> : <div className="point-layer-actions mt-3"><p role={pointsError ? 'status' : undefined}>{t(pointsError ? 'reliabilityExperience.pointsLoadFailed' : !loading && collectionPoints.length === 0 ? 'points.empty' : 'points.mapHint')}</p><button type="button" className="btn-primary" onClick={() => setPointDialogOpen(true)}><Icon name="plus" size={17} />{t('points.add')}</button></div>}
         </> : <button type="button" className="map-toolbar-restore" onClick={() => setFiltersOpen(true)} aria-expanded="false"><Icon name="sliders" size={18} /><span>{t(mapLayer === 'points' ? 'map.pointsLayer' : 'map.filters')}</span><strong>{mapLayer === 'points' ? collectionPoints.length : filtered.length}</strong><Icon name="chevronDown" size={17} /></button>}
       </header>
@@ -310,7 +310,6 @@ export default function MapScreen({ userId, onCreate, active = true }) {
       {loading ? <p className="map-refresh-status" role="status">{t('common.loading')}</p> : lastUpdated && loadError ? <p className="map-refresh-status" role="status">{t('reliabilityExperience.lastUpdated', { time: lastUpdated.toLocaleTimeString(language === 'me' ? 'sr-Latn-ME' : language, {hour:'2-digit',minute:'2-digit'}) })}</p> : null}
 
       {loadError ? <div className="map-state card"><Icon name="close" size={24} /><p>{t('errors.load')}</p><button type="button" className="btn-secondary" onClick={fetchData}>{t('common.retry')}</button></div> : null}
-      {!loading && !loadError && mapLayer === 'listings' && filtered.length === 0 ? <div className="map-state map-state-empty card"><img className="state-illustration" src={emptyListings} alt="" /><strong>{t('map.emptyTitle')}</strong><p>{t('map.emptyText')}</p><button type="button" className="btn-primary" onClick={hasFilters ? resetFilters : onCreate}>{t(hasFilters ? 'map.resetFilters' : 'nav.create')}</button></div> : null}
 
       {mapLayer === 'listings' && sheetOpen ? <section className="listing-sheet open">
         <div className="listing-sheet-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('map.listTitle')}</h2></div><button type="button" className="icon-button" onClick={() => setSheetOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div>

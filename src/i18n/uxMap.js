@@ -1,5 +1,6 @@
 export const mapExperienceTranslations = {
   ru: {
+    noResults: 'По этим фильтрам объявлений нет.',
     showResults: 'Показать на карте · {{count}}',
     myListing: 'Моё объявление',
     myListingHint: 'Это ваше объявление. Другие участники могут отправить вам запрос.',
@@ -15,6 +16,7 @@ export const mapExperienceTranslations = {
     positionManualHint: 'Можно переместить карту вручную и смотреть объявления без геолокации.',
   },
   me: {
+    noResults: 'Nema oglasa za ove filtere.',
     showResults: 'Prikaži na mapi · {{count}}',
     myListing: 'Moj oglas',
     myListingHint: 'Ovo je vaš oglas. Drugi korisnici mogu da vam pošalju zahtjev.',
@@ -30,6 +32,7 @@ export const mapExperienceTranslations = {
     positionManualHint: 'Možete ručno pomjeriti mapu i pregledati oglase bez geolokacije.',
   },
   en: {
+    noResults: 'No listings match these filters.',
     showResults: 'Show on map · {{count}}',
     myListing: 'My listing',
     myListingHint: 'This is your listing. Other members can send you a request.',
@@ -45,6 +48,7 @@ export const mapExperienceTranslations = {
     positionManualHint: 'Move the map manually to browse listings without geolocation.',
   },
   fr: {
+    noResults: 'Aucune annonce ne correspond à ces filtres.',
     showResults: 'Afficher sur la carte · {{count}}',
     myListing: 'Mon annonce',
     myListingHint: 'C’est votre annonce. Les autres membres peuvent vous envoyer une demande.',
@@ -60,6 +64,7 @@ export const mapExperienceTranslations = {
     positionManualHint: 'Déplacez la carte manuellement pour consulter les annonces sans géolocalisation.',
   },
   de: {
+    noResults: 'Keine Anzeigen entsprechen diesen Filtern.',
     showResults: 'Auf der Karte zeigen · {{count}}',
     myListing: 'Mein Angebot',
     myListingHint: 'Das ist Ihr Angebot. Andere Mitglieder können Ihnen eine Anfrage senden.',
