@@ -1,5 +1,8 @@
 export const createExperienceTranslations = {
   ru: {
+    draftLoading: 'Загружаем сохранённый черновик…',
+    draftPending: 'Выберите «Продолжить» или «Удалить черновик» в начале формы.',
+    draftReview: 'Подтвердите ниже, что количество и место из черновика актуальны.',
     requiredNote: '* Обязательные поля. Описание, вес и время можно пропустить.',
     optional: 'необязательно', address: 'Адрес или точка передачи', pickupTime: 'Когда удобно забрать',
     pickupTimePlaceholder: 'Например: по будням после 18:00',
@@ -15,6 +18,9 @@ export const createExperienceTranslations = {
     published: 'Объявление опубликовано.',
   },
   me: {
+    draftLoading: 'Učitavamo sačuvani nacrt…',
+    draftPending: 'Izaberite „Nastavi“ ili „Obriši nacrt“ na početku obrasca.',
+    draftReview: 'Potvrdite ispod da su količina i mjesto iz nacrta i dalje tačni.',
     requiredNote: '* Obavezna polja. Opis, masa i vrijeme nijesu obavezni.',
     optional: 'nije obavezno', address: 'Adresa ili mjesto preuzimanja', pickupTime: 'Kada odgovara preuzimanje',
     pickupTimePlaceholder: 'Na primjer: radnim danima poslije 18:00',
@@ -30,6 +36,9 @@ export const createExperienceTranslations = {
     published: 'Oglas je objavljen.',
   },
   en: {
+    draftLoading: 'Loading your saved draft…',
+    draftPending: 'Choose “Continue” or “Discard draft” at the top of the form.',
+    draftReview: 'Confirm below that the draft quantity and pickup point are still correct.',
     requiredNote: '* Required fields. Description, weight and pickup time are optional.',
     optional: 'optional', address: 'Address or pickup point', pickupTime: 'Convenient pickup time',
     pickupTimePlaceholder: 'For example: weekdays after 18:00',
@@ -45,6 +54,9 @@ export const createExperienceTranslations = {
     published: 'Listing published.',
   },
   fr: {
+    draftLoading: 'Chargement du brouillon enregistré…',
+    draftPending: 'Choisissez « Continuer » ou « Supprimer le brouillon » en haut du formulaire.',
+    draftReview: 'Confirmez ci-dessous que la quantité et le point de retrait du brouillon sont toujours corrects.',
     requiredNote: '* Champs obligatoires. La description, le poids et l’horaire sont facultatifs.',
     optional: 'facultatif', address: 'Adresse ou point de retrait', pickupTime: 'Horaire de retrait souhaité',
     pickupTimePlaceholder: 'Par exemple : en semaine après 18 h',
@@ -60,6 +72,9 @@ export const createExperienceTranslations = {
     published: 'Annonce publiée.',
   },
   de: {
+    draftLoading: 'Gespeicherter Entwurf wird geladen…',
+    draftPending: 'Wählen Sie oben im Formular „Fortsetzen“ oder „Entwurf verwerfen“.',
+    draftReview: 'Bestätigen Sie unten, dass Menge und Abholpunkt des Entwurfs weiterhin stimmen.',
     requiredNote: '* Pflichtfelder. Beschreibung, Gewicht und Abholzeit sind optional.',
     optional: 'optional', address: 'Adresse oder Abholort', pickupTime: 'Passende Abholzeit',
     pickupTimePlaceholder: 'Zum Beispiel: werktags nach 18 Uhr',

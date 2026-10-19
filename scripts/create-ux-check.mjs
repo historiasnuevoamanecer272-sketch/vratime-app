@@ -340,6 +340,19 @@ try {
   await check('publish action has no icon', async () => {
     await start(); assert.equal(typeof publishButton().children, 'string');
   });
+  await check('draft initialization and successful submission expose the same availability as the publish button', async () => {
+    state.reset();
+    props = {userId:'user-fixture',editingListing:fixture,onBack:()=>{},onSuccess:()=>{}};
+    render();
+    assert.equal(publishButton().disabled,true);
+    assert.match(text(elements('div').find(item=>item.id==='create-submit-status').children),/Loading your saved draft/);
+    await state.flush();render();
+    assert.equal(publishButton().disabled,false);
+    assert.match(text(elements('div').find(item=>item.id==='create-submit-status').children),/Required fields are complete/);
+    await publishButton().onClick();render();
+    assert.equal(publishButton().disabled,false,'Finishing a submission must release the button');
+    assert.match(text(elements('div').find(item=>item.id==='create-submit-status').children),/Required fields are complete/);
+  });
   await check('every new instruction and blocker is translated in all five languages', async () => {
     const keys = Object.keys(createExperienceTranslations.en).filter((key) => key !== 'blockers');
     for (const language of ['ru', 'me', 'en', 'fr', 'de']) {
@@ -380,14 +393,26 @@ try {
       await start(fixture);
       for(let i=0;i<5;i++){await Promise.resolve();render();}
       const restore = button('Continue'); assert.ok(restore,'Saved draft must be offered');
+      assert.doesNotMatch(text(elements('div').find(item => item.id === 'create-submit-status').children), /Required fields are complete/,'An unresolved saved draft must not claim publication is ready');
       restore.onClick(); render();
       assert.equal(input('address')['aria-invalid'], true, 'Saved point needs fresh confirmation');
       assert.equal(input('quantity').value, '4');
       const confirmation=elements('input').find(item=>item.name==='draft_review');
       assert.ok(confirmation,'Explicit quantity and point confirmation is required');
       assert.equal(publishButton().disabled,true);
+      globalThis.fetch = async () => { throw new Error('offline'); };
+      map.mapEvents.click({latlng:{lat:42.45965,lng:18.52279}});
+      await Promise.resolve();
+      const html = render();
+      assert.equal(input('address')['aria-invalid'],false);
+      assert.equal(publishButton().disabled,true);
+      const statusText = text(elements('div').find(item => item.id === 'create-submit-status').children);
+      assert.doesNotMatch(statusText,/Required fields are complete/,'A verified pin must not hide the remaining draft review requirement');
+      assert.match(statusText,/Confirm below that the draft quantity and pickup point are still correct/);
+      assert.match(html.slice(html.indexOf('<footer')),/name="draft_review"/,'The remaining confirmation must be next to the disabled publish button');
       confirmation.onChange({target:{checked:true}});render();
       assert.equal(input('address')['aria-invalid'],false);
+      assert.equal(publishButton().disabled,false);
     } finally { globalThis.localStorage=originalStorage; }
   });
   const { shouldShowCondition, pickupTimeForSave } = await import('../src/lib/listingForm.js');

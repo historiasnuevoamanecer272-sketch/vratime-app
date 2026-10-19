@@ -296,6 +296,14 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
   };
 
   const blockers = listingFormBlockers({ selected, form, photos, locationConfirmed: hasVerifiedLocation({ address, verified: addressVerified, position }) });
+  const submissionBlockers = [
+    ...(!draftReady ? ['createExperience.draftLoading'] : []),
+    ...(pendingDraft ? ['createExperience.draftPending'] : []),
+    ...(draftReviewRequired ? ['createExperience.draftReview'] : []),
+    ...blockers.map((key) => `createExperience.blockers.${key}`),
+    ...(photos.some((photo) => photo.preparing) ? ['mediaExperience.preparing'] : []),
+  ];
+  const publicationDisabled = loading || submissionBlockers.length > 0;
   const showCondition = shouldShowCondition(form.type, selected?.category_path);
 
   const publish = async () => {
@@ -412,11 +420,17 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
             <div className="mt-4 flex justify-end"><button type="button" className="btn-secondary min-h-10 px-4 text-sm" disabled={addressLoading} onClick={useLocation}><Icon name="location" size={16} />{addressLoading ? t('map.locating') : t('create.useLocation')}</button></div>
             <div className="mini-map mt-3"><MapContainer center={position} zoom={13} zoomControl={false} className="h-full w-full"><TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} /><MapMover position={position} /><LocationPicker position={position} type={form.type} onChange={selectPosition} /></MapContainer></div>
             <p className="mt-2 text-xs font-semibold text-muted">{t('createExperience.mapHint')}</p>
-            {draftReviewRequired ? <label className="draft-banner mt-4 flex items-start gap-3"><input type="checkbox" name="draft_review" className="mt-1 h-6 w-6 shrink-0" checked={false} onChange={(event) => { if (event.target.checked) { setDraftReviewRequired(false); setAddressVerified(hasVerifiedLocation({ address, position, verified:true })); setSubmitError(''); } }} /><span>{t('draftExperience.reviewRequired')}</span></label> : null}
           </section> : null}
         </main>
 
-        {step === 3 ? <footer className="wizard-footer"><div id="create-submit-status" className={`create-submit-status ${blockers.length ? 'has-blockers' : 'is-ready'}`} aria-live="polite">{blockers.length ? <><p>{t('createExperience.blockersTitle')}</p><ul>{blockers.map((key) => <li key={key}>{t(`createExperience.blockers.${key}`)}</li>)}</ul></> : <p>{t('createExperience.ready')}</p>}</div>{submitError ? <p className="field-error" role="alert">{t(submitError)}</p> : null}<button type="button" className="btn-primary w-full" aria-describedby="create-submit-status" disabled={loading || draftReviewRequired || !draftReady || Boolean(pendingDraft) || blockers.length > 0 || photos.some((photo) => photo.preparing)} onClick={publish}>{loading ? t('create.publishing') : t(isEditing ? 'workflow.saveChanges' : form.type === 'give' ? 'create.publishGive' : form.type === 'lend' ? 'lending.publish' : 'create.publishTake')}</button></footer> : null}
+        {step === 3 ? <footer className="wizard-footer">
+          <div id="create-submit-status" className={`create-submit-status ${publicationDisabled ? 'has-blockers' : 'is-ready'}`} aria-live="polite">
+            {loading ? <p>{t('create.publishing')}</p> : submissionBlockers.length ? <><p>{t('createExperience.blockersTitle')}</p><ul>{submissionBlockers.map((key) => <li key={key}>{t(key)}</li>)}</ul></> : <p>{t('createExperience.ready')}</p>}
+          </div>
+          {draftReviewRequired ? <label className="my-3 flex items-start gap-3 text-sm"><input type="checkbox" name="draft_review" className="mt-1 h-6 w-6 shrink-0" checked={false} onChange={(event) => { if (event.target.checked) { setDraftReviewRequired(false); setAddressVerified(hasVerifiedLocation({ address, position, verified:true })); setSubmitError(''); } }} /><span>{t('draftExperience.reviewRequired')}</span></label> : null}
+          {submitError ? <p className="field-error" role="alert">{t(submitError)}</p> : null}
+          <button type="button" className="btn-primary w-full" aria-describedby="create-submit-status" disabled={publicationDisabled} onClick={publish}>{loading ? t('create.publishing') : t(isEditing ? 'workflow.saveChanges' : form.type === 'give' ? 'create.publishGive' : form.type === 'lend' ? 'lending.publish' : 'create.publishTake')}</button>
+        </footer> : null}
       </div>
       {previewPhoto ? <MediaPreview src={previewPhoto.preview} alt={previewPhoto.file?.name || ''} onClose={() => setPreviewPhoto(null)} /> : null}
     </div>
