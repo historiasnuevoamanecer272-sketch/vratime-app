@@ -1,0 +1,27 @@
+[Unit]
+Description=VratiMe Telegram support inbox
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=vratime-support
+StateDirectoryMode=0700
+EnvironmentFile=/etc/vratime-support/bot.env
+ExecStart=/usr/bin/python3 /opt/vratime-support/vratime-support.py
+Restart=on-failure
+RestartSec=10
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
