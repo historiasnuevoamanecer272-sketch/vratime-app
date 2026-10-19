@@ -35,6 +35,7 @@ export const categoryLabel = (category, language = 'ru') => {
 };
 
 export const listingCategoryLabel = (listing, language = 'ru') => {
+  if (listing?.type === 'lend') return listing.category || '';
   const path = listing?.category_path || '';
   return legacyTranslations[path]?.[language] || listing?.category || path;
 };

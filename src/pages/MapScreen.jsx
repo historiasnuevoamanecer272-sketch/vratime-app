@@ -233,7 +233,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
   const saveCurrentSearch = async () => {
     if (!query.trim()) return;
     try {
-      await saveSearch(query.trim(), { category, distance, type: 'give', ...(distance !== 'all' && Array.isArray(location) && location.length === 2 && location.every(Number.isFinite) ? { origin: location } : {}) }, true);
+      await saveSearch(query.trim(), { category, distance, type: type === 'lend' ? 'lend' : 'give', ...(distance !== 'all' && Array.isArray(location) && location.length === 2 && location.every(Number.isFinite) ? { origin: location } : {}) }, true);
       showToast(t('discovery.saved'), 'success', { prominent: true });
     } catch (error) { showToast(friendlyError(error, t), 'error'); }
   };
@@ -244,7 +244,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
   };
 
   const distanceLabel = { all: t('map.anyDistance'), 1: t('map.km1'), 5: t('map.km5'), 10: t('map.km10') };
-  const typeIcon = (item) => item.type === 'give' ? 'gift' : item.type === 'take' ? 'search' : 'history';
+  const typeIcon = (item) => item.type === 'give' ? 'gift' : item.type === 'take' ? 'search' : 'clock';
   const typeLabel = (item) => item.type === 'give' ? 'map.give' : item.type === 'take' ? 'map.take' : 'map.lend';
   const distanceText = (item) => {
     if (!location) return t('map.distanceUnknown');
@@ -260,6 +260,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
         {requestedListingIds.has(item.id) ? <div className="listing-requested"><Icon name="check" size={13} />{t('map.requested')}</div> : null}
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
         <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })} · {distanceText(item)}</p>
+        {item.type === 'lend' && item.loan_duration_days ? <p className="mt-1 text-xs font-semibold text-muted">{t('loanExperience.durationSummary', {days:item.loan_duration_days})}</p> : null}
         {item.description ? <p className="listing-description">{item.description}</p> : null}
         <button type="button" className="btn-primary mt-3 w-full min-h-10 text-sm" onClick={() => setSelectedListing(item)}>{t('map.details')}</button>
       </div>
@@ -290,14 +291,14 @@ export default function MapScreen({ userId, onCreate, active = true }) {
           </div>
           <div className="map-layer-tabs mt-3" role="tablist" aria-label={t('map.layers')}><button type="button" role="tab" aria-selected={mapLayer === 'listings'} className={mapLayer === 'listings' ? 'active' : ''} onClick={() => setMapLayer('listings')}><Icon name="map" size={16} />{t('map.listingsLayer')}</button><button type="button" role="tab" aria-selected={mapLayer === 'points'} className={mapLayer === 'points' ? 'active' : ''} onClick={() => setMapLayer('points')}><Icon name="collection" size={16} />{t('map.pointsLayer')}</button></div>
           {mapLayer === 'listings' ? <>
-          <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('map.search')} aria-label={t('map.search')} />{query ? <button type="button" className="icon-button compact" onClick={() => setQuery('')} aria-label={t('map.resetFilters')}><Icon name="close" size={16} /></button> : null}<button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
-          {query.trim() ? <div className="search-scope-actions"><p className="search-scope-note"><Icon name="gift" size={14} />{t('map.searchGiveHint')}</p><button type="button" className="btn-link" onClick={saveCurrentSearch}><Icon name="bookmark" size={14} />{t('discovery.saveSearch')}</button></div> : null}
-          <div className="scroll-row mt-3 flex gap-2 overflow-x-auto pb-1">
+          <div className="search-box mt-3"><Icon name="search" size={19} /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t(type === 'lend' ? 'loanExperience.search' : 'map.search')} aria-label={t(type === 'lend' ? 'loanExperience.search' : 'map.search')} />{query ? <button type="button" className="icon-button compact" onClick={() => setQuery('')} aria-label={t('map.resetFilters')}><Icon name="close" size={16} /></button> : null}<button type="button" className="icon-button compact" onClick={fetchData} aria-label={t('map.refresh')}><Icon name="refresh" size={17} /></button></div>
+          {query.trim() ? <div className="search-scope-actions"><p className="search-scope-note"><Icon name={type === 'lend' ? 'clock' : 'gift'} size={14} />{t(type === 'lend' ? 'loanExperience.searchHint' : 'map.searchGiveHint')}</p><button type="button" className="btn-link" onClick={saveCurrentSearch}><Icon name="bookmark" size={14} />{t('discovery.saveSearch')}</button></div> : null}
+          {type !== 'lend' ? <div className="scroll-row mt-3 flex gap-2 overflow-x-auto pb-1">
             <button type="button" className={`chip ${category === 'all' ? 'chip-active' : ''}`} onClick={() => setCategory('all')}>{t('map.all')}</button>
             {roots.map((item) => <button key={item.id} type="button" className={`chip ${category === rootPath(item) ? 'chip-active' : ''}`} onClick={() => setCategory(rootPath(item))}><CategoryIcon category={item} size={17} />{categoryLabel(item, language)}</button>)}
-          </div>
+          </div> : null}
           <div className="scroll-row mt-2 flex gap-2 overflow-x-auto pb-1">
-            {['all', 'give', 'take', 'lend'].map((value) => <button key={value} type="button" disabled={Boolean(query.trim())} className={`chip chip-small ${(query.trim() ? value === 'give' : type === value) ? 'chip-active' : ''}`} onClick={() => setType(value)}>{value === 'all' ? null : <Icon name={value === 'give' ? 'gift' : value === 'take' ? 'search' : 'history'} size={13} />}{value === 'all' ? t('map.all') : t(value === 'give' ? 'map.give' : value === 'take' ? 'map.take' : 'map.lend')}</button>)}
+            {['all', 'give', 'take', 'lend'].map((value) => <button key={value} type="button" disabled={Boolean(query.trim())} className={`chip chip-small ${(query.trim() ? value === (type === 'lend' ? 'lend' : 'give') : type === value) ? 'chip-active' : ''}`} onClick={() => {setType(value);if(value === 'lend')setCategory('all');}}>{value === 'all' ? null : <Icon name={value === 'give' ? 'gift' : value === 'take' ? 'search' : 'clock'} size={13} />}{value === 'all' ? t('map.all') : t(value === 'give' ? 'map.give' : value === 'take' ? 'map.take' : 'map.lend')}</button>)}
             {distances.map((value) => <button key={value} type="button" className={`chip chip-small ${distance === value ? 'chip-active' : ''}`} onClick={() => { setDistance(value); if (value !== 'all' && !location) locate(); }}>{distanceLabel[value]}</button>)}
           </div>
           <button type="button" className="btn-primary map-show-results mt-3 w-full" disabled={loading || Boolean(loadError) || filtered.length === 0 || locationPending} onClick={() => { setFiltersOpen(false); setSheetOpen(false); setResultsViewport({ positions: filtered.map(publicListingPosition) }); }}>{loading ? t('common.loading') : t('mapExperience.showResults', { count: filtered.length })}</button>
@@ -326,6 +327,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
           <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>
           <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span><span><Icon name="calendar" size={13} />{new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short' }).format(new Date(selectedListing.created_at))}</span></div>
           <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>
+          {selectedListing.type === 'lend' && selectedListing.loan_duration_days ? <p className="mt-3 text-sm font-semibold text-forest"><Icon name="clock" size={16} /> {t('loanExperience.durationSummary', {days:selectedListing.loan_duration_days})}</p> : null}
           <p className="listing-dialog-note"><Icon name="message" size={16} />{isOwnMapListing(selectedListing, userId) ? t('mapExperience.myListingHint') : requestedListingIds.has(selectedListing.id) ? t('map.requestedHint') : t('map.contactNote')}</p>
           {!isOwnMapListing(selectedListing, userId) ? <button type="button" className="btn-secondary mt-4 w-full" aria-pressed={favouriteIds.has(selectedListing.id)} onClick={() => toggleFavourite(selectedListing)}><Icon name="heart" filled={favouriteIds.has(selectedListing.id)} size={17} /><span>{favouriteIds.has(selectedListing.id) ? t('discovery.favourited') : t('discovery.favourite')}</span></button> : null}
           {!isOwnMapListing(selectedListing, userId) ? <button type="button" className="btn-link mt-4 text-xs" onClick={() => setReportListing(selectedListing)}><Icon name="flag" size={15} />{t('workflow.reportListing')}</button> : null}

@@ -74,7 +74,7 @@ const hooks = registerHooks({
       export const useMap = () => map;
       export const useMapEvents = (events) => { mapEvents = events; return map; };
     `);
-    if (url === 'create-ux-test:markers') return module('export const mapMarkerIcons = {};');
+    if (url === 'create-ux-test:markers') return module("export const mapMarkerIcons = {give:'give-marker',take:'take-marker',lend:'loan-marker'};");
     if (url === 'create-ux-test:basemap') return module('export const baseMap = { attribution: "Offline map", url: "", maxZoom: 20 };');
     if (url === 'create-ux-test:supabase') return module(`
       export const writes = [];
@@ -135,6 +135,31 @@ try {
   const check = async (name, action) => { try { await action(); } catch (error) { failures.push(`${name}: ${error.message.split('\n')[0]}`); } };
   for (const [language, translations] of Object.entries(createExperienceTranslations)) i18n.addResourceBundle(language, 'translation', { createExperience: translations }, true, true);
   await i18n.changeLanguage('en');
+
+  await check('lending goes directly to its own item form without material categories', async () => {
+    await start(null);
+    elements('button').find(item => item.className === 'choice-card lend').onClick();
+    const html = render();
+    assert.ok(input('item_name'), 'A loan needs a named item, not a material category');
+    assert.equal(elements('button').filter(item => item.className?.includes('category-card')).length, 0);
+    assert.equal(input('quantity').value, '1');
+    assert.equal(map.markerProps.icon, 'loan-marker');
+    assert.ok(publishButton().disabled);
+    assert.doesNotMatch(html, /Step 3 of 3/);
+  });
+  await check('a loan edit preserves its item title and saves it independently of material categories', async () => {
+    await start({...fixture,type:'lend',category:'Cordless drill',category_path:'lend/item',category_id:null,description:'Working drill with charger',loan_duration_days:3,image_url:'https://example.test/drill.jpg',image_urls:['https://example.test/drill.jpg']});
+    assert.equal(input('item_name')?.value, 'Cordless drill');
+    assert.equal(publishButton().disabled, false);
+    change(input('item_name'),'Camping tent');
+    await publishButton().onClick();
+    assert.equal(updates[0]?.category,'Camping tent');
+    assert.equal(updates[0]?.category_id,null);
+    assert.equal(updates[0]?.category_path,'lend/item');
+    assert.equal(updates[0]?.loan_duration_days,3);
+    change(input('item_name'),' ');
+    assert.equal(publishButton().disabled,true);
+  });
 
   await check('new quantity starts empty and clearing does not restore 1', async () => {
     await start(null);
@@ -212,7 +237,7 @@ try {
   await check('loan duration and photo blockers remain explicit', async () => {
     let html = await start({ ...fixture, type: 'lend' });
     assert.match(html, /photo.*?\*/i);
-    assert.match(html, /Loan duration, days.*?\*/);
+    assert.match(html, /Return within \(days\).*?\*/);
     assert.equal(elements('select').length, 1);
     assert.ok(publishButton().disabled);
     html = change(input('loan_duration_days'), '');
@@ -221,7 +246,7 @@ try {
     await publishButton().onClick(); assert.equal(updates.length, 0);
   });
   await check('loan with a condition photo and valid duration can save', async () => {
-    await start({ ...fixture, type: 'lend', loan_duration_days: 3, image_urls: ['https://example.test/condition.webp'] });
+    await start({ ...fixture, type: 'lend', category: 'Camping chair', description: 'Clean folding chair, no damage', loan_duration_days: 3, image_urls: ['https://example.test/condition.webp'] });
     assert.equal(publishButton().disabled, false);
     await publishButton().onClick();
     assert.equal(updates[0].loan_duration_days, 3);

@@ -1,11 +1,11 @@
 export const DRAFT_TTL = 7 * 24 * 60 * 60 * 1000;
 const PREFIX = 'vratime:listing-draft:v1:';
-const fields = ['type', 'quantity', 'description', 'condition', 'pickup_mode', 'pickup_time', 'weight_kg', 'loan_duration_days'];
+const fields = ['type', 'quantity', 'item_name', 'description', 'condition', 'pickup_mode', 'pickup_time', 'weight_kg', 'loan_duration_days'];
 const text = (value, length) => String(value ?? '').slice(0, length);
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sanitize(data) {
-  const form = Object.fromEntries(fields.map((key) => [key, text(data?.form?.[key], key === 'description' ? 500 : key === 'pickup_time' ? 300 : 40)]));
+  const form = Object.fromEntries(fields.map((key) => [key, text(data?.form?.[key], key === 'description' ? 500 : key === 'pickup_time' ? 300 : key === 'item_name' ? 100 : 40)]));
   const selected = data?.selected?.id ? Object.fromEntries(['id', 'category_path', 'name_ru', 'name_me', 'name_en', 'name_fr', 'name_de', 'name', 'slug'].filter((key) => data.selected[key] != null).map((key) => [key, text(data.selected[key], 200)])) : null;
   const position = Array.isArray(data?.position) && data.position.length === 2 && data.position.every((value) => Number.isFinite(Number(value))) ? data.position.map(Number) : [42.441, 19.263];
   const existingPhotoUrls = Array.isArray(data?.existingPhotoUrls) ? data.existingPhotoUrls.slice(0, 5).map((url) => text(url, 2000)).filter((url) => /^https?:\/\//.test(url)) : undefined;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import './feedback-contact-check.mjs';
 import './popup-viewport-check.mjs';
+import './loan-item-check.mjs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { matchesDiscoveryType } from '../src/lib/listingFilters.js';

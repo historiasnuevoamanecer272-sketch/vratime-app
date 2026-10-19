@@ -7,9 +7,11 @@ const storage = { getItem: (key) => memory.get(key) ?? null, setItem: (key, valu
 const photoStorage = { get: async (key) => images.get(key), set: async (key, value) => images.set(key, value), remove: async (key) => images.delete(key) };
 const store = subject.createListingDraftStore({ storage, photoStorage, now: () => clock });
 const draft = { form: { type: 'lend', quantity: '2', description: 'A chair', contact: 'secret' }, selected: { id: 1, category_path: 'furniture/chair' }, position: [42.4, 19.2], address: 'Pickup square', addressVerified: true, token: 'secret', contacts: { telegram: 'secret' }, step: 3, existingPhotoUrls: ['https://example.test/old-photo.jpg'] };
+draft.form.item_name = 'Portable camping chair with a folding frame';
 const photos = [{ file: new File(['photo'], 'a.jpg', { type: 'image/jpeg' }), operationId: 'retry-1' }];
 assert.deepEqual(await store.save('alice', null, draft, photos), { text: true, photos: true });
 assert.equal((await store.load('alice', null)).data.form.description, 'A chair');
+assert.equal((await store.load('alice', null)).data.form.item_name, draft.form.item_name);
 const publicationId = '11111111-1111-4111-8111-111111111111';
 await store.save('alice', null, { ...draft, publicationId }, photos);
 assert.equal((await store.load('alice', null)).data.publicationId, publicationId, 'Publication identity must survive restoring a draft');

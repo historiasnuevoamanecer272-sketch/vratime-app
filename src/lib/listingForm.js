@@ -21,10 +21,14 @@ export function isWholeNumberInRange(value, maximum) {
 
 export function listingFormBlockers({ selected, form, photos, locationConfirmed }) {
   const blockers = [];
-  if (!selected) blockers.push('category');
+  if (!selected && form.type !== 'lend') blockers.push('category');
   if (!isWholeNumberInRange(form.quantity, 10000)) blockers.push('quantity');
   if (!locationConfirmed) blockers.push('location');
   if (form.type === 'lend') {
+    const name = String(form.item_name || '').trim();
+    const description = String(form.description || '').trim();
+    if (name.length < 3 || name.length > 100) blockers.push('loanName');
+    if (description.length < 5 || description.length > 500) blockers.push('loanDescription');
     if (!isWholeNumberInRange(form.loan_duration_days, 365)) blockers.push('loanDuration');
     if (!photos.length) blockers.push('loanPhoto');
   }

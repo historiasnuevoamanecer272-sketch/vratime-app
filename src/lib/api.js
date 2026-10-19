@@ -59,7 +59,7 @@ export const setFeedbackStatus = (feedbackId, status) => rpc('set_feedback_statu
 export const setUserRole = (userId, role) => rpc('set_user_role', { target_user_id: userId, target_role: role });
 export const setMyAvatar = (avatarUrl) => rpc('set_my_avatar', { next_avatar_url: avatarUrl || null });
 export const getMyDeals = () => rpc('get_my_deals');
-export const getPublicMapListings = () => rpc('get_public_map_listings');
+export const getPublicMapListings = () => rpc('get_public_map_listings_v2');
 export const getTransactionPickupDetails = (transactionId) => rpc('get_transaction_pickup_details', { target_transaction_id: transactionId });
 export const scheduleHandover = (transactionId, scheduledFor, note = null) => rpc('schedule_handover', { target_transaction_id: transactionId, scheduled_for: scheduledFor, note });
 export const setHandoverOutcome = (appointmentId, outcome) => rpc('set_handover_outcome', { target_appointment_id: appointmentId, outcome });

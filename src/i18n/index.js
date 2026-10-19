@@ -1,4 +1,5 @@
 import { staffExperienceTranslations } from './uxStaff.js';
+import { loanExperienceTranslations } from './uxLoan.js';
 import { pwaExperienceByLanguage } from './uxPwa.js';
 import { pushExperienceByLanguage } from './uxPush.js';
 import i18n from 'i18next';
@@ -244,6 +245,8 @@ Object.assign(resources.en.translation.discovery, { removeSearch: 'Remove search
 for (const language of supportedLanguages) {
   resources[language].translation.mapExperience = mapExperienceTranslations[language];
   resources[language].translation.createExperience = createExperienceTranslations[language];
+  resources[language].translation.loanExperience = loanExperienceTranslations[language];
+  Object.assign(resources[language].translation.createExperience.blockers, { loanName: loanExperienceTranslations[language].loanName, loanDescription: loanExperienceTranslations[language].loanDescription });
   resources[language].translation.authExperience = authExperienceByLanguage[language];
   resources[language].translation.dealExperience = dealExperienceTranslations[language];
   resources[language].translation.deals.flowAccepted = dealExperienceTranslations[language].acceptedStep;

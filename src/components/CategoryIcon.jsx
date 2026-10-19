@@ -21,6 +21,7 @@ const iconForPath = (path) => {
 };
 
 export default function CategoryIcon({ category, size = 28 }) {
+  if (category?.type === 'lend') return <Icon name="clock" size={size} strokeWidth={1.8} />;
   const path = category?.category_path || category?.path || '';
   const root = path.split('/')[0];
   const art = !path.includes('/') && root !== 'pallet' ? rootArt[root] : null;
