@@ -1,4 +1,4 @@
-import { BUCKETS, MediaError, OUTPUT_LIMITS, UUID, inspectImage, readBounded } from './validation.mjs';
+import { BUCKETS, MediaError, OUTPUT_LIMITS, UUID, discardRejectedBody, inspectImage, readBounded } from './validation.mjs';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -6,6 +6,10 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Cache-Control': 'no-store',
 };
 const reply = (status, value) => new Response(value == null ? null : JSON.stringify(value), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+async function reject(request, status, code) {
+  await discardRejectedBody(request);
+  return reply(status, { error: code });
+}
 const sha256 = async (bytes) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 export function createMediaUploadHandler({ env, processImage, fetchImpl = globalThis.fetch }) {
@@ -20,21 +24,21 @@ export function createMediaUploadHandler({ env, processImage, fetchImpl = global
   }
   return async function upload(request) {
     if (request.method === 'OPTIONS') return reply(204, null);
-    if (request.method !== 'POST') return reply(405, { error: 'media_method_not_allowed' });
+    if (request.method !== 'POST') return reject(request, 405, 'media_method_not_allowed');
     const authorization = request.headers.get('authorization') ?? '';
-    if (!/^Bearer [^\s]+$/i.test(authorization) || authorization.length > 8192) return reply(401, { error: 'media_unauthorized' });
-    if (!base || !anonKey || !secret || !processImage) return reply(503, { error: 'media_service_unavailable' });
+    if (!/^Bearer [^\s]+$/i.test(authorization) || authorization.length > 8192) return reject(request, 401, 'media_unauthorized');
+    if (!base || !anonKey || !secret || !processImage) return reject(request, 503, 'media_service_unavailable');
     let user;
     try {
       const res = await fetchImpl(`${base}/auth/v1/user`, { headers: { apikey: anonKey, Authorization: authorization }, redirect: 'error', signal: AbortSignal.timeout(8000) });
-      if (res.status === 401 || res.status === 403) return reply(401, { error: 'media_unauthorized' });
-      if (!res.ok) return reply(503, { error: 'media_service_unavailable' });
+      if (res.status === 401 || res.status === 403) return reject(request, 401, 'media_unauthorized');
+      if (!res.ok) return reject(request, 503, 'media_service_unavailable');
       user = await res.json();
-      if (!UUID.test(user?.id ?? '') || user.is_anonymous === true) return reply(401, { error: 'media_unauthorized' });
-    } catch { return reply(503, { error: 'media_service_unavailable' }); }
+      if (!UUID.test(user?.id ?? '') || user.is_anonymous === true) return reject(request, 401, 'media_unauthorized');
+    } catch { return reject(request, 503, 'media_service_unavailable'); }
 
     // Limit memory retained by slow readers and simultaneous decodes in one isolate.
-    if (busy) return reply(429, { error: 'media_busy' });
+    if (busy) return reject(request, 429, 'media_busy');
     busy = true;
     let reserved;
     try {
@@ -104,7 +108,7 @@ export function createMediaUploadHandler({ env, processImage, fetchImpl = global
       if (reserved?.claimToken) {
         try { await rpc('media_fail_upload', { expected_user_id: user.id, target_asset_id: reserved.assetId, claim_token: reserved.claimToken }); } catch { /* Bounded lease also releases reserved capacity. */ }
       }
-      return reply(error instanceof MediaError ? error.status : 503, { error: error instanceof MediaError ? error.code : 'media_service_unavailable' });
+      return await reject(request, error instanceof MediaError ? error.status : 503, error instanceof MediaError ? error.code : 'media_service_unavailable');
     } finally { busy = false; }
   };
 }

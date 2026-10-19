@@ -70,12 +70,46 @@ export function inspectImage(bytes, declaredType) {
   return { format, type, width, height };
 }
 
+const REJECT_DRAIN_EXTRA = 64 * 1024;
+
+// Hosted forwarding can stall an early response while the request body is
+// unread. Discard a small, finite rejected body without retaining its bytes;
+// never drain an unlimited upload or await transport cancellation.
+async function discardReader(reader, budget, timeoutMs) {
+  let timer, ended = false;
+  const deadlineAt = Date.now() + Math.max(0, timeoutMs);
+  const deadline = new Promise((resolve) => { timer = setTimeout(() => resolve(null), Math.max(0, timeoutMs)); });
+  try {
+    while (budget > 0 && Date.now() < deadlineAt) {
+      const result = await Promise.race([reader.read().catch(() => null), deadline]);
+      if (!result) break;
+      if (result.done) { ended = true; break; }
+      budget -= result.value.byteLength;
+    }
+  } catch { /* Rejection still keeps its original HTTP status. */ }
+  finally {
+    clearTimeout(timer);
+    if (!ended) reader.cancel().catch(() => {});
+  }
+}
+
+export async function discardRejectedBody(request, budget = INPUT_MAX + REJECT_DRAIN_EXTRA, timeoutMs = 10_000) {
+  if (!request.body || request.bodyUsed || request.body.locked) return;
+  const reader = request.body.getReader();
+  try { await discardReader(reader, budget, timeoutMs); }
+  finally { reader.releaseLock(); }
+}
+
 export async function readBounded(request, limit = INPUT_MAX, timeoutMs = 10_000) {
   const length = request.headers.get('content-length');
-  if (length && (!/^\d+$/.test(length) || Number(length) > limit)) throw new MediaError('media_input_too_large', 413);
+  if (length && (!/^\d+$/.test(length) || Number(length) > limit)) {
+    await discardRejectedBody(request, limit + REJECT_DRAIN_EXTRA, timeoutMs);
+    throw new MediaError('media_input_too_large', 413);
+  }
   if (!request.body) throw new MediaError('media_invalid_image', 415);
   const reader = request.body.getReader();
   const chunks = []; let size = 0, timer, timedOut = false;
+  const deadlineAt = Date.now() + timeoutMs;
   const timeout = new Promise((_, reject) => { timer = setTimeout(() => { timedOut = true; reject(new MediaError('media_request_timeout', 408)); reader.cancel().catch(() => {}); }, timeoutMs); });
   try {
     while (true) {
@@ -83,7 +117,12 @@ export async function readBounded(request, limit = INPUT_MAX, timeoutMs = 10_000
       if (timedOut) throw new MediaError('media_request_timeout', 408);
       if (done) break;
       size += value.length;
-      if (size > limit) { await reader.cancel(); throw new MediaError('media_input_too_large', 413); }
+      if (size > limit) {
+        chunks.length = 0;
+        clearTimeout(timer);
+        await discardReader(reader, limit + REJECT_DRAIN_EXTRA - size, deadlineAt - Date.now());
+        throw new MediaError('media_input_too_large', 413);
+      }
       chunks.push(value);
     }
     const bytes = new Uint8Array(size); let at = 0;

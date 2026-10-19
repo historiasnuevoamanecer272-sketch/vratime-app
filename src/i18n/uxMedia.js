@@ -14,3 +14,12 @@ const authChangedMessages = {
   de: 'Das Konto wurde gewechselt. Öffnen Sie das Formular im gewünschten Konto erneut.',
 };
 for (const [language, message] of Object.entries(authChangedMessages)) mediaExperienceTranslations[language].errors.authChanged = message;
+
+const dropCopy = {
+  ru: ['Выберите фотографию или перетащите файл сюда.', 'К обращению можно прикрепить один скриншот. Выберите один файл.'],
+  me: ['Izaberite fotografiju ili prevucite datoteku ovdje.', 'Uz poruku možete priložiti jedan snimak ekrana. Izaberite jednu datoteku.'],
+  en: ['Choose a photo or drop a file here.', 'You can attach one screenshot to a message. Choose one file.'],
+  fr: ['Choisissez une photo ou déposez un fichier ici.', 'Vous pouvez joindre une capture par message. Choisissez un seul fichier.'],
+  de: ['Wählen Sie ein Foto oder ziehen Sie eine Datei hierher.', 'Pro Nachricht kann ein Screenshot angehängt werden. Wählen Sie eine Datei.'],
+};
+for (const [language, [dropHint, oneScreenshot]] of Object.entries(dropCopy)) Object.assign(mediaExperienceTranslations[language], { dropHint, oneScreenshot });

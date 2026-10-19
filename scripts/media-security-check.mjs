@@ -89,6 +89,38 @@ await check('Streaming body bound and timeout', async () => {
   const body = new ReadableStream({ start() {} });
   await assert.rejects(() => readBounded(new Request('https://offline.test', { method: 'POST', body, duplex: 'half' }), 10, 15), /media_request_timeout/);
 });
+await check('Oversize denial cannot wait for or be replaced by transport cancellation',async()=>{
+  for(const cancel of[()=>new Promise(()=>{}),()=>Promise.reject(new Error('transport cancellation failed'))]){
+    const body=new ReadableStream({start(controller){controller.enqueue(new Uint8Array(11));},cancel});
+    const request=new Request('https://offline.test',{method:'POST',body,duplex:'half'});
+    const result=await Promise.race([readBounded(request,10,20).then(()=>({code:'accepted'}),(error)=>error),new Promise((resolve)=>setTimeout(()=>resolve({code:'cancellation_blocked_denial'}),60))]);
+    assert.equal(result.code,'media_input_too_large');assert.equal(result.status,413);
+  }
+});
+await check('Known and streamed oversize bodies reach EOF within the rejection budget',async()=>{
+  for(const declared of[false,true]){
+    let emitted=0,ended=false,cancelled=false;
+    const body=new ReadableStream({pull(controller){if(emitted===11){ended=true;controller.close();return;}const length=Math.min(4,11-emitted);emitted+=length;controller.enqueue(new Uint8Array(length));},cancel(){cancelled=true;}},{highWaterMark:0});
+    const request=new Request('https://offline.test',{method:'POST',body,duplex:'half',headers:declared?{'content-length':'11'}:{}});
+    await assert.rejects(()=>readBounded(request,10,100),(error)=>error.code==='media_input_too_large'&&error.status===413);
+    assert.equal(ended,true,'A small rejected tail must be consumed before returning the response');
+    assert.equal(cancelled,false);assert.equal(emitted,11);
+  }
+});
+await check('Oversize discard stops at the byte budget or deadline and preserves 413',async()=>{
+  const limit=1024,budget=limit+64*1024;
+  for(const declared of[false,true]){
+    let emitted=0,cancelled=false;
+    const body=new ReadableStream({pull(controller){emitted+=1024;controller.enqueue(new Uint8Array(1024));},cancel(){cancelled=true;}},{highWaterMark:0});
+    const request=new Request('https://offline.test',{method:'POST',body,duplex:'half',headers:declared?{'content-length':String(budget+1024)}:{}});
+    await assert.rejects(()=>readBounded(request,limit,100),(error)=>error.code==='media_input_too_large'&&error.status===413);
+    assert.ok(emitted<=budget,`Read beyond the compatibility budget: ${emitted}`);assert.equal(cancelled,true);
+  }
+  const body=new ReadableStream({start() {},cancel(){return new Promise(()=>{});}});
+  const request=new Request('https://offline.test',{method:'POST',body,duplex:'half',headers:{'content-length':'11'}});
+  const result=await Promise.race([readBounded(request,10,15).catch(error=>error),new Promise(resolve=>setTimeout(()=>resolve({code:'discard_deadline_blocked'}),60))]);
+  assert.equal(result.code,'media_input_too_large');assert.equal(result.status,413);
+});
 
 const uid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const owner = uid(1), foreign = uid(2), staff = uid(3), quotaUser = uid(4), rateUser = uid(5), concurrentUser = uid(6);
@@ -315,6 +347,23 @@ await check('Handler unauthenticated/forged type/oversize input blocked before q
   assert.equal((await handler(request(png,{'content-type':'image/jpeg'}))).status,415);
   assert.equal((await handler(request(png,{'content-length':String(INPUT_MAX+1)}))).status,413);
   assert.equal(adminCalls,calls);
+});
+await check('Early auth and metadata rejections consume a bounded body without quota, decode or Storage',async()=>{
+  let authCalls=0;
+  const rejectionHandler=createMediaUploadHandler({env,processImage:()=>assert.fail('Rejected body reached the decoder'),fetchImpl:async(url,init)=>{
+    assert.ok(url.endsWith('/auth/v1/user'),'Rejected body reached quota or Storage');authCalls++;
+    return init.headers.Authorization==='Bearer offline-invalid'?new Response(null,{status:401}):Response.json({id:owner});
+  }});
+  for(const test of[{authorization:null,status:401},{authorization:'Bearer offline-invalid',status:401},{kind:'unknown',status:400},{type:'video/mp4',status:415}]){
+    let emitted=0,ended=false;
+    const total=256*1024;
+    const body=new ReadableStream({pull(controller){if(emitted===total){ended=true;controller.close();return;}emitted+=4096;controller.enqueue(new Uint8Array(4096));}},{highWaterMark:0});
+    const headers={'content-type':test.type||'image/png','content-length':String(total),'x-media-kind':test.kind||'listing','x-operation-id':uid(890)};
+    if(test.authorization!==null)headers.authorization=test.authorization||'Bearer offline-user';
+    const res=await rejectionHandler(new Request('https://offline.test',{method:'POST',body,duplex:'half',headers}));
+    assert.equal(res.status,test.status);assert.equal(ended,true,'Early response left a finite body unread');assert.equal(emitted,total);
+  }
+  assert.equal(authCalls,3);
 });
 await check('Handler storage ambiguity, failed retry and lost commit recover without duplicate objects', async () => {
   const opRequest = (op)=>request(png,{'x-operation-id':uid(op)});

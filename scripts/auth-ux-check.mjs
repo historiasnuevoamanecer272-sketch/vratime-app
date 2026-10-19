@@ -94,6 +94,28 @@ try {
     assert.ok(/Continue with Google/.test(markup), 'Google sign-in label is missing');
     assert.doesNotMatch(markup, /Gmail/);
   });
+  await check('Google sign-in uses a proportionate decorative brand image while its text labels the button', () => {
+    const markup = renderToStaticMarkup(createElement(Login));
+    const button = markup.match(/<button\b[^>]*class="btn-google[^"]*"[^>]*>[\s\S]*?<\/button>/)?.[0];
+    assert.ok(button);
+    const image = button.match(/<img\b[^>]*>/)?.[0];
+    assert.ok(image, 'Google brand image is missing');
+    assert.match(image, /width="20"/); assert.match(image, /height="20"/);
+    assert.match(image, /alt=""/); assert.match(image, /aria-hidden="true"/);
+    assert.match(image, /src="[^\"]*google-g\.png/);
+    assert.doesNotMatch(button, /class="google-g"/);
+    assert.ok(button.includes('Continue with Google'));
+  });
+
+  await check('regular navigation icons retain the shared decorative grid and stroke at equal dimensions', async () => {
+    const { default: Icon } = await server.ssrLoadModule('/src/components/Icon.jsx');
+    for (const name of ['map', 'handshake', 'user']) {
+      const markup = renderToStaticMarkup(createElement(Icon, { name, size: 22 }));
+      assert.match(markup, /width="22"/); assert.match(markup, /height="22"/);
+      assert.match(markup, /viewBox="0 0 24 24"/); assert.match(markup, /stroke-width="2"/);
+      assert.match(markup, /aria-hidden="true"/); assert.match(markup, /stroke="currentColor"/);
+    }
+  });
 
   for (const [name, Component] of [['privacy', PrivacyPage], ['offer', OfferPage]]) {
     await check(`${name} has a labelled Back arrow before the document, even without browser history`, () => {

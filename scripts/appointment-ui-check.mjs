@@ -224,6 +224,20 @@ if (!process.argv.includes('--timezone-fixture')) {
       assert.match(html, /class="deadline-countdown /);
       assert.ok(!html.includes('type="datetime-local"'));
     });
+    for (const language of ['ru', 'me', 'en', 'fr', 'de']) {
+      await i18n.changeLanguage(language);
+      check(`loan terms appear only for lending in ${language}`, () => {
+        const pending = { ...dealFixture, accepted_at: null, status: 'pending', expires_at: '2099-01-12T08:00:00Z' };
+        const loanTerms = i18n.t('dealExperience.loanLimits');
+        const loan = renderDeals([], { ...pending, listing_type: 'lend' });
+        assert.ok(loan.includes(loanTerms), 'Lending should explain its return deadline');
+        for (const listing_type of ['give', 'take']) {
+          const ordinary = renderDeals([], { ...pending, listing_type });
+          assert.ok(!ordinary.includes(loanTerms), 'Ordinary exchanges must not show loan terms');
+        }
+      });
+    }
+    await i18n.changeLanguage('en');
     check('handed-over loan hides booking countdown and keeps the return date', () => {
       const html = renderDeals([currentMeeting], {
         ...dealFixture, handed_over_at: '2026-07-11T10:15:00Z',

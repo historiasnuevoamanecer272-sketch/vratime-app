@@ -12,7 +12,7 @@ import i18n from '../src/i18n/index.js';
 const srcUrl = new URL('../src/', import.meta.url).href;
 const reactUrl = import.meta.resolve('react');
 const jsxUrl = import.meta.resolve('react/jsx-runtime');
-const apiExports = ['getCollectionPoints', 'getMyDeals', 'getMyDiscoveryFeed', 'getPublicMapListings', 'refreshExpiredDeals', 'saveSearch', 'toggleListingFavourite', 'voteCollectionPoint', 'createReport', 'createCollectionPoint'];
+const apiExports = ['getCollectionPoints', 'getMyDeals', 'getMyDiscoveryFeed', 'getPublicMapListings', 'refreshExpiredDeals', 'saveSearch', 'voteCollectionPoint', 'createReport', 'createCollectionPoint'];
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     if (context.parentURL?.endsWith('/pages/MapScreen.jsx')) {
@@ -66,6 +66,7 @@ const hooks = registerHooks({
           attributionControl: { setPrefix: value => mapCalls.push(['prefix', value]) },
           stop() { mapCalls.push(['stop']); return this; },
           setView: (...args) => mapCalls.push(['setView', ...args]),
+          fitBounds: (...args) => mapCalls.push(['fitBounds', ...args]),
           flyTo: (...args) => mapCalls.push(['flyTo', ...args]),
         };
         const layer = name => props => { layers.push({ name, props }); return createElement(Fragment, null, props.children); };
@@ -76,6 +77,7 @@ const hooks = registerHooks({
       'map-test:api': `
         export const calls = [];
         export const bookListing = async (...args) => { calls.push(args); throw new Error('Offline request boundary'); };
+        export const toggleListingFavourite = async (...args) => { calls.push({ favourite: args }); return true; };
         const forbidden = () => { throw new Error('Offline test must not access API'); };
         export const ${apiExports.map(name => `${name} = forbidden`).join(', ')};
       `,
@@ -122,6 +124,23 @@ try {
     assert.equal(elementWithClass('list-sheet-peek'), undefined);
     elementWithClass('count-badge').props.onClick();
     assert.match(rerender(), /class="listing-sheet open"/);
+  });
+  await check('show-results gives filters an explicit completion action and fits only on that action', () => {
+    render();
+    const show = elementWithClass('map-show-results');
+    assert.ok(show, 'Filters need a visible show-results button');
+    assert.equal(show.props.disabled, false);
+    assert.ok(render().includes('Show on map'));
+    elementWithClass('map-show-results').props.onClick();
+    assert.equal(values.get(12), false, 'Applying should collapse the filters');
+    rerender();
+    const viewport = elements.find(({ props }) => props.resultsViewport)?.props.resultsViewport;
+    assert.deepEqual(viewport.positions, [[fixture.public_lat, fixture.public_lng]]);
+    const fit = effects.find(({ dependencies }) => dependencies?.includes(viewport));
+    assert.ok(fit); fit.effect(); fit.effect();
+    assert.equal(mapCalls.filter(([name]) => name === 'fitBounds').length, 1, 'One explicit action should fit once');
+    render({ 0: [] }); assert.equal(elementWithClass('map-show-results').props.disabled, true);
+    render({ 3: true }); assert.equal(elementWithClass('map-show-results').props.disabled, true);
   });
   await check('empty collection points leave the map clear and offer one reachable add action', () => {
     render({ 18: 'points', 19: [] });
@@ -214,6 +233,34 @@ try {
     const after = effects.find(item => item.dependencies?.includes(map) && item.dependencies.length > 1).dependencies;
     assert.notDeepEqual(after, before);
   });
+  await check('locate locks synchronously, exposes pending state and resets with the precise error', () => {
+    render(); let fail; let calls = 0;
+    const previous = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition(success, error) { calls += 1; fail = error; } } });
+    try {
+      const button = elementWithClass('map-recenter'); button.props.onClick(); button.props.onClick();
+      assert.equal(calls, 1, 'Repeated clicks must not start competing permission requests');
+      rerender(); assert.equal(elementWithClass('map-recenter').props.disabled, true);
+      fail({ code: 1 }); const html = rerender();
+      assert.equal(elementWithClass('map-recenter').props.disabled, false);
+      assert.match(html, /Location access is blocked/);
+      assert.match(html, /Move the map manually/);
+      assert.ok(elementWithClass('map-location-retry'));
+    } finally { if (previous) Object.defineProperty(navigator, 'geolocation', previous); else delete navigator.geolocation; }
+  });
+  await check('leaving the map invalidates pending geolocation callbacks before they update its state', () => {
+    render(); let success; let fail; let calls = 0;
+    const previousGeo = Object.getOwnPropertyDescriptor(navigator, 'geolocation');
+    const previousWindow = globalThis.window;
+    globalThis.window = { setTimeout: () => 1, clearTimeout() {} };
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition(ok, error) { calls += 1; success = ok; fail = error; } } });
+    try {
+      const cleanup = effects.find(item => item.dependencies?.[1] === 'me').effect();
+      elementWithClass('map-recenter').props.onClick(); const before = [...values.entries()];
+      cleanup(); success({ coords: { latitude: 42.44, longitude: 19.26 } }); fail({ code: 2 });
+      assert.deepEqual([...values.entries()], before); assert.equal(calls, 1);
+    } finally { globalThis.window = previousWindow; if (previousGeo) Object.defineProperty(navigator, 'geolocation', previousGeo); else delete navigator.geolocation; }
+  });
   await check('opening a new request resets a previous quantity to one', () => {
     render({ 14: fixture, 16: 3 });
     elementWithClass('listing-request-action').props.onClick();
@@ -235,6 +282,22 @@ try {
     assert.ok(elementWithClass('listing-dialog-actions'));
     assert.ok(elementWithClass('listing-dialog-backdrop-top'));
     assert.match(html, /Keep this E2E description intact\./);
+  });
+  await check('own listings hide favourite and report actions even when a legacy self-favourite was loaded', () => {
+    render({ 14: { ...fixture, user_id: 'me' }, 21: new Set([fixture.id]) });
+    assert.equal(elements.some(({ type, props }) => type === 'button' && Object.hasOwn(props, 'aria-pressed')), false);
+    assert.equal(elements.some(({ type, props }) => type === 'button' && props.onClick?.toString().includes('setReportListing')), false);
+  });
+  await check('other users listings retain working favourite and report actions', async () => {
+    render({ 14: fixture });
+    const favourite = elements.find(({ type, props }) => type === 'button' && Object.hasOwn(props, 'aria-pressed'));
+    assert.ok(favourite);
+    await favourite.props.onClick();
+    assert.deepEqual(calls, [{ favourite: [fixture.id] }]);
+    assert.equal(values.get(21).has(fixture.id), true);
+    const report = elements.find(({ type, props }) => type === 'button' && props.onClick?.toString().includes('setReportListing'));
+    assert.ok(report); report.props.onClick();
+    assert.equal(values.get(17).id, fixture.id);
   });
   await check('request quantity is explicitly labelled with availability and defaults to one', () => {
     const html = render({ 15: fixture });

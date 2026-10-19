@@ -186,10 +186,10 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     }
   };
 
-  const selectPhotos = async (event) => {
+  const addPhotos = async (fileList) => {
     const task = taskScope.capture();
-    const files = Array.from(event.target.files || []);
-    event.target.value = '';
+    const files = Array.from(fileList || []);
+    if (loading) return;
     if (!task.isCurrent() || !files.length || photoSelectionMutex.current) return;
     const remaining = Math.max(0, MAX_LISTING_PHOTOS - photos.length);
     if (files.length > remaining) showToast(t('mediaExperience.limit'), 'error');
@@ -200,6 +200,12 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     setPhotos((current) => [...current, ...entries].slice(0, MAX_LISTING_PHOTOS));
     try { for (const entry of entries) { if (!task.isCurrent()) break; await preparePhoto(entry); } }
     finally { photoSelectionMutex.current = false; }
+  };
+
+  const selectPhotos = (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    return addPhotos(files);
   };
 
   const removePhoto = (photo) => {
@@ -387,11 +393,11 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
           {step === 3 ? <section className="pb-28">
             <p className="eyebrow text-sea">{t('create.publishEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('draftExperience.finalTitle')}</h1><p className="mt-3 text-sm leading-6 text-muted">{t('draftExperience.finalText')}</p>
             <p className="create-required-note mt-3 text-sm text-muted">{t('createExperience.requiredNote')}</p>
-            <div className="detail-card mt-5">
+            <div className="detail-card media-dropzone mt-5" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addPhotos(event.dataTransfer.files); }}>
               <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}{form.type === 'lend' ? ' *' : ` (${t('createExperience.optional')})`}</strong><small className="block text-muted">{t('mediaExperience.count', { count: photos.length })}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple disabled={loading || photos.length >= MAX_LISTING_PHOTOS} aria-required={form.type === 'lend'} aria-describedby="listing-photo-hint listing-photo-error" onChange={selectPhotos} /></label></div>
-              <small id="listing-photo-hint" className="media-hint">{t('mediaExperience.hint')}</small>
+              <small className="media-hint">{t('mediaExperience.dropHint')}</small><small id="listing-photo-hint" className="media-hint">{t('mediaExperience.hint')}</small>
               {blockers.includes('loanPhoto') ? <small id="listing-photo-error" className="field-error">{t('createExperience.blockers.loanPhoto')}</small> : null}
-              {photos.length ? <div className="photo-preview-grid">{photos.map((photo) => <div key={photo.operationId || photo.preview} className="photo-preview">{photo.preview ? <button type="button" className="media-photo-open" aria-label={t('mediaExperience.preview')} onClick={() => setPreviewPhoto(photo)}><img src={photo.preview} alt={photo.file?.name || ''} /></button> : <p className="media-photo-state">{photo.file?.name}</p>}{photo.preparing ? <p className="media-photo-state" role="status">{t('mediaExperience.preparing')}</p> : photo.error ? <div className="media-photo-state"><p className="field-error" role="alert">{t(photo.error)}</p><button type="button" className="btn-link" disabled={loading} onClick={() => preparePhoto(photo)}>{t('mediaExperience.retry')}</button></div> : null}<button type="button" className="btn-link" disabled={loading} onClick={() => removePhoto(photo)}>{t('common.remove')}</button></div>)}</div> : null}
+              {photos.length ? <div className="photo-preview-grid">{photos.map((photo) => <div key={photo.operationId || photo.preview} className="photo-preview">{photo.preview ? <button type="button" className="media-photo-open" aria-label={t('mediaExperience.preview')} onClick={() => setPreviewPhoto(photo)}><img src={photo.preview} alt={photo.file?.name || ''} /></button> : <p className="media-photo-state">{photo.file?.name}</p>}{photo.preparing ? <p className="media-photo-state" role="status">{t('mediaExperience.preparing')}</p> : photo.error ? <div className="media-photo-state"><p className="field-error" role="alert">{t(photo.error)}</p><button type="button" className="btn-link" disabled={loading} onClick={() => preparePhoto(photo)}>{t('mediaExperience.retry')}</button></div> : null}<button type="button" className="icon-button photo-preview-remove" disabled={loading} aria-label={t('common.remove')} title={t('common.remove')} onClick={() => removePhoto(photo)}><Icon name="close" size={18} /></button></div>)}</div> : null}
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')} *</span><input name="quantity" className="field" type="number" min="1" max="10000" step="1" inputMode="numeric" required aria-invalid={blockers.includes('quantity')} aria-describedby="create-quantity-error" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} />{blockers.includes('quantity') ? <small id="create-quantity-error" className="field-error">{t('createExperience.blockers.quantity')}</small> : null}</label>
             <label className="mt-4 block"><span className="field-label">{t('create.description')} <span className="create-optional">({t('createExperience.optional')})</span></span><textarea className="field min-h-24 resize-y py-3" maxLength={500} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>

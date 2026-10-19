@@ -43,12 +43,15 @@ Successful cases are skipped on resume. Interrupted database operations use thei
 - All ten accounts: three contact channels and persisted language; first avatar/save and immutable replacement; prior avatar still readable; real `media-upload` Edge decode from valid PNG to managed JPEG; owner listing photo and immediate public listing/count; blurred public pickup location; self-request denial.
 - Media: same-operation retry identity; foreign listing/avatar references denied; anonymous upload denied; direct Storage upload/upsert/update denied; fake content, video MIME and >5 MiB server input rejected; six-photo listing update denied.
 - Five language pairs: requested deadline is 12 hours and accepted deadline 24 hours; localized request inbox and read/foreign-write checks; exact partial stock; real simultaneous booking requests and simultaneous accept calls with one winner; cancellation and repeated-cancel refusal preserve exactly 10/0 stock.
+- Five language pairs: two isolated expiry cases each use new `expiry-v1:*` listing/deal checkpoints. A guarded admin update shifts only the exact ledger-recorded fixture deadline into the past, with both participants verified as fixture accounts. The real `refresh_expired_deals` and `get_my_deals` must mark the pending request expired and refuse acceptance. A separate accepted reservation of 2 out of 4 must release exactly 4 available / 0 reserved; repeating refresh must preserve that stock. Evidence is stored as `owned_fixture_timestamp_shift` in the private checkpoint. These cases simulate deadline passage and do not claim a 12/24-hour wall-clock observation.
 - Give: participant contact links and exact pickup access, outsider isolation, appointment creation/reschedule/cancel, two-sided completion, repeated confirmation with no duplicate points, exactly one reuse event.
 - Lend: condition photo and seven-day return term, wrong lifecycle calls denied, two-sided issue, no early completion, two-sided return, restored stock, single impact event and no duplicate reward.
 - All ten accounts: private feedback attachment, concurrent `create_feedback_once` retries return the same ID, changed payload cannot reuse the ID, owner-only signed access with a 300-second expiry field, public private-bucket path denied, outsider feedback rows hidden, queued delivery receipt with zero attempts.
 - Discovery: saved search, favourite, own feed and outsider isolation; collection point self-vote denial, three independent votes, public aggregate and hidden voter identities.
 
 No `feedback-telegram` invocation occurs. The receipt check expects the queue to remain unclaimed. Root may explicitly choose **one** feedback ID from the private ledger for the separately controlled Telegram verification. Do not run an independent Telegram sender concurrently with this suite. No push subscription, digest worker or external notification delivery is fabricated or invoked.
+
+Expiry timestamp writes are scoped to recorded fixture IDs and both owned participants, with closed/issued/completed rows excluded. The existing application `refresh_expired_deals` RPC is global maintenance and `get_my_deals` also invokes it: these ordinary calls may process other naturally expired deals. The runner does not alter other users' timestamps, inspect their deal data, or make assertions about a global expiry count. Resume skips completed original phases and completed new expiry phases; interrupted expiry phases inspect their exact existing fixture instead of creating a replacement.
 
 ## Exact cleanup after browser review
 
@@ -68,13 +71,14 @@ REST cleanup is not one atomic PostgreSQL transaction. Listing freezing closes t
 
 ## Remaining manual/device checks
 
-Passing API cases does not mean all 50 product items passed. Root must still verify the five-language UI, mobile layout/keyboard, map filters and counts in the actual app, Back/focus/scroll behavior, avatar crop/zoom and preview cleanup, browser EXIF stripping/20 MiB input normalization, draft restoration, account switching and uncertain-submit UX, real Google OAuth, Android/iOS installation and persistence, actual push permission/delivery, controlled Telegram receipt, scheduled digest delivery and retry/expiry, and the final public release/PWA update. This runner inspects deadline arithmetic without waiting 12/24 hours and checks signed-link expiry configuration without a five-minute wall-clock expiry test. Hosted Edge resource extremes, 100 MiB quota exhaustion, 30/hour limit exhaustion, and legacy privacy migration belong to the separate security/device checks. It does not promote staff, moderate real content or test money/fund operations.
+Passing API cases does not mean all 50 product items passed. Root must still verify the five-language UI, mobile layout/keyboard, map filters and counts in the actual app, Back/focus/scroll behavior, avatar crop/zoom and preview cleanup, browser EXIF stripping/20 MiB input normalization, draft restoration, account switching and uncertain-submit UX, real Google OAuth, Android/iOS installation and persistence, actual push permission/delivery, controlled Telegram receipt, scheduled digest delivery and retry/expiry, and the final public release/PWA update. This runner verifies deadline arithmetic and real expiry transitions through fixture timestamp simulation; actual 12/24-hour wall-clock observation remains a separate manual check. It checks signed-link expiry configuration without a five-minute wall-clock expiry test. Hosted Edge resource extremes, 100 MiB quota exhaustion, 30/hour limit exhaustion, and legacy privacy migration belong to the separate security/device checks. It does not promote staff, moderate real content or test money/fund operations.
 
 Local authoring checks (offline):
 
 ```powershell
 node --check scripts/release-ten-users-check.mjs
 node scripts/release-ten-users-guard-check.mjs
+node scripts/release-expiry-check.mjs
 node scripts/release-ten-users-check.mjs --help
 ```
 

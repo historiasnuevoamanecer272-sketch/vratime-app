@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
 import { PROJECT_REF, PROJECT_URL, LANGUAGES, UUID, parseReleaseArguments, assertTargetProject, verifyPublicRelease, assertFixtureLedger, buildExactCleanupPlan, executeExactCleanup, ensure, safeCode } from './release-ten-users-support.mjs';
+import { simulateRecordedFixtureExpiry } from './release-expiry-simulation.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const PRIVATE_ROOT = path.resolve(ROOT, '../vratime-staged-20261019/.private-backups');
@@ -224,6 +225,20 @@ export async function runReleaseTenUsers(options) {
   const stock = async (id) => unwrap(await admin.from('listings').select('quantity,available_quantity,reserved_quantity,status').eq('id', id).single(), 'stock');
   const txn = async (id) => unwrap(await admin.from('transactions').select('*').eq('id', id).single(), 'transaction');
   const points = async (index) => Number(unwrap(await clients[index].from('profiles').select('eco_points').eq('id', ledger.users[index].id).single(), 'eco_points').eco_points || 0);
+  const simulateExpiry = (ownerIndex, requesterIndex, row, id, accepted) => simulateRecordedFixtureExpiry({
+    ledger, listing: row, transactionId: id, accepted,
+    adapter: {
+      readTransaction: () => txn(id), readStock: () => stock(row.id),
+      updateDeadline: async (filters, expiresAt) => {
+        let query = admin.from('transactions').update({ expires_at: expiresAt });
+        for (const [column, value] of Object.entries(filters)) query = query.eq(column, value);
+        return unwrap(await query.is('canceled_at', null).is('handed_over_at', null).is('returned_at', null).is('completed_at', null).select('id'), 'expiry_exact_deadline_update');
+      },
+      refresh: () => rpc(clients[requesterIndex], 'refresh_expired_deals'),
+      readDeal: async () => (await rpc(clients[requesterIndex], 'get_my_deals')).find((deal) => deal.transaction_id === id),
+      attemptAccept: () => clients[ownerIndex].rpc('accept_deal', { target_transaction_id: id }),
+    },
+  });
 
   for (let i = 0; i < 10; i += 1) await runCase(`profile_media_public_${ledger.users[i].language}_${i + 1}`, async () => {
     for (const version of [1, 2]) await step(`avatar_apply:${i}:${version}`, async () => { const asset = await media(i, 'avatar', `avatar:${i}:${version}`, 40 + version); await rpc(clients[i], 'set_my_avatar', { next_avatar_url: asset.url }); const row = unwrap(await clients[i].from('profiles').select('avatar_url').eq('id', ledger.users[i].id).single(), 'avatar_read'); ensure(row.avatar_url === asset.url, 'avatar_not_saved'); return true; });
@@ -294,6 +309,22 @@ export async function runReleaseTenUsers(options) {
       const before = await step(`points_before_loan:${pair}`, async () => ({ owner: await points(owner), taker: await points(taker) }));
       await step(`loan_return:${pair}`, async () => { if (!(await txn(id)).returned_at) { ensure(!(await rpc(clients[taker], 'confirm_loan_return', { target_transaction_id: id })).returned, 'one_sided_loan_returned'); ensure((await rpc(clients[owner], 'confirm_loan_return', { target_transaction_id: id })).returned, 'two_sided_loan_not_returned'); } await rpc(clients[owner], 'confirm_loan_return', { target_transaction_id: id }); const value = await stock(row.id); ensure(value.available_quantity === 1 && value.reserved_quantity === 0, 'loan_stock_not_restored'); ensure(await points(owner) === before.owner + 25 && await points(taker) === before.taker + 25, 'loan_points_duplicate'); const events = await readRows('reuse_events', 'transaction_id', [id]); ensure(events.length === 1 && events[0].event_kind === 'loan_returned', 'loan_impact_duplicate'); return true; });
     });
+    await runCase(`pending_expiry_timestamp_simulation_${language}`, async () => {
+      const key = `expiry-v1:pending:${pair}`, row = await listing(owner, key, { quantity: 4 }), id = await transaction(taker, row, key, 2);
+      await step(`${key}:simulate`, () => simulateExpiry(owner, taker, row, id, false));
+    });
+    await runCase(`accepted_expiry_release_timestamp_simulation_${language}`, async () => {
+      const key = `expiry-v1:accepted:${pair}`, row = await listing(owner, key, { quantity: 4 }), id = await transaction(taker, row, key, 2);
+      await step(`${key}:reserve`, async () => {
+        const value = await txn(id);
+        if (value.canceled_reason === 'expired' && value.canceled_at) return true;
+        await rpc(clients[owner], 'accept_deal', { target_transaction_id: id });
+        const reserved = await stock(row.id);
+        ensure(reserved.quantity === 4 && reserved.available_quantity === 2 && reserved.reserved_quantity === 2, 'expiry_accept_stock_not_2_of_4');
+        return true;
+      });
+      await step(`${key}:simulate`, () => simulateExpiry(owner, taker, row, id, true));
+    });
   }
 
   for (let i = 0; i < 10; i += 1) await runCase(`private_feedback_idempotency_${ledger.users[i].language}_${i + 1}`, async () => {
@@ -319,6 +350,18 @@ export async function runReleaseTenUsers(options) {
     for (const i of [1, 2, 3]) { await rpc(clients[i], 'vote_collection_point', { target_point_id: point, vote_value: 'exists' }); await addRecord('collection_point_votes', { point_id: point, user_id: ledger.users[i].id }); }
     const found = (await rpc(anon, 'get_collection_points')).find((item) => item.id === point); ensure(found?.status === 'verified' && Number(found.exists_votes) === 3 && !('created_by' in found) && !('user_id' in found), 'collection_public_aggregate_privacy');
     denied(await anon.from('collection_point_votes').select('*').eq('point_id', point), 'anonymous_voter_identity_read');
+  });
+
+  await runCase('own_listing_favourites_and_reports_are_denied_for_all_ten_users', async () => {
+    for (let i = 0; i < 10; i += 1) {
+      const own = ledger.checkpoints[`listing:browser:${i}`]; ensure(own?.user_id === ledger.users[i].id, 'own_action_fixture_owner');
+      const favourite = await clients[i].rpc('toggle_listing_favourite', { target_listing_id: own.id });
+      denied(favourite, 'own_favourite_rpc_allowed', [400]); ensure(/own listing/i.test(favourite.error.message), 'own_favourite_wrong_denial');
+      denied(await clients[i].from('listing_favourites').insert({ user_id: ledger.users[i].id, listing_id: own.id }), 'own_favourite_direct_allowed', [403]);
+      const report = await clients[i].rpc('create_report', { target_kind: 'listing', target_id: own.id, reason: 'misleading', details: null });
+      denied(report, 'own_report_rpc_allowed', [400]); ensure(/Invalid report target/.test(report.error.message), 'own_report_wrong_denial');
+      denied(await clients[i].from('reports').insert({ reporter_id: ledger.users[i].id, target_kind: 'listing', target_id: own.id, target_user_id: ledger.users[i].id, reason: 'misleading' }), 'own_report_direct_allowed', [403]);
+    }
   });
 
   const latest = [...new Map(ledger.cases.map((item) => [item.name, item])).values()], failures = latest.filter((item) => item.status === 'failed');

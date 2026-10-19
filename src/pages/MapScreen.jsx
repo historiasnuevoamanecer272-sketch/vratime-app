@@ -20,6 +20,7 @@ import { availableRequestQuantity, isOwnMapListing, isUpwardToolbarSwipe, reques
 import { friendlyError } from '../lib/userErrors';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import { requestBrowserLocation } from '../lib/geolocationRequest';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -35,8 +36,9 @@ const kmBetween = (from, to) => {
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-function MapView({ location, recenterRequest, active }) {
+function MapView({ location, recenterRequest, active, resultsViewport }) {
   const map = useMap();
+  const appliedResults = useRef(null);
   const latitude = location?.[0];
   const longitude = location?.[1];
   useEffect(() => { map.attributionControl?.setPrefix(false); }, [map]);
@@ -47,6 +49,13 @@ function MapView({ location, recenterRequest, active }) {
     }
   }, [latitude, longitude, map, recenterRequest]);
   useEffect(() => { if (active) map.invalidateSize?.({ pan: false }); }, [active, map]);
+  useEffect(() => {
+    if (!active || !resultsViewport?.positions.length || appliedResults.current === resultsViewport) return;
+    appliedResults.current = resultsViewport;
+    map.stop();
+    map.closePopup?.();
+    map.fitBounds(resultsViewport.positions, { paddingTopLeft: [24, 90], paddingBottomRight: [24, 120], maxZoom: 14, animate: false });
+  }, [active, map, resultsViewport]);
   return null;
 }
 
@@ -81,6 +90,11 @@ export default function MapScreen({ userId, onCreate, active = true }) {
   const fetchRequest = useRef(0);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [pointsError, setPointsError] = useState(false);
+  const [locationPending, setLocationPending] = useState(false);
+  const [locationIssue, setLocationIssue] = useState(false);
+  const [resultsViewport, setResultsViewport] = useState(null);
+  const locationInFlight = useRef(false);
+  const cancelLocation = useRef(null);
   const detailRef = useRef(null);
   const bookingRef = useRef(null);
   useAppOverlay(active && Boolean(sheetOpen), () => setSheetOpen(false), 'map-list');
@@ -90,10 +104,12 @@ export default function MapScreen({ userId, onCreate, active = true }) {
   const detailFocus = useDialogFocus({ open: active && Boolean(selectedListing) && !bookingListing && !reportListing, onClose: () => setSelectedListing(null), dialogRef: detailRef });
   const bookingFocus = useDialogFocus({ open: active && Boolean(bookingListing), onClose: closeBooking, dialogRef: bookingRef });
   useEffect(() => {
-    if (active) return undefined;
-    const timer = window.setTimeout(() => { setSheetOpen(false); setSelectedListing(null); setBookingListing(null); setReportListing(null); setPointDialogOpen(false); }, 0);
-    return () => window.clearTimeout(timer);
-  }, [active]);
+    const timer = window.setTimeout(() => {
+      setLocationPending(false); setLocationIssue(false); setLocationMessage('');
+      if (!active) { setSheetOpen(false); setSelectedListing(null); setBookingListing(null); setReportListing(null); setPointDialogOpen(false); }
+    }, 0);
+    return () => { window.clearTimeout(timer); cancelLocation.current?.(); locationInFlight.current = false; };
+  }, [active, userId]);
 
   const fetchData = useCallback(async () => {
     const request = ++fetchRequest.current;
@@ -152,13 +168,19 @@ export default function MapScreen({ userId, onCreate, active = true }) {
   };
 
   const locate = () => {
-    if (!navigator.geolocation) return setLocationMessage(t('map.locationMissing'));
-    setLocationMessage(t('map.locating'));
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { setLocation([coords.latitude, coords.longitude]); setRecenterRequest((request) => request + 1); setLocationMessage(t('map.located')); },
-      () => setLocationMessage(t('map.locationDenied')),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
+    if (!active || locationInFlight.current) return;
+    locationInFlight.current = true;
+    setLocationPending(true); setLocationIssue(false); setLocationMessage(t('map.locating'));
+    cancelLocation.current = requestBrowserLocation({
+      onSuccess: (coordinates) => {
+        locationInFlight.current = false; setLocationPending(false); setLocationIssue(false);
+        setLocation(coordinates); setRecenterRequest((request) => request + 1); setLocationMessage(t('map.located'));
+      },
+      onError: (reason) => {
+        locationInFlight.current = false; setLocationPending(false); setLocationIssue(true);
+        setLocationMessage(t(`mapExperience.${reason}`));
+      },
+    });
   };
 
   const startToolbarSwipe = (event) => {
@@ -198,6 +220,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
   };
 
   const toggleFavourite = async (item) => {
+    if (isOwnMapListing(item, userId)) return;
     try {
       const enabled = await toggleListingFavourite(item.id);
       setFavouriteIds((current) => { const next = new Set(current); if (enabled) next.add(item.id); else next.delete(item.id); return next; });
@@ -252,7 +275,7 @@ export default function MapScreen({ userId, onCreate, active = true }) {
     <div className="map-page relative h-[100svh] overflow-hidden">
       <MapContainer center={[42.441, 19.263]} zoom={12} zoomControl={false} className="h-full w-full" preferCanvas>
         <TileLayer attribution={baseMap.attribution} url={baseMap.url} maxZoom={baseMap.maxZoom} />
-        <MapView location={location} recenterRequest={recenterRequest} active={active} />
+        <MapView location={location} recenterRequest={recenterRequest} active={active} resultsViewport={resultsViewport} />
         {mapLayer === 'listings' ? filtered.map((item) => <Marker key={item.id} position={publicListingPosition(item)} icon={mapMarkerIcons[item.type] || mapMarkerIcons.give} opacity={requestedListingIds.has(item.id) ? 0.45 : 1} title={listingCategoryLabel(item, language)} alt={listingCategoryLabel(item, language)} eventHandlers={{ popupopen: (event) => event.target.closeTooltip(), mouseover: (event) => { if (event.target.isPopupOpen()) event.target.closeTooltip(); } }}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1} interactive={false}>{listingPreview(item)}</Tooltip><Popup autoPan={false} keepInView={false}>{listingCard(item)}</Popup></Marker>) : <CollectionPointLayer points={collectionPoints} onVote={votePoint} />}
       </MapContainer>
 
@@ -275,11 +298,12 @@ export default function MapScreen({ userId, onCreate, active = true }) {
             {['all', 'give', 'take', 'lend'].map((value) => <button key={value} type="button" disabled={Boolean(query.trim())} className={`chip chip-small ${(query.trim() ? value === 'give' : type === value) ? 'chip-active' : ''}`} onClick={() => setType(value)}>{value === 'all' ? null : <Icon name={value === 'give' ? 'gift' : value === 'take' ? 'search' : 'history'} size={13} />}{value === 'all' ? t('map.all') : t(value === 'give' ? 'map.give' : value === 'take' ? 'map.take' : 'map.lend')}</button>)}
             {distances.map((value) => <button key={value} type="button" className={`chip chip-small ${distance === value ? 'chip-active' : ''}`} onClick={() => { setDistance(value); if (value !== 'all' && !location) locate(); }}>{distanceLabel[value]}</button>)}
           </div>
+          <button type="button" className="btn-primary map-show-results mt-3 w-full" disabled={loading || Boolean(loadError) || filtered.length === 0 || locationPending} onClick={() => { setFiltersOpen(false); setSheetOpen(false); setResultsViewport({ positions: filtered.map(publicListingPosition) }); }}>{loading ? t('common.loading') : t('mapExperience.showResults', { count: filtered.length })}</button>
           </> : <div className="point-layer-actions mt-3"><p role={pointsError ? 'status' : undefined}>{t(pointsError ? 'reliabilityExperience.pointsLoadFailed' : !loading && collectionPoints.length === 0 ? 'points.empty' : 'points.mapHint')}</p><button type="button" className="btn-primary" onClick={() => setPointDialogOpen(true)}><Icon name="plus" size={17} />{t('points.add')}</button></div>}
         </> : <button type="button" className="map-toolbar-restore" onClick={() => setFiltersOpen(true)} aria-expanded="false"><Icon name="sliders" size={18} /><span>{t(mapLayer === 'points' ? 'map.pointsLayer' : 'map.filters')}</span><strong>{mapLayer === 'points' ? collectionPoints.length : filtered.length}</strong><Icon name="chevronDown" size={17} /></button>}
       </header>
-      <button type="button" className="map-recenter" onClick={locate} aria-label={t('mapExperience.recenter')} title={t('mapExperience.recenter')}><Icon name="location" size={21} /></button>
-      {locationMessage ? <p className="map-location-status" role="status">{locationMessage}</p> : null}
+      <button type="button" className="map-recenter" onClick={locate} disabled={locationPending} aria-busy={locationPending} aria-label={t(locationPending ? 'map.locating' : 'mapExperience.recenter')} title={t(locationPending ? 'map.locating' : 'mapExperience.recenter')}><Icon name={locationPending ? 'clock' : 'location'} size={21} /></button>
+      {locationMessage ? <div className="map-location-status"><p role="status">{locationMessage}</p>{locationIssue ? <><p className="map-location-hint">{t('mapExperience.positionManualHint')}</p><button type="button" className="btn-link map-location-retry" onClick={locate} disabled={locationPending}>{t('common.retry')}</button></> : null}</div> : null}
       {loading ? <p className="map-refresh-status" role="status">{t('common.loading')}</p> : lastUpdated && loadError ? <p className="map-refresh-status" role="status">{t('reliabilityExperience.lastUpdated', { time: lastUpdated.toLocaleTimeString(language === 'me' ? 'sr-Latn-ME' : language, {hour:'2-digit',minute:'2-digit'}) })}</p> : null}
 
       {loadError ? <div className="map-state card"><Icon name="close" size={24} /><p>{t('errors.load')}</p><button type="button" className="btn-secondary" onClick={fetchData}>{t('common.retry')}</button></div> : null}
@@ -301,8 +325,8 @@ export default function MapScreen({ userId, onCreate, active = true }) {
           <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span><span><Icon name="calendar" size={13} />{new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short' }).format(new Date(selectedListing.created_at))}</span></div>
           <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>
           <p className="listing-dialog-note"><Icon name="message" size={16} />{isOwnMapListing(selectedListing, userId) ? t('mapExperience.myListingHint') : requestedListingIds.has(selectedListing.id) ? t('map.requestedHint') : t('map.contactNote')}</p>
-          <button type="button" className="btn-secondary mt-4 w-full" aria-pressed={favouriteIds.has(selectedListing.id)} onClick={() => toggleFavourite(selectedListing)}><Icon name="heart" filled={favouriteIds.has(selectedListing.id)} size={17} /><span>{favouriteIds.has(selectedListing.id) ? t('discovery.favourited') : t('discovery.favourite')}</span></button>
-          <button type="button" className="btn-link mt-4 text-xs" onClick={() => setReportListing(selectedListing)}><Icon name="flag" size={15} />{t('workflow.reportListing')}</button>
+          {!isOwnMapListing(selectedListing, userId) ? <button type="button" className="btn-secondary mt-4 w-full" aria-pressed={favouriteIds.has(selectedListing.id)} onClick={() => toggleFavourite(selectedListing)}><Icon name="heart" filled={favouriteIds.has(selectedListing.id)} size={17} /><span>{favouriteIds.has(selectedListing.id) ? t('discovery.favourited') : t('discovery.favourite')}</span></button> : null}
+          {!isOwnMapListing(selectedListing, userId) ? <button type="button" className="btn-link mt-4 text-xs" onClick={() => setReportListing(selectedListing)}><Icon name="flag" size={15} />{t('workflow.reportListing')}</button> : null}
           </div>
           <div className="listing-dialog-actions">
             <button type="button" className={`listing-request-action w-full ${isOwnMapListing(selectedListing, userId) || requestedListingIds.has(selectedListing.id) ? 'btn-secondary' : 'btn-primary'} ${isOwnMapListing(selectedListing, userId) ? 'is-owned' : ''}`} disabled={isOwnMapListing(selectedListing, userId) || bookingId === selectedListing.id || requestedListingIds.has(selectedListing.id) || availableRequestQuantity(selectedListing) < 1} onClick={() => openBooking(selectedListing)}>{isOwnMapListing(selectedListing, userId) ? null : <Icon name={requestedListingIds.has(selectedListing.id) ? 'check' : selectedListing.type === 'take' ? 'handover' : selectedListing.type === 'lend' ? 'history' : 'gift'} size={18} />}{isOwnMapListing(selectedListing, userId) ? t('mapExperience.myListing') : requestedListingIds.has(selectedListing.id) ? t('map.requested') : bookingId === selectedListing.id ? t('map.booking') : t(selectedListing.type === 'take' ? 'map.bookTake' : selectedListing.type === 'lend' ? 'map.bookLend' : 'map.bookGive')}</button>

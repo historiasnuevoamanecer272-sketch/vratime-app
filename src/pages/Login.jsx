@@ -6,6 +6,8 @@ import { showToast } from '../lib/toast';
 import { createGoogleSignInRequest } from '../lib/authNavigation';
 import logo from '../assets/images/app-logo.png';
 import montenegroHero from '../assets/visuals/v2/montenegro-adriatic-hero-v1.webp';
+// Unmodified official asset: https://developers.google.com/identity/branding-guidelines
+import googleLogo from '../assets/images/google-g.png';
 import Icon from '../components/Icon';
 import LanguageMenu from '../components/LanguageMenu';
 
@@ -37,7 +39,7 @@ export default function Login() {
           </div>
 
           <div className="auth-form">
-            <button type="button" className="btn-google w-full" disabled={loading} onClick={continueWithGoogle}><span className="google-g" aria-hidden="true">G</span>{loading ? t('authExperience.opening') : t('authExperience.google')}</button>
+            <button type="button" className="btn-google w-full" disabled={loading} onClick={continueWithGoogle}><img src={googleLogo} width="20" height="20" alt="" aria-hidden="true" />{loading ? t('authExperience.opening') : t('authExperience.google')}</button>
             <p className="mt-4 text-center text-sm font-medium leading-6 text-muted">{t('authExperience.accountHint')}</p>
             <p className="mt-3 text-center text-xs font-medium leading-5 text-muted">{t('authExperience.returningHint')}</p>
           </div>
