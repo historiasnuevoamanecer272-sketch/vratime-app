@@ -30,6 +30,10 @@ mkdir "$stage_dir"
 trap 'rm -rf "$stage_dir"' EXIT
 
 tar -xzf "$archive_path" -C "$stage_dir"
+# Build tools can inherit a private operator umask. These are public static
+# assets; the web server must be able to traverse/read the complete release.
+find "$stage_dir" -type d -exec chmod 755 {} +
+find "$stage_dir" -type f -exec chmod 644 {} +
 test -f "$stage_dir/index.html"
 test -f "$stage_dir/manifest.webmanifest"
 expected_js="$(grep -o 'assets/index-[^" ]*\.js' "$stage_dir/index.html" | head -n 1)"
