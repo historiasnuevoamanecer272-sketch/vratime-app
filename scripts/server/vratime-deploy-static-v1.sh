@@ -42,6 +42,7 @@ test -n "$expected_js"
 test -n "$expected_css"
 
 printf 'RELEASE_ID=%s\nDEPLOYED_AT_UTC=%s\n' "$release_id" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$stage_dir/RELEASE.txt"
+chmod 644 "$stage_dir/RELEASE.txt"
 mv "$stage_dir" "$release_dir"
 trap - EXIT
 
