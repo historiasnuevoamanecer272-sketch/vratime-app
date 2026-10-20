@@ -12,3 +12,5 @@ if (contactHref(telegramPhone) !== 'tg://resolve?phone=38267123456') throw new E
 if (normalizeContacts({ viber: ' ', wa: ' ' }).length !== 0) throw new Error('Empty selected channels must not be persisted');
 
 process.stdout.write('Multi-messenger and Telegram alias/phone checks passed.\n');
+
+await import('./release-form-validation-check.mjs');

@@ -1,0 +1,11 @@
+[Unit]
+Description=VratiMe hourly non-deleting storage monitor
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=1h
+RandomizedDelaySec=2min
+Unit=vratime-storage-monitor.service
+
+[Install]
+WantedBy=timers.target

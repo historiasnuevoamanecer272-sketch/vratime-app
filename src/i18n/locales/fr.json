@@ -75,7 +75,7 @@
     "telegramAliasHint": "Un nom d’utilisateur Telegram public : aucun numéro de téléphone nécessaire.",
     "telegramPhoneHint": "Utilisez le format international. Ce numéro peut différer de vos numéros Viber et WhatsApp.",
     "contactRequired": "Choisissez au moins une messagerie.",
-    "contactInvalid": "Vérifiez vos coordonnées.",
+    "contactInvalid": "Vérifiez vos coordonnées. Pour WhatsApp et Viber, utilisez un numéro international, par exemple +38267123456.",
     "telegramInvalid": "Telegram : saisissez @utilisateur ou un numéro international, par exemple +38267123456.",
     "migrationRequired": "Le choix de plusieurs messageries sera disponible après la mise à jour de la base de données. Vos coordonnées actuelles sont conservées."
   },

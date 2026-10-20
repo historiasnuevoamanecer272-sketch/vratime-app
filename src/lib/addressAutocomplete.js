@@ -9,16 +9,20 @@ export async function searchAddressSuggestions(query, { signal, language = 'en',
   if (!response.ok) throw new Error('address_search_unavailable');
   const data = await response.json();
   const seen = new Set();
-  return (Array.isArray(data.features) ? data.features : []).flatMap((feature) => {
+  return (Array.isArray(data?.features) ? data.features : []).flatMap((feature) => {
     const properties = feature?.properties || {};
-    const [lon,lat] = feature?.geometry?.coordinates || [];
-    if (properties.countrycode?.toUpperCase() !== 'ME' || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) return [];
-    const street = [properties.street,properties.housenumber].filter(Boolean).join(' ');
-    const display_name = [...new Set([properties.name,street,properties.district,properties.city || properties.town || properties.village,properties.postcode,properties.country].filter(Boolean))].join(', ');
+    const coordinates = feature?.geometry?.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length < 2 || typeof properties.countrycode !== 'string') return [];
+    const [lon,lat] = coordinates;
+    if (properties.countrycode.toUpperCase() !== 'ME' || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) return [];
+    const street = [properties.street,properties.housenumber].filter((value) => typeof value === 'string' || (typeof value === 'number' && Number.isFinite(value))).join(' ');
+    const display_name = [...new Set([properties.name,street,properties.district,properties.city || properties.town || properties.village,properties.postcode,properties.country].filter((value) => typeof value === 'string' && value.trim()))].join(', ');
     const key = `${display_name}|${lat}|${lon}`;
     if (!display_name || seen.has(key)) return [];
     seen.add(key);
-    return [{place_id:`${properties.osm_type}-${properties.osm_id}`,display_name,lat,lon}];
+    const osmType = typeof properties.osm_type === 'string' ? properties.osm_type : 'point';
+    const osmId = typeof properties.osm_id === 'string' || (typeof properties.osm_id === 'number' && Number.isFinite(properties.osm_id)) ? properties.osm_id : `${lat}-${lon}`;
+    return [{place_id:`${osmType}-${osmId}`,display_name,lat,lon}];
   }).slice(0,5);
 }
 

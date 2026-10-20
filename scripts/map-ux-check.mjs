@@ -378,6 +378,28 @@ try {
       assert.equal(calls.length, 0);
     }
   });
+  await check('offline request explains connection and disables its submission', async () => {
+    render({15:fixture,28:false});
+    const button=elements.find(({type,props})=>type==='button' && props.onClick?.toString().includes('handleBook'));
+    assert.equal(button.props.disabled,true);
+    await button.props.onClick();
+    assert.equal(calls.length,0);
+  });
+  await check('first launch offline shows an explanation instead of perpetual loading', () => {
+    const previous=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+    try {
+      Object.defineProperty(globalThis,'navigator',{value:{onLine:false},configurable:true});
+      values.clear();
+      const html=rerender();
+      assert.ok(elementWithClass('map-state'),'First offline launch needs a retry/explanation');
+      assert.doesNotMatch(html,/class="map-refresh-status"[^>]*>Loading/);
+    } finally { if(previous) Object.defineProperty(globalThis,'navigator',previous); else delete globalThis.navigator; }
+  });
+  await check('invalid listing date does not prevent opening its details', () => {
+    const html=render({14:{...fixture,created_at:'not-a-date'}});
+    assert.ok(elementWithClass('listing-dialog-actions'));
+    assert.doesNotMatch(html,/Invalid Date/);
+  });
   if (failures.length) throw new Error(`${failures.length} map UX checks failed: ${failures.join('; ')}`);
   process.stdout.write('Map UX checks passed offline.\n');
 } finally {

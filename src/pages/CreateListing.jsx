@@ -11,8 +11,8 @@ import CategoryIcon from '../components/CategoryIcon';
 import { getCategoryArtwork } from '../lib/categoryArtwork';
 import { mapMarkerIcons } from '../lib/mapMarkers';
 import { updateMyListing } from '../lib/api';
-import { hasVerifiedLocation } from '../lib/locationValidation';
-import { listingFormBlockers, pickupTimeForDisplay, pickupTimeForSave, shouldShowCondition } from '../lib/listingForm';
+import { hasVerifiedLocation, normalizeMapPosition, validAddressResults } from '../lib/locationValidation';
+import { listingFormBlockers, listingSubmissionErrorKey, pickupTimeForDisplay, pickupTimeForSave, shouldShowCondition } from '../lib/listingForm';
 import { prepareImage, imageErrorKey, MAX_LISTING_PHOTOS } from '../lib/imagePreparation';
 import { uploadUserMedia } from '../lib/mediaUploads';
 import { createListingDraftStore } from '../lib/listingDraft';
@@ -100,6 +100,10 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     draftStore.load(userId, editingListing?.id).then((draft) => {
       if (!active) return;
       setPendingDraft(draft);
+      setDraftReady(true);
+    }, () => {
+      if (!active) return;
+      setDraftStatus('unavailable');
       setDraftReady(true);
     });
     return () => { active = false; };
@@ -249,7 +253,9 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     }
   };
 
-  const selectPosition = (point) => {
+  const selectPosition = (value) => {
+    const point = normalizeMapPosition(value);
+    if (!point) return;
     addressAutocomplete.cancel(); setAddressSuggestionStatus('idle');
     setDraftDirty(true);
     const requestId = ++locationRequestRef.current;
@@ -286,8 +292,9 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
       if (!response.ok) throw new Error(String(response.status));
       const results = await response.json();
       if (requestId !== locationRequestRef.current) return;
-      setAddressResults(Array.isArray(results) ? results : []);
-      if (!Array.isArray(results) || !results.length) showToast(t('create.addressNotFound'), 'error');
+      const usableResults = validAddressResults(results);
+      setAddressResults(usableResults);
+      if (!usableResults.length) showToast(t('create.addressNotFound'), 'error');
     } catch {
       if (requestId === locationRequestRef.current) showToast(t('create.addressError'), 'error');
     } finally {
@@ -298,6 +305,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
   const chooseAddress = (event, result) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!validAddressResults([result]).length) return;
     const point = [Number(result.lat), Number(result.lon)];
     if (!hasVerifiedLocation({ address: result.display_name, verified: true, position: point })) return;
     addressAutocomplete.cancel(); setAddressSuggestionStatus('idle');
@@ -377,7 +385,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
         id: editingListing?.id || publicationId, user_id: userId, type: form.type, status: 'active', category_id: form.type === 'lend' ? null : selected.id,
         category: form.type === 'lend' ? form.item_name.trim() : categoryLabel(selected, 'ru'), category_path: form.type === 'lend' ? 'lend/item' : selected.category_path,
         description: form.description.trim() || null, image_url: imageUrls[0] || null, image_urls: imageUrls, quantity: Number(form.quantity),
-        condition: form.condition, pickup_mode: form.pickup_mode, pickup_windows: pickupTimeForSave(form.pickup_time, editingListing?.pickup_windows), weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
+        condition: form.condition, pickup_mode: form.pickup_mode, pickup_windows: pickupTimeForSave(form.pickup_time, editingListing?.pickup_windows), weight_kg: String(form.weight_kg ?? '').trim() ? Number(form.weight_kg) : null,
         loan_duration_days: form.type === 'lend' ? Number(form.loan_duration_days) : null,
         lat: position[0], lng: position[1], location_label: address.trim(), location_verified_at: new Date().toISOString(), moderation_status: 'approved',
       };
@@ -399,7 +407,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
       window.setTimeout(() => window.dispatchEvent(new Event('listings-updated')), 0);
     } catch (failure) {
       if (!task.isCurrent()) return;
-      const key = failure?.code === 'form_auth_changed' || failure?.message === 'media_auth_changed' ? 'mediaExperience.errors.authChanged' : failure?.code === 'listing_publication_conflict' ? 'draftExperience.publicationConflict' : failure?.code ? imageErrorKey(failure) : 'draftExperience.saveError';
+      const key = listingSubmissionErrorKey(failure);
       setSubmitError(key);
       showToast(t(key), 'error');
     } finally {
@@ -439,7 +447,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
           {step === 3 ? <section className="pb-28">
             <p className="eyebrow text-sea">{t('create.publishEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t(form.type === 'lend' ? 'loanExperience.action' : 'draftExperience.finalTitle')}</h1><p className="mt-3 text-sm leading-6 text-muted">{t(form.type === 'lend' ? 'loanExperience.intro' : 'draftExperience.finalText')}</p>
             <p className="create-required-note mt-3 text-sm text-muted">{t(form.type === 'lend' ? 'loanExperience.requiredNote' : 'createExperience.requiredNote')}</p>
-            {form.type === 'lend' ? <label className="mt-4 block"><span className="field-label">{t('loanExperience.name')} *</span><input className="field" name="item_name" required minLength={3} maxLength={100} placeholder={t('loanExperience.namePlaceholder')} value={form.item_name} aria-invalid={blockers.includes('loanName')} onChange={(event) => setForm((current) => ({...current,item_name:event.target.value}))} /></label> : null}
+            {form.type === 'lend' ? <label className="mt-4 block"><span className="field-label">{t('loanExperience.name')} *</span><input className="field" name="item_name" required placeholder={t('loanExperience.namePlaceholder')} value={form.item_name} aria-invalid={blockers.includes('loanName')} aria-describedby="create-loan-name-error" onChange={(event) => setForm((current) => ({...current,item_name:event.target.value}))} />{blockers.includes('loanName') ? <small id="create-loan-name-error" className="field-error">{t('createExperience.blockers.loanName')}</small> : null}</label> : null}
             <div className="detail-card media-dropzone mt-5" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addPhotos(event.dataTransfer.files); }}>
               <div className="flex items-center gap-3"><span className="icon-tile"><Icon name="camera" size={22} /></span><div className="min-w-0 flex-1"><strong className="block text-forest">{t('create.photo')}{form.type === 'lend' ? ' *' : ` (${t('createExperience.optional')})`}</strong><small className="block text-muted">{t('mediaExperience.count', { count: photos.length })}</small></div><label className="btn-secondary min-h-10 cursor-pointer px-4 text-sm">{t('create.upload')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" multiple disabled={loading || photos.length >= MAX_LISTING_PHOTOS} aria-required={form.type === 'lend'} aria-describedby="listing-photo-hint listing-photo-error" onChange={selectPhotos} /></label></div>
               <small className="media-hint">{t('mediaExperience.dropHint')}</small><small id="listing-photo-hint" className="media-hint">{t('mediaExperience.hint')}</small>
@@ -447,9 +455,9 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
               {photos.length ? <div className="photo-preview-grid">{photos.map((photo) => <div key={photo.operationId || photo.preview} className="photo-preview">{photo.preview ? <button type="button" className="media-photo-open" aria-label={t('mediaExperience.preview')} onClick={() => setPreviewPhoto(photo)}><img src={photo.preview} alt={photo.file?.name || ''} /></button> : <p className="media-photo-state">{photo.file?.name}</p>}{photo.preparing ? <p className="media-photo-state" role="status">{t('mediaExperience.preparing')}</p> : photo.error ? <div className="media-photo-state"><p className="field-error" role="alert">{t(photo.error)}</p><button type="button" className="btn-link" disabled={loading} onClick={() => preparePhoto(photo)}>{t('mediaExperience.retry')}</button></div> : null}<button type="button" className="icon-button photo-preview-remove" disabled={loading} aria-label={t('common.remove')} title={t('common.remove')} onClick={() => removePhoto(photo)}><Icon name="close" size={18} /></button></div>)}</div> : null}
             </div>
             <label className="mt-4 block"><span className="field-label">{t('create.quantity')} *</span><input name="quantity" className="field" type="number" min="1" max="10000" step="1" inputMode="numeric" required aria-invalid={blockers.includes('quantity')} aria-describedby="create-quantity-error" value={form.quantity} onChange={(event) => setForm((current) => ({ ...current, quantity: event.target.value }))} />{blockers.includes('quantity') ? <small id="create-quantity-error" className="field-error">{t('createExperience.blockers.quantity')}</small> : null}</label>
-            <label className="mt-4 block"><span className="field-label">{t('create.description')} {form.type === 'lend' ? '*' : <span className="create-optional">({t('createExperience.optional')})</span>}</span><NativeTextarea name="description" className="field min-h-24 resize-y py-3" required={form.type === 'lend'} minLength={form.type === 'lend' ? 5 : undefined} maxLength={500} aria-invalid={form.type === 'lend' && blockers.includes('loanDescription')} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
+            <label className="mt-4 block"><span className="field-label">{t('create.description')} {form.type === 'lend' ? '*' : <span className="create-optional">({t('createExperience.optional')})</span>}</span><NativeTextarea name="description" className="field min-h-24 resize-y py-3" required={form.type === 'lend'} maxLength={form.type === 'lend' ? undefined : 500} aria-invalid={form.type === 'lend' && blockers.includes('loanDescription')} aria-describedby={form.type === 'lend' ? 'create-loan-description-error' : undefined} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />{blockers.includes('loanDescription') ? <small id="create-loan-description-error" className="field-error">{t('createExperience.blockers.loanDescription')}</small> : null}</label>
             {showCondition ? <label className="mt-4 block"><span className="field-label">{t('create.condition')}{form.type === 'lend' ? ' *' : ''}</span><select className="field" value={form.condition} onChange={(event) => setForm((current) => ({ ...current, condition: event.target.value }))}><option value="new">{t('create.conditionNew')}</option><option value="usable">{t('create.conditionUsable')}</option><option value="worn">{t('create.conditionWorn')}</option><option value="repair">{t('create.conditionRepair')}</option></select></label> : null}
-            {form.type !== 'lend' ? <label className="mt-4 block"><span className="field-label">{t('create.weightKg')} <span className="create-optional">({t('createExperience.optional')})</span></span><input className="field" type="number" min="0" step="0.1" inputMode="decimal" value={form.weight_kg} onChange={(event) => setForm((current) => ({ ...current, weight_kg: event.target.value }))} /></label> : null}
+            {form.type !== 'lend' ? <label className="mt-4 block"><span className="field-label">{t('create.weightKg')} <span className="create-optional">({t('createExperience.optional')})</span></span><input name="weight_kg" className="field" type="number" min="0.01" max="999999.99" step="0.01" inputMode="decimal" aria-invalid={blockers.includes('weight')} aria-describedby="create-weight-error" value={form.weight_kg} onChange={(event) => setForm((current) => ({ ...current, weight_kg: event.target.value }))} />{blockers.includes('weight') ? <small id="create-weight-error" className="field-error">{t('createExperience.blockers.weight')}</small> : null}</label> : null}
             {form.type === 'lend' ? <label className="mt-4 block"><span className="field-label">{t('loanExperience.duration')} *</span><input name="loan_duration_days" className="field" type="number" min="1" max="365" step="1" inputMode="numeric" required aria-invalid={blockers.includes('loanDuration')} aria-describedby="create-loan-error" value={form.loan_duration_days} onChange={(event) => setForm((current) => ({ ...current, loan_duration_days: event.target.value }))} />{blockers.includes('loanDuration') ? <small id="create-loan-error" className="field-error">{t('createExperience.blockers.loanDuration')}</small> : null}<small className="address-hint">{t('loanExperience.returnHint')}</small></label> : null}
             <label className="mt-4 block"><span className="field-label">{t('createExperience.pickupTime')} <span className="create-optional">({t('createExperience.optional')})</span></span><input name="pickup_time" className="field" value={form.pickup_time} placeholder={t('createExperience.pickupTimePlaceholder')} onChange={(event) => setForm((current) => ({ ...current, pickup_time: event.target.value }))} /></label>
             <div className={`address-search mt-4 ${addressVerified ? 'is-verified' : ''}`}>

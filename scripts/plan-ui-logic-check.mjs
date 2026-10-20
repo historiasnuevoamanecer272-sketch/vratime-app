@@ -56,6 +56,9 @@ assert.deepEqual(publicListingPosition({ lat: 42.44123, lng: 19.26387, public_la
 assert.notDeepEqual(publicListingPosition({ lat: 42.44123, lng: 19.26387, public_lat: 42.4401, public_lng: 19.2601 }), [42.44123, 19.26387]);
 
 await import('./appointment-ui-check.mjs');
+for (const script of ['release-location-check.mjs', 'release-listing-date-check.mjs', 'map-refresh-check.mjs', 'profile-feedback-identity-check.mjs', 'feedback-request-identity-check.mjs']) {
+  execFileSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url))], { stdio: 'inherit' });
+}
 
 for (const script of ['staff-moderation-ui-check.mjs', 'pwa-update-check.mjs', 'auth-ux-check.mjs', 'app-account-scope-check.mjs', 'navigation-resilience-check.mjs', 'reliability-ux-check.mjs', 'image-preparation-check.mjs', 'draft-check.mjs', 'form-task-check.mjs', 'listing-publication-check.mjs', 'map-ux-check.mjs', 'create-ux-check.mjs', 'feedback-submission-check.mjs', 'feedback-telegram-check.mjs']) {
   execFileSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url))], { stdio: 'inherit' });

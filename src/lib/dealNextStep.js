@@ -1,5 +1,3 @@
-import { isOpenAppointment } from './appointments.js';
-
 export function nextDealStep(deal, appointment, now = new Date()) {
   if (deal.canceled_at || ['canceled','expired'].includes(deal.status)) return deal.status === 'expired' ? 'expired' : 'closed';
   if (deal.completed_at || deal.returned_at || deal.status === 'completed') return deal.my_review_rating ? 'finished' : 'review';
@@ -15,7 +13,8 @@ export function nextDealStep(deal, appointment, now = new Date()) {
   if (mine) return 'waitPartner';
   if (other) return 'confirmTransfer';
   if (appointment === undefined) return 'checkMeeting';
-  if (isOpenAppointment(appointment)) return new Date(appointment.scheduled_for) > now ? 'attendMeeting' : 'confirmTransfer';
+  if (appointment?.state === 'completed') return 'confirmTransfer';
+  if (appointment?.state === 'scheduled') return new Date(appointment.scheduled_for) > now ? 'attendMeeting' : 'confirmTransfer';
   return 'arrangeMeeting';
 }
 

@@ -13,6 +13,13 @@ export const contactsToMap = (contacts = []) => contacts.reduce((result, contact
 
 export const isTelegramPhone = (value) => /^\+?[\d\s().-]+$/.test(String(value || '').trim());
 
+const normalizePhone = (value) => {
+  const raw = String(value || '').trim();
+  if (!/^\+?[\d\s().-]+$/.test(raw)) return '';
+  const digits = raw.replace(/\D/g, '').replace(/^00/, '');
+  return /^[1-9]\d{6,14}$/.test(digits) ? `+${digits}` : '';
+};
+
 const normalizeTelegram = (value) => {
   const raw = String(value || '').trim().replace(/^https?:\/\/(?:www\.)?t\.me\//i, '');
   if (!raw) return '';
@@ -27,7 +34,7 @@ const normalizeTelegram = (value) => {
 export const normalizeContacts = (contacts = {}) => contactChannels.flatMap((channel) => {
   const raw = String(contacts[channel.id] || '').trim();
   if (!raw) return [];
-  return [{ messenger_type: channel.id, contact_value: channel.id === 'tg' ? normalizeTelegram(raw) : raw }];
+  return [{ messenger_type: channel.id, contact_value: channel.id === 'tg' ? normalizeTelegram(raw) : normalizePhone(raw) }];
 });
 
 export const validateContacts = (contacts = {}) => {
@@ -40,10 +47,11 @@ export const validateContacts = (contacts = {}) => {
 
 export const contactHref = (contact) => {
   const value = contact?.contact_value || '';
-  if (contact?.messenger_type === 'wa') return `https://wa.me/${value.replace(/\D/g, '')}`;
+  const phone = normalizePhone(value);
+  if (contact?.messenger_type === 'wa') return phone ? `https://wa.me/${phone.slice(1)}` : undefined;
   if (contact?.messenger_type === 'tg') return value.startsWith('@')
     ? `https://t.me/${value.slice(1)}`
     : `tg://resolve?phone=${value.replace(/\D/g, '')}`;
-  if (contact?.messenger_type === 'viber') return `viber://chat?number=${value.replace(/[^+\d]/g, '')}`;
+  if (contact?.messenger_type === 'viber') return phone ? `viber://chat?number=${phone}` : undefined;
   return undefined;
 };

@@ -14,7 +14,11 @@ export const nextDefaultAppointmentInput = (now = Date.now()) => {
 export const appointmentTimeForSave = (localValue, savedTime) => {
   // Keep seconds and the original offset during the repeated DST hour when unchanged.
   if (savedTime && localAppointmentInput(savedTime) === localValue) return new Date(savedTime).toISOString();
-  return new Date(localValue).toISOString();
+  const date = new Date(localValue);
+  if (!localValue || !Number.isFinite(date.getTime()) || localAppointmentInput(date) !== localValue) {
+    throw Object.assign(new Error('appointment_invalid_time'), { code: 'appointment_invalid_time' });
+  }
+  return date.toISOString();
 };
 
 export const isAwaitingHandover = (deal) => Boolean(

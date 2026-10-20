@@ -42,7 +42,7 @@ assert.deepEqual(collectionPointTypeKeys, ['glass', 'paper', 'textile', 'packagi
 assert.equal(collectionPointTypeLabel('glass', 'en'), 'Glass');
 assert.equal(collectionPointTypeLabel('unknown', 'ru'), 'unknown');
 
-assert.equal(loanPhase({ listing_type: 'lend', accepted_at: '2026-09-23T10:00:00Z' }), 'accepted');
+assert.equal(loanPhase({ listing_type: 'lend', accepted_at: '2026-09-23T10:00:00Z' }), 'reserved');
 assert.equal(loanPhase({ listing_type: 'lend', handed_over_at: '2026-09-23T12:00:00Z', return_due_at: '2026-09-30T12:00:00Z' }, now), 'handed_over');
 assert.equal(loanPhase({ listing_type: 'lend', handed_over_at: '2026-09-23T12:00:00Z', return_due_at: '2026-09-22T12:00:00Z' }, now), 'return_due');
 assert.equal(loanPhase({ listing_type: 'lend', returned_at: '2026-09-24T12:00:00Z' }), 'returned');

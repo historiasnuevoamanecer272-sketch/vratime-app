@@ -237,6 +237,32 @@ try {
     await assertAccountBIsClear();
   });
 
+  await check('retired creation cannot unlock replacement after same-account relogin', async () => {
+    await prepareAccountA();
+    const retiredBusy = creation().props.onBusyChange;
+    retiredBusy(true);
+    auth.emitSession(null); await settle();
+    auth.emitSession(session('account-a')); await settle();
+    profile().props.onEditListing(listingA); await settle();
+    creation().props.onBusyChange(true);
+    assert.equal(creation().props.onBack(), false);
+    retiredBusy(false);
+    assert.equal(creation().props.onBack(), false, 'Retired generation must not clear current busy veto');
+    await settle();
+    assert.ok(creation());
+  });
+  await check('closed creation cannot unlock later creation in the same session', async () => {
+    await prepareAccountA();
+    const retiredBusy = creation().props.onBusyChange;
+    assert.equal(creation().props.onBack(), true); await settle();
+    profile().props.onEditListing(listingA); await settle();
+    creation().props.onBusyChange(true);
+    retiredBusy(false);
+    assert.equal(creation().props.onBack(), false);
+    creation().props.onBusyChange(false);
+    assert.equal(creation().props.onBack(), true);
+  });
+
   if (failures) process.exitCode = 1;
   else console.log('App account scope checks passed. Real App handlers; no live auth, API, account or database calls.');
   state.reset();

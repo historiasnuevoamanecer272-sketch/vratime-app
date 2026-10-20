@@ -22,6 +22,9 @@ import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { requestBrowserLocation } from '../lib/geolocationRequest';
 import { bindMapPopupReveal } from '../lib/popupViewport';
+import { formatListingDate } from '../lib/listingDate';
+import { subscribeMapRefresh } from '../lib/mapRefresh';
+import { subscribeConnection } from '../lib/connectionState';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -67,8 +70,8 @@ export default function MapScreen({ userId, active = true }) {
   const [listings, setListings] = useState([]);
   const [categories, setCategories] = useState([]);
   const [deals, setDeals] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const [loading, setLoading] = useState(() => globalThis.navigator?.onLine !== false);
+  const [loadError, setLoadError] = useState(() => globalThis.navigator?.onLine === false ? t('reliabilityExperience.offline') : '');
   const [bookingId, setBookingId] = useState(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
@@ -95,6 +98,7 @@ export default function MapScreen({ userId, active = true }) {
   const [locationPending, setLocationPending] = useState(false);
   const [locationIssue, setLocationIssue] = useState(false);
   const [resultsViewport, setResultsViewport] = useState(null);
+  const [online, setOnline] = useState(() => globalThis.navigator?.onLine !== false);
   const locationInFlight = useRef(false);
   const cancelLocation = useRef(null);
   const detailRef = useRef(null);
@@ -113,10 +117,12 @@ export default function MapScreen({ userId, active = true }) {
     return () => { window.clearTimeout(timer); cancelLocation.current?.(); locationInFlight.current = false; };
   }, [active, userId]);
 
-  const fetchData = useCallback(async () => {
+  useEffect(() => subscribeConnection(window, setOnline), []);
+
+  const fetchData = useCallback(async ({ background = false } = {}) => {
     const request = ++fetchRequest.current;
-    setLoading(true); setLoadError('');
-    await refreshExpiredDeals().catch(() => null);
+    if (!background) { setLoading(true); setLoadError(''); }
+    if (!background) await refreshExpiredDeals().catch(() => null);
     const [listingsResult, categoriesResult, dealsResult, pointsResult, discoveryResult] = await Promise.all([
       getPublicMapListings().then((data) => ({ data })).catch((error) => ({ error })),
       supabase.from('categories').select('*').order('id'),
@@ -127,9 +133,13 @@ export default function MapScreen({ userId, active = true }) {
     if (request !== fetchRequest.current) return;
     if (listingsResult.error || categoriesResult.error) setLoadError(listingsResult.error?.message || categoriesResult.error?.message || t('errors.load'));
     else {
-      setListings((listingsResult.data || []).map(normalizePublicListing));
+      const latest = (listingsResult.data || []).map(normalizePublicListing);
+      setListings(latest);
+      setSelectedListing((current) => current ? latest.find((item) => item.id === current.id) || null : null);
+      if (!bookingInFlight.current) setBookingListing((current) => current ? latest.find((item) => item.id === current.id) || null : null);
       setCategories(categoriesResult.data || []);
       setLastUpdated(new Date());
+      setLoadError('');
     }
     if (dealsResult.error) console.error('Could not load the current user listing requests:', dealsResult.error);
     else setDeals(dealsResult.data || []);
@@ -140,14 +150,13 @@ export default function MapScreen({ userId, active = true }) {
   }, [t]);
 
   useEffect(() => {
-    const initialLoad = window.setTimeout(fetchData, 0);
-    const refresh = () => fetchData();
-    window.addEventListener('listings-updated', refresh);
+    if (!active) return;
+    const stop = subscribeMapRefresh({ host: window, document, refresh: fetchData });
     return () => {
-      window.clearTimeout(initialLoad);
-      window.removeEventListener('listings-updated', refresh);
+      stop();
+      fetchRequest.current += 1;
     };
-  }, [fetchData]);
+  }, [fetchData, active, userId]);
 
   const roots = useMemo(() => categories.filter((item) => item.parent_id === null), [categories]);
   const requestedListingIds = useMemo(() => new Set(deals
@@ -203,7 +212,7 @@ export default function MapScreen({ userId, active = true }) {
   };
 
   const handleBook = async (item) => {
-    if (bookingInFlight.current || bookingId || isOwnMapListing(item, userId) || requestedListingIds.has(item.id) || availableRequestQuantity(item) < 1) return;
+    if (!online || bookingInFlight.current || bookingId || isOwnMapListing(item, userId) || requestedListingIds.has(item.id) || availableRequestQuantity(item) < 1) return;
     bookingInFlight.current = true;
     setBookingId(item.id);
     try {
@@ -308,9 +317,9 @@ export default function MapScreen({ userId, active = true }) {
       </header>
       <button type="button" className="map-recenter" onClick={locate} disabled={locationPending} aria-busy={locationPending} aria-label={t(locationPending ? 'map.locating' : 'mapExperience.recenter')} title={t(locationPending ? 'map.locating' : 'mapExperience.recenter')}><Icon name={locationPending ? 'clock' : 'location'} size={21} /></button>
       {locationMessage ? <div className="map-location-status"><p role="status">{locationMessage}</p>{locationIssue ? <><p className="map-location-hint">{t('mapExperience.positionManualHint')}</p><button type="button" className="btn-link map-location-retry" onClick={locate} disabled={locationPending}>{t('common.retry')}</button></> : null}</div> : null}
-      {loading ? <p className="map-refresh-status" role="status">{t('common.loading')}</p> : lastUpdated && loadError ? <p className="map-refresh-status" role="status">{t('reliabilityExperience.lastUpdated', { time: lastUpdated.toLocaleTimeString(language === 'me' ? 'sr-Latn-ME' : language, {hour:'2-digit',minute:'2-digit'}) })}</p> : null}
+      {loading ? <p className="map-refresh-status" role="status">{t('common.loading')}</p> : lastUpdated && (loadError || !online) ? <p className="map-refresh-status" role="status">{t('reliabilityExperience.lastUpdated', { time: lastUpdated.toLocaleTimeString(language === 'me' ? 'sr-Latn-ME' : language, {hour:'2-digit',minute:'2-digit'}) })}</p> : null}
 
-      {loadError ? <div className="map-state card"><Icon name="close" size={24} /><p>{t('errors.load')}</p><button type="button" className="btn-secondary" onClick={fetchData}>{t('common.retry')}</button></div> : null}
+      {loadError && !lastUpdated ? <div className="map-state card"><Icon name="close" size={24} /><p>{t('errors.load')}</p><button type="button" className="btn-secondary" onClick={fetchData}>{t('common.retry')}</button></div> : null}
 
       {mapLayer === 'listings' && sheetOpen ? <section className="listing-sheet open">
         <div className="listing-sheet-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('map.listTitle')}</h2></div><button type="button" className="icon-button" onClick={() => setSheetOpen(false)} aria-label={t('common.close')}><Icon name="close" size={18} /></button></div>
@@ -325,7 +334,7 @@ export default function MapScreen({ userId, active = true }) {
           <div className={`listing-kind mt-4 ${selectedListing.type}`}><Icon name={typeIcon(selectedListing)} size={14} />{t(typeLabel(selectedListing))}</div>
           {isOwnMapListing(selectedListing, userId) ? <p className="listing-owner">{t('mapExperience.myListing')}</p> : null}
           <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>
-          <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span><span><Icon name="calendar" size={13} />{new Intl.DateTimeFormat(language === 'me' ? 'sr-Latn-ME' : language, { day: 'numeric', month: 'short' }).format(new Date(selectedListing.created_at))}</span></div>
+          <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span>{formatListingDate(selectedListing.created_at, language) ? <span><Icon name="calendar" size={13} />{formatListingDate(selectedListing.created_at, language)}</span> : null}</div>
           <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>
           {selectedListing.type === 'lend' && selectedListing.loan_duration_days ? <p className="mt-3 text-sm font-semibold text-forest"><Icon name="clock" size={16} /> {t('loanExperience.durationSummary', {days:selectedListing.loan_duration_days})}</p> : null}
           <p className="listing-dialog-note"><Icon name="message" size={16} />{isOwnMapListing(selectedListing, userId) ? t('mapExperience.myListingHint') : requestedListingIds.has(selectedListing.id) ? t('map.requestedHint') : t('map.contactNote')}</p>
@@ -342,7 +351,8 @@ export default function MapScreen({ userId, active = true }) {
         <section ref={bookingRef} {...bookingFocus} className="booking-confirm card" aria-label={t(bookingListing.type === 'take' ? 'map.confirmTakeTitle' : bookingListing.type === 'lend' ? 'map.confirmLendTitle' : 'map.confirmGiveTitle')} onMouseDown={(event) => event.stopPropagation()}>
           <Icon name={bookingListing.type === 'take' ? 'handover' : bookingListing.type === 'lend' ? 'history' : 'gift'} size={30} /><h2 className="font-display mt-3 text-3xl text-forest">{t(bookingListing.type === 'take' ? 'map.confirmTakeTitle' : bookingListing.type === 'lend' ? 'map.confirmLendTitle' : 'map.confirmGiveTitle')}</h2><p>{t(bookingListing.type === 'take' ? 'map.confirmTakeText' : bookingListing.type === 'lend' ? 'map.confirmLendText' : 'map.confirmGiveText')}</p>
           <label className="mt-4 block text-left"><span className="field-label">{t('mapExperience.requestQuantity', { count: availableRequestQuantity(bookingListing) })}</span><input className="field" type="number" inputMode="numeric" step="1" min="1" max={availableRequestQuantity(bookingListing)} disabled={availableRequestQuantity(bookingListing) < 1} value={requestQuantity(bookingQuantity, bookingListing)} onChange={(event) => setBookingQuantity(requestQuantity(event.target.value, bookingListing))} /></label>
-          <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" className="btn-secondary" disabled={Boolean(bookingId)} onClick={() => setBookingListing(null)}>{t('common.cancel')}</button><button type="button" className="btn-primary" disabled={Boolean(bookingId) || isOwnMapListing(bookingListing, userId) || requestedListingIds.has(bookingListing.id) || availableRequestQuantity(bookingListing) < 1} onClick={() => handleBook(bookingListing)}>{bookingId ? t('map.booking') : t(bookingListing.type === 'take' ? 'map.confirmTakeYes' : bookingListing.type === 'lend' ? 'map.confirmLendYes' : 'map.confirmGiveYes')}</button></div>
+          {!online ? <p role="status" className="field-error">{t('reliabilityExperience.offline')}</p> : null}
+          <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" className="btn-secondary" disabled={Boolean(bookingId)} onClick={() => setBookingListing(null)}>{t('common.cancel')}</button><button type="button" className="btn-primary" disabled={!online || Boolean(bookingId) || isOwnMapListing(bookingListing, userId) || requestedListingIds.has(bookingListing.id) || availableRequestQuantity(bookingListing) < 1} onClick={() => handleBook(bookingListing)}>{bookingId ? t('map.booking') : t(bookingListing.type === 'take' ? 'map.confirmTakeYes' : bookingListing.type === 'lend' ? 'map.confirmLendYes' : 'map.confirmGiveYes')}</button></div>
         </section>
       </div> : null}
       {reportListing ? <ReportDialog active={active} targetKind="listing" targetId={reportListing.id} label={listingCategoryLabel(reportListing, language)} onClose={() => setReportListing(null)} /> : null}

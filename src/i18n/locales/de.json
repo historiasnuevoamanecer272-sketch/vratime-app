@@ -75,7 +75,7 @@
     "telegramAliasHint": "Ein öffentlicher Telegram-Benutzername — eine Telefonnummer ist nicht nötig.",
     "telegramPhoneHint": "Verwenden Sie das internationale Format. Die Nummer darf von Ihren Viber- und WhatsApp-Nummern abweichen.",
     "contactRequired": "Wählen Sie mindestens einen Messenger.",
-    "contactInvalid": "Prüfen Sie die Kontaktdaten.",
+    "contactInvalid": "Prüfen Sie die Kontaktdaten. Verwenden Sie für WhatsApp und Viber eine internationale Telefonnummer, z. B. +38267123456.",
     "telegramInvalid": "Telegram: Geben Sie @benutzername oder eine internationale Telefonnummer ein, z. B. +38267123456.",
     "migrationRequired": "Mehrere Messenger stehen nach der Datenbankaktualisierung zur Verfügung. Ihre bisherigen Kontaktdaten bleiben erhalten."
   },

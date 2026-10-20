@@ -1,0 +1,11 @@
+[Unit]
+Description=VratiMe support retries every five minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+RandomizedDelaySec=10
+Unit=vratime-feedback.service
+
+[Install]
+WantedBy=timers.target

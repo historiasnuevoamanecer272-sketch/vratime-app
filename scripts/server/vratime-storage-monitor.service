@@ -1,0 +1,16 @@
+[Unit]
+Description=VratiMe non-deleting storage observation and alerts
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -B /root/vratime-release-20261019/vratime-storage-monitor.py
+TimeoutStartSec=120
+StateDirectory=vratime-storage-monitor
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only

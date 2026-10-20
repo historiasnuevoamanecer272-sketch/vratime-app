@@ -9,6 +9,7 @@ import { transformSync } from 'rolldown/utils';
 import i18n from '../src/i18n/index.js';
 
 if (!process.argv.includes('--timezone-fixture')) {
+  await import('./deal-appointment-regression-check.mjs');
   let failed = false;
   for (const timezone of ['UTC', 'Europe/Budapest']) {
     try {
@@ -32,6 +33,9 @@ if (!process.argv.includes('--timezone-fixture')) {
       if (context.parentURL?.endsWith('/pages/MyDeals.jsx') && specifier === 'react') {
         return { url: 'vratime-test:my-deals-react', shortCircuit: true };
       }
+      if (context.parentURL?.endsWith('/components/AppointmentCard.jsx') && specifier === 'react') {
+        return { url: 'vratime-test:appointment-react', shortCircuit: true };
+      }
       if (context.parentURL?.endsWith('/components/AppointmentCard.jsx') && specifier === 'react/jsx-runtime') {
         return { url: 'vratime-test:capture-buttons', shortCircuit: true };
       }
@@ -49,6 +53,15 @@ if (!process.argv.includes('--timezone-fixture')) {
       return nextResolve(specifier, context);
     },
     load(url, context, nextLoad) {
+      if (url === 'vratime-test:appointment-react') {
+        return { format: 'module', shortCircuit: true, source: `
+          import * as React from ${JSON.stringify(reactUrl)};
+          export * from ${JSON.stringify(reactUrl)};
+          let input;
+          export const setAppointmentInput = (value) => { input = value; };
+          export const useState = (initial) => React.useState(typeof initial === 'function' && input !== undefined ? input : initial);
+        ` };
+      }
       if (url === 'vratime-test:no-network-api') {
         return { format: 'module', shortCircuit: true, source: `
           export const calls = [];
@@ -67,11 +80,11 @@ if (!process.argv.includes('--timezone-fixture')) {
         return { format: 'module', shortCircuit: true, source: `
           import * as React from ${JSON.stringify(reactUrl)};
           export * from ${JSON.stringify(reactUrl)};
-          let deals = [], appointments = [], stateIndex = 0;
-          export const setFixture = (nextDeals, nextAppointments) => { deals = nextDeals; appointments = nextAppointments; stateIndex = 0; };
+          let deals = [], appointments = [], stateIndex = 0, view = 'active';
+          export const setFixture = (nextDeals, nextAppointments, nextView = 'active') => { deals = nextDeals; appointments = nextAppointments; view = nextView; stateIndex = 0; };
           export const useState = (initial) => {
             const index = stateIndex++;
-            return React.useState(index === 0 ? deals : index === 1 ? appointments : initial);
+            return React.useState(index === 0 ? deals : index === 1 ? appointments : index === 3 ? view : initial);
           };
         ` };
       }
@@ -106,6 +119,8 @@ if (!process.argv.includes('--timezone-fixture')) {
     const { setFixture } = await import('vratime-test:my-deals-react');
     const { buttons } = await import('vratime-test:capture-buttons');
     const { calls } = await import('vratime-test:no-network-api');
+    const { setAppointmentInput } = await import('vratime-test:appointment-react');
+    const { subscribeToasts } = await import('../src/lib/toast.js');
     const { appointmentTimeForSave, isAwaitingHandover, localAppointmentInput, nextDefaultAppointmentInput } = await import('../src/lib/appointments.js');
     const accepted = { transaction_id: 'deal-fixture', listing_type: 'lend', accepted_at: '2026-01-10T08:00:00Z' };
     const render = (deal, appointment) => renderToStaticMarkup(createElement(AppointmentCard, { deal, appointment }));
@@ -177,9 +192,46 @@ if (!process.argv.includes('--timezone-fixture')) {
     const renderDeals = (meetings, deal = dealFixture) => {
       buttons.length = 0;
       calls.length = 0;
-      setFixture([deal], meetings);
+      setFixture([deal], meetings, deal.status === 'expired' ? 'history' : 'active');
       return renderToStaticMarkup(createElement(MyDeals));
     };
+    for (const [status, patch, expected] of [
+      ['pending', { accepted_at: null }, 'Awaiting decision'],
+      ['reserved', {}, 'Reserved'],
+      ['confirming', { giver_confirmed_at: accepted.accepted_at }, 'Awaiting confirmation'],
+      ['expired', { canceled_at: accepted.accepted_at, canceled_reason: 'expired' }, 'Expired'],
+    ]) {
+      check(`loan badge renders translated ${status}`, () => {
+        const html = renderDeals([], { ...dealFixture, ...patch, status });
+        assert.ok(html.includes(`status-pill status-${status}`));
+        assert.ok(!html.includes('status.requested') && !html.includes('status.accepted'));
+        assert.match(html, new RegExp(`status-pill status-${status}[^]*?</svg>${expected}</span>`));
+      });
+    }
+    if (timezone === 'Europe/Budapest') {
+      for (const [language, expected] of [
+        ['ru', 'Это местное время не существует из-за перевода часов. Выберите другое время.'],
+        ['me', 'Ovo lokalno vrijeme ne postoji zbog pomjeranja sata. Izaberite drugo vrijeme.'],
+        ['en', 'This local time does not exist because the clocks change. Choose another time.'],
+        ['fr', 'Cette heure locale n’existe pas à cause du changement d’heure. Choisissez une autre heure.'],
+        ['de', 'Diese Ortszeit existiert wegen der Zeitumstellung nicht. Wähle eine andere Zeit.'],
+      ]) {
+        await i18n.changeLanguage(language);
+        await checkAsync(`${language} skipped DST time reports actionable error without saving`, async () => {
+          const toasts = [];
+          const stop = subscribeToasts((toast) => toasts.push(toast));
+          setAppointmentInput('2026-03-29T02:30');
+          try {
+            renderDeals([]);
+            await buttons[0].onClick();
+            assert.deepEqual(calls, []);
+            assert.equal(toasts.at(-1)?.type, 'error');
+            assert.equal(toasts.at(-1)?.message, expected);
+          } finally { stop(); setAppointmentInput(undefined); }
+        });
+      }
+      await i18n.changeLanguage('en');
+    }
     await checkAsync('open meeting takes priority over older completed meeting and receives the outcome', async () => {
       const html = renderDeals([oldMeeting, currentMeeting]);
       assert.equal(html.match(/\bvalue="([^"]+)"/)?.[1], timezone === 'UTC' ? '2026-07-11T10:15' : '2026-07-11T12:15');

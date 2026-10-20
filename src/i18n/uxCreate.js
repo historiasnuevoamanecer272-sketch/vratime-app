@@ -1,5 +1,6 @@
 export const createExperienceTranslations = {
   ru: {
+    invalidFields: 'Проверьте поля объявления: количество, вес, название, описание и срок займа. Исправьте неверные значения перед публикацией.',
     addressSearching: 'Ищем подходящие адреса…',
     draftLoading: 'Загружаем сохранённый черновик…',
     draftPending: 'Выберите «Продолжить» или «Удалить черновик» в начале формы.',
@@ -15,10 +16,11 @@ export const createExperienceTranslations = {
     pinLabel: 'Место на карте', coordinates: 'Координаты: {{latitude}}, {{longitude}}',
     mapHint: 'Перетащите маркер к месту передачи или нажмите на нужное место карты. Масштаб сохранится.',
     blockersTitle: 'Чтобы опубликовать, заполните:', ready: 'Обязательные поля заполнены — можно публиковать.',
-    blockers: { category: 'Выберите категорию.', quantity: 'Количество: целое число от 1 до 10 000.', location: 'Выберите найденный адрес или точку передачи на карте.', loanDuration: 'Срок займа: целое число от 1 до 365 дней.', loanPhoto: 'Добавьте фотографию состояния вещи для займа.' },
+    blockers: { category: 'Выберите категорию.', quantity: 'Количество: целое число от 1 до 10 000.', weight: 'Вес: от 0,01 до 999 999,99 кг. Можно оставить пустым.', location: 'Выберите найденный адрес или точку передачи на карте.', loanDuration: 'Срок займа: целое число от 1 до 365 дней.', loanPhoto: 'Добавьте фотографию состояния вещи для займа.' },
     published: 'Объявление опубликовано.',
   },
   me: {
+    invalidFields: 'Provjerite polja oglasa: količinu, masu, naziv, opis i trajanje pozajmice. Ispravite nevažeće vrijednosti prije objavljivanja.',
     addressSearching: 'Tražimo odgovarajuće adrese…',
     draftLoading: 'Učitavamo sačuvani nacrt…',
     draftPending: 'Izaberite „Nastavi“ ili „Obriši nacrt“ na početku obrasca.',
@@ -34,10 +36,11 @@ export const createExperienceTranslations = {
     pinLabel: 'Izabrano mjesto na mapi', coordinates: 'Koordinate: {{latitude}}, {{longitude}}',
     mapHint: 'Prevucite marker do mjesta preuzimanja ili pritisnite željeno mjesto na mapi. Uvećanje ostaje isto.',
     blockersTitle: 'Za objavljivanje popunite:', ready: 'Obavezna polja su popunjena — možete objaviti.',
-    blockers: { category: 'Izaberite kategoriju.', quantity: 'Količina: cio broj od 1 do 10.000.', location: 'Izaberite pronađenu adresu ili mjesto preuzimanja na mapi.', loanDuration: 'Trajanje pozajmice: cio broj od 1 do 365 dana.', loanPhoto: 'Dodajte fotografiju stanja stvari za pozajmicu.' },
+    blockers: { category: 'Izaberite kategoriju.', quantity: 'Količina: cio broj od 1 do 10.000.', weight: 'Masa: od 0,01 do 999.999,99 kg. Polje može ostati prazno.', location: 'Izaberite pronađenu adresu ili mjesto preuzimanja na mapi.', loanDuration: 'Trajanje pozajmice: cio broj od 1 do 365 dana.', loanPhoto: 'Dodajte fotografiju stanja stvari za pozajmicu.' },
     published: 'Oglas je objavljen.',
   },
   en: {
+    invalidFields: 'Check the listing fields: quantity, weight, name, description and loan duration. Correct invalid values before publishing.',
     addressSearching: 'Finding matching addresses…',
     draftLoading: 'Loading your saved draft…',
     draftPending: 'Choose “Continue” or “Discard draft” at the top of the form.',
@@ -53,10 +56,11 @@ export const createExperienceTranslations = {
     pinLabel: 'Selected map point', coordinates: 'Coordinates: {{latitude}}, {{longitude}}',
     mapHint: 'Drag the marker to the pickup point or click the desired place on the map. The zoom level stays the same.',
     blockersTitle: 'To publish, complete:', ready: 'Required fields are complete — ready to publish.',
-    blockers: { category: 'Choose a category.', quantity: 'Quantity: a whole number from 1 to 10,000.', location: 'Choose a search result or a pickup point on the map.', loanDuration: 'Loan duration: a whole number from 1 to 365 days.', loanPhoto: 'Add a condition photo for the loan.' },
+    blockers: { category: 'Choose a category.', quantity: 'Quantity: a whole number from 1 to 10,000.', weight: 'Weight: 0.01 to 999,999.99 kg. You can leave this blank.', location: 'Choose a search result or a pickup point on the map.', loanDuration: 'Loan duration: a whole number from 1 to 365 days.', loanPhoto: 'Add a condition photo for the loan.' },
     published: 'Listing published.',
   },
   fr: {
+    invalidFields: 'Vérifiez les champs de l’annonce : quantité, poids, nom, description et durée du prêt. Corrigez les valeurs non valides avant de publier.',
     addressSearching: 'Recherche des adresses correspondantes…',
     draftLoading: 'Chargement du brouillon enregistré…',
     draftPending: 'Choisissez « Continuer » ou « Supprimer le brouillon » en haut du formulaire.',
@@ -72,10 +76,11 @@ export const createExperienceTranslations = {
     pinLabel: 'Point choisi sur la carte', coordinates: 'Coordonnées : {{latitude}}, {{longitude}}',
     mapHint: 'Faites glisser le repère vers le point de retrait ou cliquez sur l’endroit souhaité. Le niveau de zoom est conservé.',
     blockersTitle: 'Pour publier, complétez :', ready: 'Les champs obligatoires sont remplis — vous pouvez publier.',
-    blockers: { category: 'Choisissez une catégorie.', quantity: 'Quantité : un nombre entier de 1 à 10 000.', location: 'Choisissez une adresse trouvée ou un point de retrait sur la carte.', loanDuration: 'Durée du prêt : un nombre entier de 1 à 365 jours.', loanPhoto: 'Ajoutez une photo de l’état de l’objet pour le prêt.' },
+    blockers: { category: 'Choisissez une catégorie.', quantity: 'Quantité : un nombre entier de 1 à 10 000.', weight: 'Poids : de 0,01 à 999 999,99 kg. Ce champ peut rester vide.', location: 'Choisissez une adresse trouvée ou un point de retrait sur la carte.', loanDuration: 'Durée du prêt : un nombre entier de 1 à 365 jours.', loanPhoto: 'Ajoutez une photo de l’état de l’objet pour le prêt.' },
     published: 'Annonce publiée.',
   },
   de: {
+    invalidFields: 'Prüfen Sie die Anzeigenfelder: Menge, Gewicht, Name, Beschreibung und Leihdauer. Korrigieren Sie ungültige Werte vor dem Veröffentlichen.',
     addressSearching: 'Passende Adressen werden gesucht…',
     draftLoading: 'Gespeicherter Entwurf wird geladen…',
     draftPending: 'Wählen Sie oben im Formular „Fortsetzen“ oder „Entwurf verwerfen“.',
@@ -91,7 +96,7 @@ export const createExperienceTranslations = {
     pinLabel: 'Gewählter Kartenpunkt', coordinates: 'Koordinaten: {{latitude}}, {{longitude}}',
     mapHint: 'Ziehen Sie die Markierung zum Abholort oder klicken Sie auf die gewünschte Stelle. Die Zoomstufe bleibt erhalten.',
     blockersTitle: 'Zum Veröffentlichen ausfüllen:', ready: 'Die Pflichtfelder sind ausgefüllt — bereit zur Veröffentlichung.',
-    blockers: { category: 'Wählen Sie eine Kategorie.', quantity: 'Menge: eine ganze Zahl von 1 bis 10.000.', location: 'Wählen Sie eine gefundene Adresse oder einen Abholort auf der Karte.', loanDuration: 'Leihdauer: eine ganze Zahl von 1 bis 365 Tagen.', loanPhoto: 'Fügen Sie ein Zustandsfoto für die Leihgabe hinzu.' },
+    blockers: { category: 'Wählen Sie eine Kategorie.', quantity: 'Menge: eine ganze Zahl von 1 bis 10.000.', weight: 'Gewicht: 0,01 bis 999.999,99 kg. Sie können das Feld leer lassen.', location: 'Wählen Sie eine gefundene Adresse oder einen Abholort auf der Karte.', loanDuration: 'Leihdauer: eine ganze Zahl von 1 bis 365 Tagen.', loanPhoto: 'Fügen Sie ein Zustandsfoto für die Leihgabe hinzu.' },
     published: 'Anzeige veröffentlicht.',
   },
 };

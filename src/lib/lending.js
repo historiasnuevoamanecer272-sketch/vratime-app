@@ -1,12 +1,13 @@
 export const loanPhase = (deal, now = new Date()) => {
   if (deal?.listing_type !== 'lend') return null;
+  if (deal.status === 'expired') return 'expired';
   if (deal.canceled_at) return 'canceled';
   if (deal.returned_at) return 'returned';
   if (deal.handed_over_at) {
     return deal.return_due_at && new Date(deal.return_due_at) <= new Date(now) ? 'return_due' : 'handed_over';
   }
-  if (deal.accepted_at) return 'accepted';
-  return 'requested';
+  if (['pending', 'reserved', 'confirming'].includes(deal.status)) return deal.status;
+  return deal.accepted_at ? 'reserved' : 'pending';
 };
 
 export const impactTotals = (events = []) => events.reduce((totals, event) => {

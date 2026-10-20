@@ -92,7 +92,7 @@ const hooks = registerHooks({
         storage: { from: () => ({ upload: async () => { throw new Error('Test must not upload'); }, remove: async () => ({ error: null }) }) },
       };
     `);
-    if (url === 'create-ux-test:api') return module('export const updates = []; export const updateMyListing = async (payload) => { updates.push(payload); };');
+    if (url === 'create-ux-test:api') return module('export const updates = []; let failure; export const rejectUpdate = value => { failure = value; }; export const updateMyListing = async (payload) => { if (failure) throw failure; updates.push(payload); };');
     if (url.startsWith(srcUrl) && /\.(webp|png)$/.test(url)) return module(`export default ${JSON.stringify(url)};`);
     if (url.startsWith(srcUrl) && url.endsWith('.jsx')) {
       const result = transformSync(fileURLToPath(url), readFileSync(new URL(url), 'utf8'), { jsx: { runtime: 'automatic' } });
@@ -109,7 +109,7 @@ try {
   const capture = await import('create-ux-test:capture');
   const map = await import('create-ux-test:map');
   const { writes } = await import('create-ux-test:supabase');
-  const { updates } = await import('create-ux-test:api');
+  const { updates, rejectUpdate } = await import('create-ux-test:api');
   const addressMocks = await import('create-ux-test:addresses');
   const originalFetch = globalThis.fetch;
   const originalWindow = globalThis.window;
@@ -144,6 +144,48 @@ try {
   const check = async (name, action) => { try { await action(); } catch (error) { failures.push(`${name}: ${error.message.split('\n')[0]}`); } };
   for (const [language, translations] of Object.entries(createExperienceTranslations)) i18n.addResourceBundle(language, 'translation', { createExperience: translations }, true, true);
   await i18n.changeLanguage('en');
+
+  await check('optional weight invalid values block publication with an inline field error', async () => {
+    await start();
+    const weight = () => elements('input').find(item => item.inputMode === 'decimal');
+    for (const value of ['0', '-1', '1000000', '0.001']) {
+      const html = change(weight(), value);
+      assert.equal(publishButton().disabled, true, value);
+      assert.equal(weight()['aria-invalid'], true);
+      assert.match(html, /Weight.*0\.01.*999[,.]?999\.99/i);
+      await publishButton().onClick();
+      assert.equal(updates.length, 0);
+    }
+    change(weight(), '');
+    assert.equal(publishButton().disabled, false);
+    await publishButton().onClick();
+    assert.equal(updates[0].weight_kg, null);
+  });
+  await check('loan Unicode limits allow complete input and give name and description field errors', async () => {
+    await start({...fixture,type:'lend',category:'😀'.repeat(100),category_path:'lend/item',category_id:null,description:'😀'.repeat(500),loan_duration_days:3,image_url:'https://example.test/drill.jpg'});
+    assert.equal(publishButton().disabled, false);
+    assert.ok(!input('item_name').maxLength || input('item_name').maxLength >= 200, 'Native UTF-16 limit must allow 100 Unicode codepoints');
+    const textarea = elements('textarea').find(item => item.name === 'description');
+    assert.ok(!textarea.maxLength || textarea.maxLength >= 1000, 'Native UTF-16 limit must allow 500 Unicode codepoints');
+    const html = change(input('item_name'), '😀😀');
+    assert.equal(publishButton().disabled, true);
+    assert.match(html, /3.*100/);
+    assert.ok(input('item_name')['aria-describedby']);
+  });
+  await check('database validation errors explain fields and do not suggest a connection retry', async () => {
+    for (const code of ['23514', '22003', 'P0001']) {
+      await start();
+      rejectUpdate({ code, message: 'invalid listing field' });
+      try {
+        await publishButton().onClick();
+        const html = render();
+        assert.equal(updates.length, 0);
+        assert.match(toasts.at(-1).message, /weight|quantity|name|description/i);
+        assert.doesNotMatch(toasts.at(-1).message, /connection|selected files/i);
+        assert.match(html, /role="alert"/);
+      } finally { rejectUpdate(null); }
+    }
+  });
 
   await check('lending goes directly to its own item form without material categories', async () => {
     await start(null);

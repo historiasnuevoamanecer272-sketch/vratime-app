@@ -22,7 +22,7 @@ export default function AppointmentCard({ deal, appointment, onChanged }) {
       await action();
       onChanged?.();
     } catch (error) {
-      showToast(friendlyError(error, t), 'error');
+      showToast(error?.code === 'appointment_invalid_time' ? t('appointment.invalidTime') : friendlyError(error, t), 'error');
     } finally {
       workingRef.current = false;
       setWorking(false);

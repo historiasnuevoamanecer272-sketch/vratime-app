@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { createFeedback, requestFeedbackTelegramDelivery, deactivateListing, getEcoLeaderboard, getImpactTotals, getMyDeals, getMyReliability, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
 import { composeFeedback, submitFeedback } from '../lib/feedbackSubmission';
+import { createFeedbackRequestStore } from '../lib/feedbackRequestIdentity';
 import { listingCategoryLabel } from '../lib/categories';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contacts';
@@ -58,7 +59,7 @@ export default function Profile({ userId, onEditListing, active = true }) {
   const avatarAttempt = useRef(null);
   const screenshotRequest = useRef(0);
   const screenshotUpload = useRef(null);
-  const feedbackSubmissionAttempt = useRef(null);
+  const feedbackRequests = useMemo(() => createFeedbackRequestStore(), []);
   const taskScope = useMemo(() => createFormTaskScope(userId), [userId]);
   const levelsDialogRef = useRef(null);
   const [avatarCandidate, setAvatarCandidate] = useState(null);
@@ -302,24 +303,25 @@ export default function Profile({ userId, onEditListing, active = true }) {
     setFeedbackSaving(true);
     try {
       await task.authorize(() => supabase.auth.getUser());
+      const screenshotFile = feedback.screenshot ? screenshotMedia?.preparedFile || await prepareImage(feedback.screenshot, { kind: 'feedback', signal: task.signal }) : null;
+      task.assertCurrent();
+      const attempt = await feedbackRequests.reserve(userId, { type: feedback.type, message: composed.message, screenshot: screenshotFile });
+      task.assertCurrent();
       let screenshotUrl = null;
-      if (feedback.screenshot) {
-        if (!screenshotUpload.current) {
-          const file = screenshotMedia?.preparedFile || await prepareImage(feedback.screenshot, { kind: 'feedback', signal: task.signal });
+      if (screenshotFile) {
+        if (screenshotUpload.current?.operationId !== attempt.requestId) {
+          const uploaded = await uploadUserMedia({ kind: 'feedback', file: screenshotFile, operationId: attempt.requestId, expectedUserId: userId, signal: task.signal });
           task.assertCurrent();
-          screenshotUpload.current = await uploadUserMedia({ kind: 'feedback', file, operationId: screenshotMedia?.operationId, expectedUserId: userId, signal: task.signal });
-          task.assertCurrent();
+          screenshotUpload.current = { ...uploaded, operationId: attempt.requestId };
         }
         screenshotUrl = screenshotUpload.current.url;
       }
-      const fingerprint = JSON.stringify([feedback.type, composed.message, screenshotUrl]);
-      if (feedbackSubmissionAttempt.current?.fingerprint !== fingerprint) feedbackSubmissionAttempt.current = { fingerprint, requestId: crypto.randomUUID() };
-      const result = await submitFeedback({ type: feedback.type, message: composed.message, screenshotUrl, requestId: feedbackSubmissionAttempt.current.requestId }, {
+      const result = await submitFeedback({ type: feedback.type, message: composed.message, screenshotUrl, requestId: attempt.requestId }, {
         save: (payload) => task.mutate(() => createFeedback(payload), () => supabase.auth.getUser()),
         deliver: (feedbackId) => task.mutate(() => requestFeedbackTelegramDelivery(feedbackId), () => supabase.auth.getUser()),
       });
       task.assertCurrent();
-      feedbackSubmissionAttempt.current = null;
+      feedbackRequests.confirm(attempt);
       setFeedback({ type: 'feature', message: '', contact: '', screenshot: null });
       removeScreenshot();
       profileCache = null;

@@ -60,6 +60,7 @@ export default function App() {
   const [profileError, setProfileError] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [editingListing, setEditingListing] = useState(null);
+  const [creationGeneration, setCreationGeneration] = useState(0);
   const [toasts, setToasts] = useState([]);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallHelp, setShowInstallHelp] = useState(() => canOfferInstall(installDeviceStorage()));
@@ -70,10 +71,11 @@ export default function App() {
   const profileUserRef = useRef(null);
   const profileRequestRef = useRef(0);
   const creationBusyRef = useRef(false);
+  const creationGenerationRef = useRef(0);
   const pushSessionRef = useRef(null);
   const onCreationBusy = useCallback((busy) => {
-    if (profileUserRef.current === session?.user?.id) creationBusyRef.current = busy;
-  }, [session?.user?.id]);
+    if (creationGenerationRef.current === creationGeneration && profileUserRef.current === session?.user?.id) creationBusyRef.current = busy;
+  }, [creationGeneration, session?.user?.id]);
   const navigation = useAppNavigationState(Boolean(session && profileComplete && !loading && !profileError && !['/privacy', '/offer', '/support'].includes(window.location.pathname)));
   const { activeTab, visitedTabs, navigate } = navigation;
 
@@ -139,6 +141,7 @@ export default function App() {
       setAuthNotice(nextSession ? null : authReturn.pending || authReturn.failed ? 'error' : null);
       const userId = nextSession?.user?.id || null;
       if (profileUserRef.current !== userId) {
+        creationGenerationRef.current += 1;
         creationBusyRef.current = false;
         setIsCreating(false);
         setEditingListing(null);
@@ -213,9 +216,17 @@ export default function App() {
 
   const closeCreation = useCallback(() => {
     if (creationBusyRef.current) return false;
+    creationGenerationRef.current += 1;
     setIsCreating(false); setEditingListing(null);
     return true;
   }, []);
+
+  const openCreation = (listing = null) => {
+    setCreationGeneration(++creationGenerationRef.current);
+    creationBusyRef.current = false;
+    setEditingListing(listing);
+    setIsCreating(true);
+  };
 
   const retryProfile = () => {
     const userId = session?.user?.id;
@@ -278,14 +289,14 @@ export default function App() {
       {installBanner}
       <AppScreenBoundary message={t('errors.load')} retryLabel={t('common.retry')}>
         <div key={session.user.id} inert={isCreating || undefined}>
-          {visitedTabs.includes('map') ? <section className="app-tab" hidden={activeTab !== 'map'}><Suspense fallback={loadingView}><MapScreen active={activeTab === 'map' && !isCreating} userId={session.user.id} onCreate={() => { setEditingListing(null); setIsCreating(true); }} /></Suspense></section> : null}
+          {visitedTabs.includes('map') ? <section className="app-tab" hidden={activeTab !== 'map'}><Suspense fallback={loadingView}><MapScreen active={activeTab === 'map' && !isCreating} userId={session.user.id} onCreate={() => openCreation()} /></Suspense></section> : null}
           {visitedTabs.includes('deals') ? <section className="app-tab" hidden={activeTab !== 'deals'}><Suspense fallback={loadingView}><MyDeals active={activeTab === 'deals' && !isCreating} /></Suspense></section> : null}
-          {visitedTabs.includes('profile') ? <section className="app-tab" hidden={activeTab !== 'profile'}><Suspense fallback={loadingView}><Profile active={activeTab === 'profile' && !isCreating} userId={session.user.id} onEditListing={(listing) => { setEditingListing(listing); setIsCreating(true); }} /></Suspense></section> : null}
+          {visitedTabs.includes('profile') ? <section className="app-tab" hidden={activeTab !== 'profile'}><Suspense fallback={loadingView}><Profile active={activeTab === 'profile' && !isCreating} userId={session.user.id} onEditListing={openCreation} /></Suspense></section> : null}
 
           <nav className="bottom-nav" aria-label={t('nav.label')}>
             <div className="bottom-nav-inner">
               {tabs.map((tab) => tab.action ? (
-                <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => { setEditingListing(null); setIsCreating(true); }} aria-label={t('nav.create')}>
+                <button key={tab.id} type="button" className="bottom-nav-button bottom-nav-create" onClick={() => openCreation()} aria-label={t('nav.create')}>
                   <span className="bottom-nav-create-icon"><Icon name="plus" size={25} strokeWidth={2.6} /></span><span>{tab.label}</span>
                 </button>
               ) : (
@@ -297,7 +308,7 @@ export default function App() {
           </nav>
         </div>
 
-        {isCreating ? <Suspense fallback={loadingView}><CreationLayer key={session.user.id} onClose={closeCreation}><CreateListing userId={session.user.id} editingListing={editingListing} onBusyChange={onCreationBusy} onBack={closeCreation} onSuccess={() => { creationBusyRef.current = false; markInstallMilestone('listing'); const destination = editingListing ? 'profile' : 'map'; closeCreation(); navigate(destination); }} /></CreationLayer></Suspense> : null}
+        {isCreating ? <Suspense fallback={loadingView}><CreationLayer key={`${session.user.id}:${creationGeneration}`} onClose={closeCreation}><CreateListing userId={session.user.id} editingListing={editingListing} onBusyChange={onCreationBusy} onBack={closeCreation} onSuccess={() => { if (creationGenerationRef.current !== creationGeneration) return; creationBusyRef.current = false; markInstallMilestone('listing'); const destination = editingListing ? 'profile' : 'map'; closeCreation(); navigate(destination); }} /></CreationLayer></Suspense> : null}
       </AppScreenBoundary>
       {toastStack}
     </div>
