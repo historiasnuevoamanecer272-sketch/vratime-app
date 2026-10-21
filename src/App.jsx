@@ -290,7 +290,7 @@ export default function App() {
       <AppScreenBoundary message={t('errors.load')} retryLabel={t('common.retry')}>
         <div key={session.user.id} inert={isCreating || undefined}>
           {visitedTabs.includes('map') ? <section className="app-tab" hidden={activeTab !== 'map'}><Suspense fallback={loadingView}><MapScreen active={activeTab === 'map' && !isCreating} userId={session.user.id} onCreate={() => openCreation()} /></Suspense></section> : null}
-          {visitedTabs.includes('deals') ? <section className="app-tab" hidden={activeTab !== 'deals'}><Suspense fallback={loadingView}><MyDeals active={activeTab === 'deals' && !isCreating} /></Suspense></section> : null}
+          {visitedTabs.includes('deals') ? <section className="app-tab" hidden={activeTab !== 'deals'}><Suspense fallback={loadingView}><MyDeals userId={session.user.id} active={activeTab === 'deals' && !isCreating} /></Suspense></section> : null}
           {visitedTabs.includes('profile') ? <section className="app-tab" hidden={activeTab !== 'profile'}><Suspense fallback={loadingView}><Profile active={activeTab === 'profile' && !isCreating} userId={session.user.id} onEditListing={openCreation} /></Suspense></section> : null}
 
           <nav className="bottom-nav" aria-label={t('nav.label')}>

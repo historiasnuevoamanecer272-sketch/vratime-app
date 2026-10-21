@@ -264,11 +264,13 @@ for (const language of supportedLanguages) {
 }
 
 for (const [language, label] of Object.entries({ru:'Отменить встречу',me:'Otkaži sastanak',en:'Cancel meeting',fr:'Annuler le rendez-vous',de:'Treffen absagen'})) resources[language].translation.appointment.cancel = label;
+for (const [language, label] of Object.entries({ru:'Укажите широту от −90 до 90 и долготу от −180 до 180.',me:'Unesite geografsku širinu od −90 do 90 i dužinu od −180 do 180.',en:'Enter a latitude from −90 to 90 and a longitude from −180 to 180.',fr:'Indiquez une latitude de −90 à 90 et une longitude de −180 à 180.',de:'Gib einen Breitengrad von −90 bis 90 und einen Längengrad von −180 bis 180 ein.'})) resources[language].translation.points.invalidCoordinates = label;
 
 const normalizeLanguage = (value) => normalizeAppLanguage(value) || 'ru';
 
 const hasBrowser = typeof window !== 'undefined';
-const storedLanguage = hasBrowser ? window.localStorage.getItem('vratimeLanguage') : null;
+let storedLanguage = null;
+try { if (hasBrowser) storedLanguage = window.localStorage?.getItem('vratimeLanguage') ?? null; } catch { /* Device language still works when browser storage is disabled. */ }
 const initialLanguage = resolveInitialLanguage(storedLanguage, hasBrowser ? window.navigator.languages : [], hasBrowser ? window.navigator.language : 'ru');
 
 i18n.use(initReactI18next).init({
@@ -281,7 +283,7 @@ i18n.use(initReactI18next).init({
 
 i18n.on('languageChanged', (language) => {
   const normalized = normalizeLanguage(language);
-  if (hasBrowser) window.localStorage.setItem('vratimeLanguage', normalized);
+  try { if (hasBrowser) window.localStorage?.setItem('vratimeLanguage', normalized); } catch { /* Keep the current language usable without persistence. */ }
   if (typeof document !== 'undefined') document.documentElement.lang = normalized === 'me' ? 'sr-Latn-ME' : normalized;
 });
 

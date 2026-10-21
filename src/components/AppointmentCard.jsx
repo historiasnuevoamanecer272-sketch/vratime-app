@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Icon from './Icon';
 import { scheduleHandover, setHandoverOutcome } from '../lib/api';
 import { showToast } from '../lib/toast';
 import { friendlyError } from '../lib/userErrors';
 import { useTranslation } from 'react-i18next';
 import { appointmentTimeForSave, isAwaitingHandover, isOpenAppointment, localAppointmentInput, nextDefaultAppointmentInput } from '../lib/appointments';
+import { createFormTaskScope } from '../lib/formTaskScope';
 
 export default function AppointmentCard({ deal, appointment, onChanged }) {
   const { t } = useTranslation();
@@ -12,20 +13,28 @@ export default function AppointmentCard({ deal, appointment, onChanged }) {
   const [scheduledFor, setScheduledFor] = useState(() => localAppointmentInput(activeAppointment?.scheduled_for) || nextDefaultAppointmentInput());
   const [working, setWorking] = useState(false);
   const workingRef = useRef(false);
+  const taskScope = useMemo(() => createFormTaskScope(), []);
   const canSchedule = deal?.accepted_at && isAwaitingHandover(deal);
 
+  useEffect(() => {
+    taskScope.activate();
+    return () => taskScope.dispose();
+  }, [taskScope]);
+
   const run = async (action) => {
-    if (workingRef.current) return;
+    const task = taskScope.capture();
+    if (workingRef.current || !task.isCurrent()) return;
     workingRef.current = true;
     setWorking(true);
     try {
       await action();
-      onChanged?.();
+      if (!task.isCurrent()) return;
+      await onChanged?.();
     } catch (error) {
-      showToast(error?.code === 'appointment_invalid_time' ? t('appointment.invalidTime') : friendlyError(error, t), 'error');
+      if (task.isCurrent()) showToast(error?.code === 'appointment_invalid_time' ? t('appointment.invalidTime') : friendlyError(error, t), 'error');
     } finally {
       workingRef.current = false;
-      setWorking(false);
+      if (task.isCurrent()) setWorking(false);
     }
   };
 

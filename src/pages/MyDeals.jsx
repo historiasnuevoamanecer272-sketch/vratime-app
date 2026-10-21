@@ -21,6 +21,7 @@ import { markInstallMilestone } from '../lib/installExperience';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import ListingPhoto from '../components/ListingPhoto';
+import { createFormTaskScope } from '../lib/formTaskScope';
 
 const statusIcons = {
   pending: 'clock',
@@ -34,7 +35,7 @@ const statusIcons = {
   returned: 'check',
 };
 
-export default function MyDeals({ active = true }) {
+export default function MyDeals({ active = true, userId }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const [deals, setDeals] = useState([]);
@@ -48,18 +49,32 @@ export default function MyDeals({ active = true }) {
   const [reportDeal, setReportDeal] = useState(null);
   const didChooseInitialRole = useRef(false);
   const actionInFlight = useRef(false);
+  const loadRequest = useRef(0);
+  const taskScope = useMemo(() => createFormTaskScope(userId), [userId]);
   const ratingRef = useRef(null);
   const [appointmentError, setAppointmentError] = useState(false);
   const closeRating = () => { if (actionInFlight.current) return false; setRatingDeal(null); return true; };
   useAppOverlay(active && Boolean(ratingDeal), closeRating, 'deal-rating');
   const ratingFocus = useDialogFocus({open:active && Boolean(ratingDeal),onClose:closeRating,dialogRef:ratingRef});
 
+  useEffect(() => {
+    taskScope.activate();
+    const subscription = supabase.auth?.onAuthStateChange?.((_event, session) => { if (session?.user?.id !== userId) taskScope.dispose(); })?.data?.subscription;
+    return () => { taskScope.dispose(); subscription?.unsubscribe(); };
+  }, [taskScope, userId]);
+
   const loadDeals = useCallback(async () => {
+    const task = taskScope.capture();
+    if (!task.isCurrent()) return;
+    const request = ++loadRequest.current;
+    const isCurrent = () => task.isCurrent() && request === loadRequest.current;
     setLoading(true); setError('');
     try {
       const nextDeals = await getMyDeals() || [];
-      setDeals(nextDeals);
+      if (!isCurrent()) return;
       const appointmentResult = await supabase.from('handover_appointments').select('*').order('scheduled_for', { ascending: true });
+      if (!isCurrent()) return;
+      setDeals(nextDeals);
       setAppointmentError(Boolean(appointmentResult.error));
       if (!appointmentResult.error) setAppointments(appointmentResult.data || []);
       if (!didChooseInitialRole.current) {
@@ -69,15 +84,16 @@ export default function MyDeals({ active = true }) {
         didChooseInitialRole.current = true;
       }
     }
-    catch (loadError) { setError(friendlyError(loadError, t)); }
-    finally { setLoading(false); }
-  }, [t]);
+    catch (loadError) { if (isCurrent()) setError(friendlyError(loadError, t)); }
+    finally { if (isCurrent()) setLoading(false); }
+  }, [t, taskScope]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(loadDeals, 0);
     const refresh = () => loadDeals();
     window.addEventListener('deals-updated', refresh);
     return () => {
+      loadRequest.current += 1;
       window.clearTimeout(initialLoad);
       window.removeEventListener('deals-updated', refresh);
     };
@@ -90,43 +106,50 @@ export default function MyDeals({ active = true }) {
   }), [deals, role, view]);
 
   const runAction = async (deal, action) => {
-    if (actionInFlight.current) return;
+    const task = taskScope.capture();
+    if (actionInFlight.current || !task.isCurrent()) return;
     if (action === 'cancel' && !window.confirm(t('deals.cancelConfirm'))) return;
     actionInFlight.current = true;
     setWorkingId(deal.transaction_id);
     try {
-      if (action === 'cancel') { await cancelBooking(deal.transaction_id); showToast(t('deals.canceled'), 'success', { prominent: true }); }
-      else if (action === 'accept') { await acceptDeal(deal.transaction_id); showToast(t('deals.accepted'), 'success', { prominent: true }); }
+      if (action === 'cancel') { await cancelBooking(deal.transaction_id); if (!task.isCurrent()) return; showToast(t('deals.canceled'), 'success', { prominent: true }); }
+      else if (action === 'accept') { await acceptDeal(deal.transaction_id); if (!task.isCurrent()) return; showToast(t('deals.accepted'), 'success', { prominent: true }); }
       else if (action === 'loan-handover') {
         const result = await confirmLoanHandover(deal.transaction_id);
+        if (!task.isCurrent()) return;
         showToast(t(result?.handed_over ? 'lending.handedOver' : 'lending.waitingHandover'), 'success', { prominent: true });
       }
       else if (action === 'loan-return') {
         const result = await confirmLoanReturn(deal.transaction_id);
+        if (!task.isCurrent()) return;
         showToast(t(result?.returned ? 'lending.returned' : 'lending.waitingReturn'), 'success', { prominent: true });
       }
       else {
         const result = await confirmHandover(deal.transaction_id);
+        if (!task.isCurrent()) return;
         showToast(t(result?.completed ? 'deals.completed' : 'deals.confirmedWaiting'), 'success', { prominent: true });
       }
       markInstallMilestone('transaction');
       await loadDeals();
+      if (!task.isCurrent()) return;
       window.dispatchEvent(new Event('listings-updated'));
       window.dispatchEvent(new Event('profile-updated'));
-    } catch (actionError) { showToast(friendlyError(actionError, t), 'error'); }
-    finally { actionInFlight.current = false; setWorkingId(null); }
+    } catch (actionError) { if (task.isCurrent()) showToast(friendlyError(actionError, t), 'error'); }
+    finally { actionInFlight.current = false; if (task.isCurrent()) setWorkingId(null); }
   };
 
   const rate = async (value) => {
-    if (actionInFlight.current || !ratingDeal) return;
+    const task = taskScope.capture();
+    if (actionInFlight.current || !ratingDeal || !task.isCurrent()) return;
     actionInFlight.current = true;
     setWorkingId(ratingDeal.transaction_id);
     try {
       await submitReview(ratingDeal.transaction_id, value);
+      if (!task.isCurrent()) return;
       showToast(t('deals.ratingSent'), 'success');
       setRatingDeal(null); await loadDeals();
-    } catch (ratingError) { showToast(friendlyError(ratingError, t), 'error'); }
-    finally { actionInFlight.current = false; setWorkingId(null); }
+    } catch (ratingError) { if (task.isCurrent()) showToast(friendlyError(ratingError, t), 'error'); }
+    finally { actionInFlight.current = false; if (task.isCurrent()) setWorkingId(null); }
   };
 
   const statusOf = (deal) => loanPhase(deal) || (deal.canceled_at ? 'canceled' : deal.completed_at ? 'completed' : deal.status || 'reserved');
@@ -167,7 +190,7 @@ export default function MyDeals({ active = true }) {
 
               {!deal.canceled_at ? <ol className="deal-flow" aria-label={t('deals.flowLabel')}><li className="done"><span><Icon name="message" size={12} /></span>{t('deals.flowRequested')}</li><li className={deal.accepted_at ? 'done reserved' : ''}><span><Icon name="clock" size={12} /></span>{t('deals.flowAccepted')}</li><li className={deal.handed_over_at || (!isLoan && deal.completed_at) ? 'done completed' : ''}><span><Icon name="handshake" size={12} /></span>{t('deals.flowHandover')}</li>{isLoan ? <li className={deal.returned_at ? 'done completed' : ''}><span><Icon name="history" size={12} /></span>{t('lending.return')}</li> : null}</ol> : null}
               {isLoan && deal.return_due_at ? <p className="mt-3 text-sm font-semibold text-muted"><Icon name="calendar" size={15} /> {t('lending.returnDue')}: {new Date(deal.return_due_at).toLocaleString(language === 'me' ? 'sr-ME' : language)}</p> : null}
-              {!appointmentError ? <AppointmentCard key={`${appointment?.id || 'new'}:${appointment?.scheduled_for || ''}:${isOpenAppointment(appointment) ? 'open' : 'closed'}`} deal={deal} appointment={appointment} onChanged={loadDeals} /> : null}
+              {!appointmentError && nextStep !== 'expired' ? <AppointmentCard key={`${appointment?.id || 'new'}:${appointment?.scheduled_for || ''}:${isOpenAppointment(appointment) ? 'open' : 'closed'}`} deal={deal} appointment={appointment} onChanged={loadDeals} /> : null}
 
               {!deal.completed_at && !deal.canceled_at && nextStep !== 'expired' ? <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 {!deal.accepted_at && deal.is_listing_owner ? <button type="button" className="btn-primary w-full text-sm" disabled={working} onClick={() => runAction(deal, 'accept')}><Icon name="check" size={17} />{working ? t('deals.accepting') : t('deals.accept')}</button> : null}

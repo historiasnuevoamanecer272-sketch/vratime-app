@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
 import { getAppLanguage, setAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import { createGoogleSignInRequest } from '../lib/authNavigation';
+import { friendlyError } from '../lib/userErrors';
 import logo from '../assets/images/app-logo.png';
 import montenegroHero from '../assets/visuals/v2/montenegro-adriatic-hero-v1.webp';
 // Unmodified official asset: https://developers.google.com/identity/branding-guidelines
@@ -14,12 +15,28 @@ import LanguageMenu from '../components/LanguageMenu';
 export default function Login() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const pending = useRef(false);
+  const mounted = useRef(true);
   const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
 
+  useEffect(() => {
+    mounted.current = true;
+    const returned = (event) => { if (event.persisted) { pending.current = false; setLoading(false); } };
+    window.addEventListener('pageshow', returned);
+    return () => { mounted.current = false; window.removeEventListener('pageshow', returned); };
+  }, []);
+
   const continueWithGoogle = async () => {
+    if (pending.current) return;
+    pending.current = true;
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth(createGoogleSignInRequest(redirectTo));
-    if (error) { showToast(error.message, 'error'); setLoading(false); }
+    try {
+      const { error } = await supabase.auth.signInWithOAuth(createGoogleSignInRequest(redirectTo));
+      if (error) throw error;
+    } catch (error) {
+      pending.current = false;
+      if (mounted.current) { showToast(friendlyError(error, t), 'error'); setLoading(false); }
+    }
   };
 
   return (

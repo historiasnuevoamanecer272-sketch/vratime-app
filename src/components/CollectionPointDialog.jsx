@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { friendlyError } from '../lib/userErrors';
+import { validPosition } from '../lib/locationValidation';
 import { useTranslation } from 'react-i18next';
 import { createCollectionPoint } from '../lib/api';
 import { collectionPointTypeKeys, collectionPointTypeLabel } from '../lib/collectionPointTypes';
@@ -13,7 +14,10 @@ export default function CollectionPointDialog({ initialPosition = [42.441, 19.26
   const { t } = useTranslation();
   const language = getAppLanguage();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', locationLabel: '', description: '', lat: initialPosition?.[0] || 42.441, lng: initialPosition?.[1] || 19.263, materials: [] });
+  const [form, setForm] = useState(() => {
+    const position = validPosition(initialPosition) ? initialPosition.map(Number) : [42.441, 19.263];
+    return { name: '', locationLabel: '', description: '', lat: position[0], lng: position[1], materials: [] };
+  });
   const toggleMaterial = (key) => setForm((current) => ({ ...current, materials: current.materials.includes(key) ? current.materials.filter((item) => item !== key) : [...current.materials, key] }));
   const useLocation = () => navigator.geolocation?.getCurrentPosition(({ coords }) => setForm((current) => ({ ...current, lat: coords.latitude, lng: coords.longitude })), () => showToast(t('map.locationDenied'), 'error'), { enableHighAccuracy: true, timeout: 10000 });
   const busy = useRef(false);
@@ -24,6 +28,7 @@ export default function CollectionPointDialog({ initialPosition = [42.441, 19.26
   const submit = async () => {
     if (busy.current) return;
     if (form.name.trim().length < 2 || form.locationLabel.trim().length < 3 || !form.materials.length) return showToast(t('points.required'), 'error');
+    if (!validPosition([form.lat, form.lng])) return showToast(t('points.invalidCoordinates'), 'error');
     busy.current = true; setSaving(true);
     try {
       await createCollectionPoint({ ...form, name: form.name.trim(), locationLabel: form.locationLabel.trim(), description: form.description.trim() || null });

@@ -217,6 +217,7 @@ try {
       portraitButton.props.onClick({stopPropagation(){}});
       const expanded = rerender();
       assert.match(expanded,/media-preview-dialog/);
+      assert.equal(elementWithClass('media-preview-dialog').props.tabIndex,-1,'Media dialog must remain a focus target when controls are unavailable');
       const completePhoto = elementWithClass('media-full-preview');
       assert.equal(completePhoto.props.src,'https://example.test/portrait.jpg');
       elementWithClass('media-preview-close').props.onClick();

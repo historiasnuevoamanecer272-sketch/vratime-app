@@ -9,9 +9,9 @@ import '../styles/media-ux.css';
 function MediaDialog({ children, title, onClose, active = true, fullScreen = false }) {
   const dialogRef = useRef(null);
   useAppOverlay(active, onClose, 'media-preview');
-  useDialogFocus({ open: active, onClose, dialogRef });
+  const focusProps = useDialogFocus({ open: active, onClose, dialogRef });
   if (!active) return null;
-  const content = <div className={`media-dialog-backdrop${fullScreen ? ' media-preview-backdrop' : ''}`}><section ref={dialogRef} className={`media-dialog${fullScreen ? ' media-preview-dialog' : ''}`} role="dialog" aria-modal="true" aria-label={title}>{children}</section></div>;
+  const content = <div className={`media-dialog-backdrop${fullScreen ? ' media-preview-backdrop' : ''}`}><section ref={dialogRef} {...focusProps} className={`media-dialog${fullScreen ? ' media-preview-dialog' : ''}`} aria-label={title}>{children}</section></div>;
   return globalThis.document?.body ? createPortal(content,document.body) : content;
 }
 

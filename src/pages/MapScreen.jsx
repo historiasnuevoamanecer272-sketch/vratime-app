@@ -25,6 +25,7 @@ import { bindMapPopupReveal } from '../lib/popupViewport';
 import { formatListingDate } from '../lib/listingDate';
 import { subscribeMapRefresh } from '../lib/mapRefresh';
 import { subscribeConnection } from '../lib/connectionState';
+import { normalizeCollectionPoints } from '../lib/collectionPoints';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
   ...(Array.isArray(listing.image_urls) ? listing.image_urls : []),
@@ -144,7 +145,7 @@ export default function MapScreen({ userId, active = true }) {
     if (dealsResult.error) console.error('Could not load the current user listing requests:', dealsResult.error);
     else setDeals(dealsResult.data || []);
     setPointsError(Boolean(pointsResult.error));
-    if (!pointsResult.error) setCollectionPoints(pointsResult.data || []);
+    if (!pointsResult.error) setCollectionPoints(normalizeCollectionPoints(pointsResult.data));
     if (!discoveryResult.error) setFavouriteIds(new Set((discoveryResult.data?.favourites || []).map((item) => item.listing_id)));
     setLoading(false);
   }, [t]);
