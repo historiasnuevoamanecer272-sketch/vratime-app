@@ -59,6 +59,10 @@ export const setFeedbackStatus = (feedbackId, status) => rpc('set_feedback_statu
 export const setUserRole = (userId, role) => rpc('set_user_role', { target_user_id: userId, target_role: role });
 export const setMyAvatar = (avatarUrl) => rpc('set_my_avatar', { next_avatar_url: avatarUrl || null });
 export const getMyDeals = () => rpc('get_my_deals');
+export const requestListingContacts = (listingId) => rpc('request_listing_contacts', { target_listing_id: listingId });
+export const getMyListingContacts = () => rpc('get_my_listing_contacts');
+export const setMyListingRemaining = (listingId, remaining, reason = null) => rpc('set_my_listing_remaining', { target_listing_id: listingId, remaining_quantity: Number(remaining), close_reason: reason });
+export const confirmMyListingCurrent = (listingId) => rpc('confirm_my_listing_current', { target_listing_id: listingId });
 export const getPublicMapListings = () => rpc('get_public_map_listings_v2');
 export const getTransactionPickupDetails = (transactionId) => rpc('get_transaction_pickup_details', { target_transaction_id: transactionId });
 export const scheduleHandover = (transactionId, scheduledFor, note = null) => rpc('schedule_handover', { target_transaction_id: transactionId, scheduled_for: scheduledFor, note });

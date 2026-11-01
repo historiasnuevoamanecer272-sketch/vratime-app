@@ -23,3 +23,12 @@ export const mapMarkerIcons = {
   lend: marker('lend'),
   collection: marker('collection'),
 };
+
+export const groupedMapMarkerIcon = (count) => L.divIcon({
+  className: 'vratime-marker-wrap',
+  html: `<span class="vratime-marker vratime-marker-group"><span>${Math.max(2, Math.floor(Number(count)) || 2)}</span></span>`,
+  iconSize: [48, 56],
+  iconAnchor: [24, 53],
+  popupAnchor: [0, -48],
+  tooltipAnchor: [0, -46],
+});

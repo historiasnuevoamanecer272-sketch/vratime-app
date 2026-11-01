@@ -54,6 +54,8 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
   const photoSelectionMutex = useRef(false);
   const uploadedMedia = useRef(new Map());
   const removedPhotoIds = useRef(new Set());
+  // Also guard submit callbacks captured before a photo failed.
+  const photoFailures = useRef(new Map());
   const taskScope = useMemo(() => createFormTaskScope(userId), [userId]);
   const [publicationId, setPublicationId] = useState(() => crypto.randomUUID());
   const draftStore = useMemo(() => createListingDraftStore(), []);
@@ -123,14 +125,16 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     if (!draft) return;
     addressAutocomplete.cancel(); setAddressResults([]); setAddressSuggestionStatus('idle');
     locationRequestRef.current += 1;
-    setForm((current) => ({ ...current, ...draft.data.form }));
+    const restoredType = isEditing ? editingListing.type : draft.data.form.type;
+    setForm((current) => ({ ...current, ...draft.data.form, type: restoredType }));
     setSelected(draft.data.selected);
     setPosition(draft.data.position);
     setAddress(draft.data.address);
     setAddressVerified(false);
     setDraftReviewRequired(true);
     setLocationKind(draft.data.locationKind);
-    setStep(draft.data.form.type === 'lend' && draft.data.step === 2 ? 3 : draft.data.step);
+    const restoredStep = restoredType === 'lend' && draft.data.step === 2 ? 3 : draft.data.step;
+    setStep(isEditing && (restoredStep === 1 || restoredType === 'lend') ? 3 : restoredStep);
     if (draft.data.publicationId) setPublicationId(draft.data.publicationId);
     const existingUrls = draft.data.existingPhotoUrls || [...new Set([...(editingListing?.image_urls || []), editingListing?.image_url].filter(Boolean))];
     const draftPhotos = draft.photosAvailable ? draft.photos : existingUrls.map((preview) => ({ preview, existing: true }));
@@ -138,6 +142,9 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
       if (photo.existing) return photo;
       return { ...photo, preview: '', operationId: photo.operationId || crypto.randomUUID(), preparing: true };
     });
+    const restoredPhotoIds = new Set(restoredPhotos.map((photo) => photo.operationId));
+    photos.forEach((photo) => { if (photo.operationId && !restoredPhotoIds.has(photo.operationId)) removedPhotoIds.current.add(photo.operationId); });
+    photoFailures.current.clear();
     setPhotos(restoredPhotos);
     restoredPhotos.filter((photo) => photo.file).forEach((photo) => preparePhoto(photo));
     setDraftStatus(draft.photosAvailable ? 'saved' : 'textOnly');
@@ -185,7 +192,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     if (step === 3 && form.type === 'lend') return isEditing ? onBack() : setStep(1);
     if (step === 3) return setStep(2);
     if (step === 2 && trail.length) return setTrail((current) => current.slice(0, -1));
-    if (step === 2) return setStep(1);
+    if (step === 2) return isEditing ? onBack() : setStep(1);
     onBack();
   };
 
@@ -197,10 +204,13 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
       const result = await prepareScopedPreview(photo.file, { task, isCurrent: () => !removedPhotoIds.current.has(photo.operationId), prepare: (file, signal) => prepareImage(file, { kind: 'listing', signal }) });
       if (!result || !task.isCurrent()) return;
       previewUrls.current.add(result.preview);
+      photoFailures.current.delete(photo.operationId);
       setPhotos((current) => current.map((item) => item.operationId === photo.operationId ? { ...item, ...result, preparing: false, error: '' } : item));
     } catch (failure) {
       if (!task.isCurrent() || removedPhotoIds.current.has(photo.operationId)) return;
-      setPhotos((current) => current.map((item) => item.operationId === photo.operationId ? { ...item, preparing: false, error: imageErrorKey(failure) } : item));
+      const error = imageErrorKey(failure);
+      photoFailures.current.set(photo.operationId, error);
+      setPhotos((current) => current.map((item) => item.operationId === photo.operationId ? { ...item, preparing: false, error } : item));
     }
   };
 
@@ -228,6 +238,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
 
   const removePhoto = (photo) => {
     if (photo.operationId) removedPhotoIds.current.add(photo.operationId);
+    photoFailures.current.delete(photo.operationId);
     setDraftDirty(true);
     if (previewUrls.current.has(photo.preview)) URL.revokeObjectURL(photo.preview);
     previewUrls.current.delete(photo.preview);
@@ -346,6 +357,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     ...(draftReviewRequired ? ['createExperience.draftReview'] : []),
     ...blockers.map((key) => `createExperience.blockers.${key}`),
     ...(photos.some((photo) => photo.preparing) ? ['mediaExperience.preparing'] : []),
+    ...new Set(photos.map((photo) => photo.error).filter(Boolean)),
   ];
   const publicationDisabled = loading || submissionBlockers.length > 0;
   const showCondition = shouldShowCondition(form.type, selected?.category_path);
@@ -355,6 +367,8 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
     if (submitMutex.current || !draftReady || pendingDraft) return;
     const task = taskScope.capture();
     if (!task.isCurrent()) return;
+    const photoError = photoFailures.current.values().next().value;
+    if (photoError) return showToast(t(photoError), 'error');
     const currentBlockers = listingFormBlockers({ selected, form, photos, locationConfirmed: hasVerifiedLocation({ address, verified: addressVerified, position }) && Math.abs(position[0]) <= 90 && Math.abs(position[1]) <= 180 });
     if (currentBlockers.length) return showToast(t(`createExperience.blockers.${currentBlockers[0]}`), 'error');
     if (photos.length > MAX_LISTING_PHOTOS) return showToast(t('mediaExperience.limit'), 'error');
@@ -403,7 +417,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
       setDraftDirty(false);
       if (!isEditing) markInstallMilestone('listing');
       showToast(t(isEditing ? 'workflow.updated' : 'createExperience.published'), 'success', { prominent: true });
-      onSuccess();
+      onSuccess(listingPayload.id);
       window.setTimeout(() => window.dispatchEvent(new Event('listings-updated')), 0);
     } catch (failure) {
       if (!task.isCurrent()) return;
@@ -428,7 +442,7 @@ export default function CreateListing({ userId, onBack, onSuccess, onBusyChange,
 
         <main className="wizard-content" inert={loading || undefined} aria-busy={loading} onInputCapture={() => setDraftDirty(true)}>
           {pendingDraft ? <aside className="draft-banner" role="status"><strong>{t('draftExperience.title')}</strong><p>{t('draftExperience.text')}</p><div className="draft-banner-actions"><button type="button" className="btn-secondary" onClick={restoreDraft}>{t('draftExperience.restore')}</button><button type="button" className="btn-link" onClick={discardDraft}>{t('draftExperience.discard')}</button></div></aside> : draftStatus ? <div className="draft-status" role="status">{t(`draftExperience.${draftStatus}`)}{draftDirty ? <button type="button" className="btn-link ml-3" onClick={discardDraft}>{t('draftExperience.discard')}</button> : null}</div> : null}
-          {step === 1 ? <section>
+          {step === 1 && !isEditing ? <section>
             <p className="eyebrow text-sea">{t('create.typeEyebrow')}</p><h1 className="font-display mt-2 text-4xl text-forest">{t('create.typeTitle')}</h1>
             <div className="mt-7 space-y-3">
               {[['give', 'gift'], ['take', 'search'], ['lend', 'clock']].map(([value, icon]) => <button key={value} type="button" className={`choice-card ${value}`} onClick={() => { setDraftDirty(true); setForm((current) => ({ ...current, type: value, quantity: value === 'lend' ? current.quantity || '1' : current.quantity })); setStep(value === 'lend' ? 3 : 2); }}><span className="choice-icon"><Icon name={icon} size={29} /></span><span><strong>{t(value === 'lend' ? 'loanExperience.action' : `create.${value}`)}</strong><small>{t(`create.${value}Text`, value === 'lend' ? 'Передать вещь временно и вернуть её в согласованный срок' : '')}</small></span><Icon name="arrowRight" size={20} /></button>)}

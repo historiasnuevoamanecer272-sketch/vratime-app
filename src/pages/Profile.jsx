@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { createFeedback, requestFeedbackTelegramDelivery, deactivateListing, getEcoLeaderboard, getImpactTotals, getMyDeals, getMyReliability, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
+import { createFeedback, requestFeedbackTelegramDelivery, getEcoLeaderboard, getImpactTotals, getMyDeals, getMyReliability, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
 import { composeFeedback, submitFeedback } from '../lib/feedbackSubmission';
 import { createFeedbackRequestStore } from '../lib/feedbackRequestIdentity';
 import { listingCategoryLabel } from '../lib/categories';
@@ -15,10 +15,9 @@ import ContactChannelsFields from '../components/ContactChannelsFields';
 import SupportFund from '../components/SupportFund';
 import logo from '../assets/images/app-logo.png';
 import { LEVELS, getLevelProgress } from '../lib/levels';
-import DeadlineCountdown from '../components/DeadlineCountdown';
+import ListingStatusManager from '../components/ListingStatusManager';
 import StaffPanel from '../components/StaffPanel';
 import DiscoveryInbox from '../components/DiscoveryInbox';
-import { isAwaitingHandover } from '../lib/appointments';
 import { prepareImage, imageErrorKey } from '../lib/imagePreparation';
 import { uploadUserMedia } from '../lib/mediaUploads';
 import MediaPreview, { AvatarCrop } from '../components/MediaPreview';
@@ -29,7 +28,7 @@ import { useDialogFocus } from '../hooks/useDialogFocus';
 let profileCache = null;
 
 function ProfileDealSection({ title, deals, language, t }) {
-  return <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{title}</h2><span className="count-pill">{deals.length}</span></div>{deals.length ? <div className="mt-4 space-y-3">{deals.map((deal) => <article key={deal.transaction_id} className="profile-deal"><div className="min-w-0 flex-1"><strong>{listingCategoryLabel(deal, language)}</strong><small>{deal.partner_name || t('common.partner')} · {t(`status.${deal.status}`)}</small>{deal.expires_at && isAwaitingHandover(deal) ? <DeadlineCountdown compact startedAt={deal.accepted_at || deal.created_at} expiresAt={deal.expires_at} /> : null}</div></article>)}</div> : <p className="empty-copy mt-4">{t('workflow.sectionEmpty')}</p>}</section>;
+  return <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{title}</h2><span className="count-pill">{deals.length}</span></div>{deals.length ? <div className="mt-4 space-y-3">{deals.map((deal) => <article key={deal.transaction_id} className="profile-deal"><div className="min-w-0 flex-1"><strong>{listingCategoryLabel(deal, language)}</strong><small>{deal.partner_name || t('common.partner')} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</small></div></article>)}</div> : <p className="empty-copy mt-4">{t('workflow.sectionEmpty')}</p>}</section>;
 }
 
 export default function Profile({ userId, onEditListing, active = true }) {
@@ -49,7 +48,6 @@ export default function Profile({ userId, onEditListing, active = true }) {
   const [editing, setEditing] = useState(false);
   const [levelsOpen, setLevelsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deactivating, setDeactivating] = useState(null);
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [feedback, setFeedback] = useState({ type: 'feature', message: '', contact: '', screenshot: null });
@@ -89,7 +87,7 @@ export default function Profile({ userId, onEditListing, active = true }) {
       supabase.from('profiles').select('*').eq('id', userId).single(),
       supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId),
       getMyDeals().then((data) => ({ data })).catch((error) => ({ error })),
-      supabase.from('listings').select('*').eq('user_id', userId).neq('status', 'canceled').order('created_at', { ascending: false }),
+      supabase.from('listings').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('reviews').select('id, rating, created_at, from_user:profiles!reviews_from_user_id_fkey(full_name)').eq('to_user_id', userId).order('created_at', { ascending: false }).limit(5),
       getEcoLeaderboard(20).then((data) => ({ data })).catch((error) => ({ error })),
       supabase.from('user_feedback').select('id, feedback_type, message, status, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
@@ -128,9 +126,7 @@ export default function Profile({ userId, onEditListing, active = true }) {
   }, [screenshotMedia?.preview]);
 
   const completedDeals = useMemo(() => deals.filter((deal) => deal.completed_at && !deal.canceled_at), [deals]);
-  const myRequests = useMemo(() => deals.filter((deal) => !deal.is_listing_owner && !deal.accepted_at && !deal.completed_at && !deal.canceled_at), [deals]);
-  const reservations = useMemo(() => deals.filter((deal) => deal.accepted_at && !deal.completed_at && !deal.canceled_at), [deals]);
-  const dealHistory = useMemo(() => deals.filter((deal) => deal.completed_at || deal.canceled_at), [deals]);
+  const dealHistory = deals;
   const itemCount = completedDeals.reduce((sum, deal) => sum + Number(deal.quantity || 0), 0);
   const ecoPoints = Number(profile?.eco_points || 0);
   const levelState = getLevelProgress(ecoPoints);
@@ -164,22 +160,6 @@ export default function Profile({ userId, onEditListing, active = true }) {
       setAppLanguage(form.language); setEditing(false); showToast(t('profile.saved', { lng: form.language }), 'success'); await load();
     } catch (saveError) { if (task.isCurrent()) { const key = saveError.code === 'form_auth_changed' ? 'mediaExperience.errors.authChanged' : saveError.message === 'multi_messenger_migration_required' ? 'contacts.migrationRequired' : 'mediaExperience.errors.upload'; setFormError(key); showToast(t(key), 'error'); } }
     finally { saveMutex.current = false; if (task.isCurrent()) setSaving(false); }
-  };
-
-  const deactivate = async (listingId) => {
-    const task = taskScope.capture();
-    if (!task.isCurrent()) return;
-    if (!window.confirm(t('profile.deactivateConfirm'))) return;
-    setDeactivating(listingId);
-    try {
-      await task.mutate(() => deactivateListing(listingId), () => supabase.auth.getUser());
-      window.dispatchEvent(new Event('listings-updated'));
-      await load();
-    } catch {
-      if (task.isCurrent()) showToast(t('mediaExperience.errors.upload'), 'error');
-    } finally {
-      if (task.isCurrent()) setDeactivating(null);
-    }
   };
 
   const prepareAvatar = async (file) => {
@@ -364,7 +344,7 @@ export default function Profile({ userId, onEditListing, active = true }) {
 
         <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('reliability.title')}</h2></div><Icon name="handshake" size={24} /></div><div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="impact-card"><strong>{reliability?.completed_count ?? 0}</strong><small>{t('reliability.completed')}</small></div><div className="impact-card"><strong>{reliability?.accepted_cancellations ?? 0}</strong><small>{t('reliability.cancellations')}</small></div><div className="impact-card"><strong>{reliability?.confirmed_no_shows_90d ?? 0}</strong><small>{t('reliability.noShows')}</small></div></div><p className="mt-3 text-xs font-semibold text-muted">{t('reliability.note')}</p></section>
 
-        <DiscoveryInbox userId={userId} />
+        <DiscoveryInbox userId={userId} listings={listings} onListingChanged={load} active={active} />
 
         <SupportFund />
 
@@ -374,11 +354,9 @@ export default function Profile({ userId, onEditListing, active = true }) {
 
         <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.leaderboard')}</h2></div><Icon name="award" size={24} /></div><p className="mt-2 text-sm leading-6 text-muted">{t('profile.leaderboardText')}</p>{leaderboard.length ? <div className="leaderboard mt-4">{leaderboard.map((entry) => <div key={entry.user_id} className={`leaderboard-row ${entry.user_id === userId ? 'is-me' : ''}`}><b>{entry.rank}</b><span>{entry.full_name}</span><strong>{entry.eco_points}</strong></div>)}</div> : <p className="empty-copy mt-4">{t('profile.leaderboardEmpty')}</p>}</section>
 
-        <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{t('profile.listings')}</h2><span className="count-pill">{listings.length}</span></div>{listings.length ? <div className="mt-4 space-y-3">{listings.map((listing) => <article key={listing.id} className="profile-listing">{listing.image_url ? <ListingPhoto src={listing.image_url} alt={listingCategoryLabel(listing,language)} active={active} /> : <span><CategoryIcon category={listing} size={24} /></span>}<div className="min-w-0 flex-1"><strong>{listingCategoryLabel(listing, language)}</strong><small>{t('common.pieces', { count: listing.quantity })} · {t('profile.available')}: {listing.available_quantity ?? listing.quantity} · {t('profile.reservedCount')}: {listing.reserved_quantity ?? 0} · {t(`status.${listing.status}`)} · {t(`moderation.${listing.moderation_status || 'approved'}`)}</small></div><button type="button" className="icon-button" onClick={() => onEditListing?.(listing)} aria-label={t('profile.editListing')}><Icon name="edit" size={17} /></button>{listing.status === 'active' ? <button type="button" className="icon-button danger" disabled={deactivating === listing.id} onClick={() => deactivate(listing.id)} aria-label={t('profile.deactivate')}><Icon name="close" size={17} /></button> : null}</article>)}</div> : <p className="empty-copy mt-4">{t('profile.noListings')}</p>}</section>
+        <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{t('profile.listings')}</h2><span className="count-pill">{listings.length}</span></div>{listings.length ? <div className="mt-4 space-y-3">{listings.map((listing) => <div key={listing.id} id={`my-listing-${listing.id}`}><article className="profile-listing">{listing.image_url ? <ListingPhoto src={listing.image_url} alt={listingCategoryLabel(listing,language)} active={active} /> : <span><CategoryIcon category={listing} size={24} /></span>}<div className="min-w-0 flex-1"><strong>{listingCategoryLabel(listing, language)}</strong><small>{t('profile.available')}: {listing.available_quantity ?? listing.quantity} · {t(`status.${listing.status}`)}</small></div><button type="button" className="icon-button" onClick={() => onEditListing?.(listing)} aria-label={t('profile.editListing')}><Icon name="edit" size={17} /></button></article><ListingStatusManager listing={listing} userId={userId} active={active} onChanged={load} /></div>)}</div> : <p className="empty-copy mt-4">{t('profile.noListings')}</p>}</section>
 
-        <ProfileDealSection title={t('workflow.myRequests')} deals={myRequests} language={language} t={t} />
-        <ProfileDealSection title={t('workflow.myReservations')} deals={reservations} language={language} t={t} />
-        <ProfileDealSection title={t('workflow.myHistory')} deals={dealHistory} language={language} t={t} />
+        <ProfileDealSection title={t('simpleExchange.legacyHistory')} deals={dealHistory} language={language} t={t} />
 
         <section className="card feedback-card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display text-2xl text-forest">{t('workflow.ideaTitle')}</h2></div><span className="icon-tile"><Icon name="message" size={21} /></span></div><p className="mt-2 text-sm text-muted">{t('workflow.ideaText')}</p><label className="mt-4 block"><span className="field-label">{t('workflow.feedbackType')}</span><select className="field" disabled={feedbackSaving} value={feedback.type} onChange={(event) => setFeedback((current) => ({ ...current, type: event.target.value }))}><option value="feature">{t('workflow.feedbackFeature')}</option><option value="category">{t('workflow.feedbackCategory')}</option><option value="problem">{t('workflow.feedbackProblem')}</option><option value="support">{t('workflow.feedbackSupport')}</option></select></label><label className="mt-4 block"><span className="field-label">{t('mediaExperience.feedbackRequired')}</span><textarea className="field min-h-28 resize-y py-3" required minLength={5} maxLength={3000} disabled={feedbackSaving} aria-invalid={feedbackError === 'workflow.feedbackShort'} aria-describedby="feedback-form-error" value={feedback.message} onChange={(event) => { setFeedbackError(''); setFeedback((current) => ({ ...current, message: event.target.value })); }} /></label><label className="mt-4 block"><span className="field-label">{t('feedbackExperience.contactLabel')}</span><input className="field" maxLength={140} disabled={feedbackSaving} value={feedback.contact} onChange={(event) => setFeedback((current) => ({ ...current, contact: event.target.value }))} aria-describedby="feedback-contact-hint" /><small id="feedback-contact-hint" className="media-hint">{t('feedbackExperience.contactHint')}</small></label><div className="media-dropzone mt-4" onDragOver={(event) => event.preventDefault()} onDrop={dropScreenshot}><label className="btn-secondary cursor-pointer"><Icon name="camera" size={17} />{feedback.screenshot ? feedback.screenshot.name : t('workflow.addScreenshot')}<input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" disabled={feedbackSaving} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) prepareScreenshot(file); }} /></label>{feedback.screenshot ? <button type="button" className="icon-button feedback-remove-button" disabled={feedbackSaving} onClick={removeScreenshot} aria-label={t('common.remove') + ': ' + feedback.screenshot.name} title={t('common.remove')}><Icon name="close" size={18} /></button> : null}<small className="media-hint">{t('mediaExperience.dropHint')}</small></div><small className="media-hint">{t('mediaExperience.screenshotPrivacy')}</small>{screenshotMedia ? <div className="feedback-screenshot">{screenshotMedia.preview ? <button type="button" className="media-photo-open" aria-label={t('mediaExperience.preview')} onClick={() => setPreviewPhoto(screenshotMedia.preview)}><img src={screenshotMedia.preview} alt={feedback.screenshot?.name || ''} /></button> : null}<div>{screenshotMedia.preparing ? <p role="status">{t('mediaExperience.preparing')}</p> : screenshotMedia.error ? <><p className="field-error" role="alert">{t(screenshotMedia.error)}</p><button type="button" className="btn-link" disabled={feedbackSaving} onClick={() => prepareScreenshot(screenshotMedia.file, screenshotMedia.operationId)}>{t('mediaExperience.retry')}</button></> : null}</div></div> : null}{feedbackError ? <p id="feedback-form-error" className="field-error" role="alert">{t(feedbackError)}</p> : null}<button type="button" className="btn-primary mt-4 w-full" disabled={feedbackSaving || screenshotMedia?.preparing || Boolean(screenshotMedia?.error)} onClick={sendFeedback}>{feedbackSaving ? t('onboarding.saving') : t('feedbackExperience.send')}</button>{feedbackHistory.length ? <div className="feedback-history mt-5">{feedbackHistory.map((item) => <article key={item.id}><strong>{t(`workflow.feedback${item.feedback_type.charAt(0).toUpperCase()}${item.feedback_type.slice(1)}`)}</strong><span>{t(`feedbackStatus.${item.status}`)}</span><p>{item.message}</p></article>)}</div> : null}</section>
 

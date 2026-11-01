@@ -84,10 +84,10 @@ const hooks = registerHooks({
     if (url === 'create-ux-test:markers') return module("export const mapMarkerIcons = {give:'give-marker',take:'take-marker',lend:'loan-marker'};");
     if (url === 'create-ux-test:basemap') return module('export const baseMap = { attribution: "Offline map", url: "", maxZoom: 20 };');
     if (url === 'create-ux-test:supabase') return module(`
-      export const writes = [];
-      const categories = [{ id: 1, parent_id: null, category_path: 'pallet/egg-crates', slug: 'egg-crates', name: 'Egg cartons' }];
+      export const writes = [], authReads = [];
+      const categories = [{ id: 1, parent_id: null, category_path: 'pallet/egg-crates', slug: 'egg-crates', name: 'Egg cartons' }, { id: 2, parent_id: null, category_path: 'box/cardboard', slug: 'cardboard', name: 'Cardboard' }];
       export const supabase = {
-        auth: { getUser: async () => ({data:{user:{id:'user-fixture'}},error:null}), onAuthStateChange: () => ({data:{subscription:{unsubscribe(){}}}}) },
+        auth: { getUser: async () => { authReads.push('getUser'); return {data:{user:{id:'user-fixture'}},error:null}; }, onAuthStateChange: () => ({data:{subscription:{unsubscribe(){}}}}) },
         from: (table) => ({ select: () => ({ order: async () => ({ data: categories, error: null }) }), insert: (payload) => { writes.push({ table, payload }); const result = Promise.resolve({ error:null }); result.abortSignal = () => result; return result; } }),
         storage: { from: () => ({ upload: async () => { throw new Error('Test must not upload'); }, remove: async () => ({ error: null }) }) },
       };
@@ -108,7 +108,7 @@ try {
   const state = await import('create-ux-test:hooks');
   const capture = await import('create-ux-test:capture');
   const map = await import('create-ux-test:map');
-  const { writes } = await import('create-ux-test:supabase');
+  const { writes, authReads } = await import('create-ux-test:supabase');
   const { updates, rejectUpdate } = await import('create-ux-test:api');
   const addressMocks = await import('create-ux-test:addresses');
   const originalFetch = globalThis.fetch;
@@ -130,7 +130,7 @@ try {
   };
   const start = async (editingListing = fixture) => {
     addressMocks.timers.clear();
-    state.reset(); writes.length = 0; updates.length = 0; toasts.length = 0;
+    state.reset(); writes.length = 0; updates.length = 0; toasts.length = 0; authReads.length = 0;
     props = { userId: 'user-fixture', editingListing, onBack: () => {}, onSuccess: () => {} };
     render(); await state.flush(); return render();
   };
@@ -144,6 +144,121 @@ try {
   const check = async (name, action) => { try { await action(); } catch (error) { failures.push(`${name}: ${error.message.split('\n')[0]}`); } };
   for (const [language, translations] of Object.entries(createExperienceTranslations)) i18n.addResourceBundle(language, 'translation', { createExperience: translations }, true, true);
   await i18n.changeLanguage('en');
+
+  await check('editing keeps its original type while category and quantity remain editable', async () => {
+    for (const type of ['give', 'take']) {
+      await start({...fixture,type});
+      let exits = 0; props.onBack = () => { exits += 1; }; render();
+      button(i18n.t('common.back')).onClick(); render();
+      assert.equal(elements('button').filter(item => item.className?.includes('category-card')).length, 2);
+      elements('button').find(item => text(item.children).includes('Cardboard')).onClick(); render();
+      change(input('quantity'), '7');
+      await publishButton().onClick();
+      assert.equal(updates[0]?.type, type);
+      assert.equal(updates[0]?.category_id, 2);
+      assert.equal(updates[0]?.quantity, 7);
+      button(i18n.t('common.back')).onClick(); render();
+      button(i18n.t('common.back')).onClick(); render();
+      assert.equal(exits, 1, 'Back from the editing category root must leave the editor');
+      assert.equal(elements('button').filter(item => item.className?.startsWith('choice-card')).length, 0);
+    }
+  });
+  await check('loan editing Back exits without opening a type selector', async () => {
+    await start({...fixture,type:'lend',category:'Cordless drill',category_path:'lend/item',category_id:null});
+    let exits = 0; props.onBack = () => { exits += 1; }; render();
+    button(i18n.t('common.back')).onClick(); render();
+    assert.equal(exits, 1);
+    assert.equal(elements('button').filter(item => item.className?.startsWith('choice-card')).length, 0);
+  });
+  await check('new listing type selection still supports give take and lend', async () => {
+    for (const type of ['give','take','lend']) {
+      await start(null);
+      assert.equal(elements('button').filter(item => item.className?.startsWith('choice-card')).length, 3);
+      elements('button').find(item => item.className === `choice-card ${type}`).onClick(); render();
+      if (type !== 'lend') { elements('button').find(item => item.className.includes('category-card')).onClick(); render(); }
+      assert.equal(map.markerProps.icon, type === 'lend' ? 'loan-marker' : `${type}-marker`);
+    }
+  });
+
+  await check('failed selected photo blocks readiness until removed', async () => {
+    await start();
+    await elements('input').find(item => item.type === 'file').onChange({target:{files:[new File(['broken JPEG'],'broken.jpg',{type:'image/jpeg'})],value:'file'}});
+    const html = render();
+    assert.match(html,/role="alert"/);
+    const status = text(elements('div').find(item => item.id === 'create-submit-status').children);
+    assert.equal(publishButton().disabled,true);
+    assert.doesNotMatch(status,/Required fields are complete/);
+    assert.ok(status.includes(i18n.t('mediaExperience.errors.decode')), 'Readiness must identify the actual photo error');
+    elements('button').find(item => item.className === 'icon-button photo-preview-remove').onClick(); render();
+    assert.equal(publishButton().disabled,false);
+    await publishButton().onClick();
+    assert.equal(updates.length,1);
+  });
+  await check('cached publish callbacks cannot submit after a selected photo fails', async () => {
+    await start();
+    const cachedPublish = publishButton().onClick;
+    await elements('input').find(item => item.type === 'file').onChange({target:{files:[new File(['broken JPEG'],'broken.jpg',{type:'image/jpeg'})],value:'file'}});
+    render();
+    await cachedPublish();
+    await publishButton().onClick();
+    assert.equal(authReads.length,0,'Photo failure must stop submission before authorization or uploads');
+    assert.equal(updates.length,0);
+  });
+  await check('successful selected photo retry clears its publication blocker', async () => {
+    const originalDocument = globalThis.document, originalBitmap = globalThis.createImageBitmap;
+    let failDecode = true;
+    globalThis.document = {createElement:()=>({width:0,height:0,getContext:()=>({drawImage(){}}),toBlob(callback,type){callback(new Blob(['normalized'],{type}));}})};
+    globalThis.createImageBitmap = async () => { if (failDecode) throw new Error('offline decoder failure'); return {width:10,height:10,close(){}}; };
+    try {
+      await start();
+      const png = new Uint8Array(24), view = new DataView(png.buffer);
+      view.setUint32(0,0x89504e47); view.setUint32(16,10); view.setUint32(20,10);
+      await elements('input').find(item => item.type === 'file').onChange({target:{files:[new File([png],'retry.png',{type:'image/png'})],value:'file'}}); render();
+      assert.equal(publishButton().disabled,true);
+      failDecode = false;
+      const retry = button(i18n.t('mediaExperience.retry')).onClick(); render();
+      assert.equal(publishButton().disabled,true,'A retry must remain blocked while preparing');
+      await retry;
+      const html = render();
+      assert.equal(publishButton().disabled,false);
+      assert.doesNotMatch(html,/role="alert"/);
+      assert.match(text(elements('div').find(item => item.id === 'create-submit-status').children),/Required fields are complete/);
+    } finally { globalThis.document = originalDocument; globalThis.createImageBitmap = originalBitmap; }
+  });
+
+  await check('restored editing drafts cannot replace the listing type or reopen its selector', async () => {
+    const originalStorage = globalThis.localStorage;
+    const memory = new Map();
+    globalThis.localStorage = {getItem:key=>memory.get(key) ?? null,setItem:(key,value)=>memory.set(key,value),removeItem:key=>memory.delete(key)};
+    try {
+      const { createListingDraftStore } = await import('../src/lib/listingDraft.js');
+      const store = createListingDraftStore();
+      for (const [originalType,draftType,draftStep] of [['give','take',1],['give','lend',3],['give','take',3],['lend','give',2]]) {
+        const listing = {...fixture,type:originalType,category:originalType === 'lend' ? 'Cordless drill' : fixture.category,description:'Working drill with charger',image_url:'https://example.test/drill.jpg'};
+        await store.save('user-fixture',fixture.id,{form:{...listing,type:draftType,item_name:'Camping tent',quantity:'8',loan_duration_days:3},selected:{id:2,category_path:'box/cardboard',name_en:'Cardboard'},position:[42.46,18.51],address:fixture.location_label,addressVerified:true,locationKind:'address',step:draftStep,existingPhotoUrls:[listing.image_url]},[]);
+        await start(listing);
+        for (let i=0;i<5;i++) { await Promise.resolve(); render(); }
+        assert.ok(button('Continue'));
+        let selection;
+        if (draftStep === 3) {
+          selection = elements('input').find(item => item.type === 'file').onChange({target:{files:[new File(['broken JPEG'],'replaced.jpg',{type:'image/jpeg'})],value:'file'}});
+          if (draftType === 'lend') await selection;
+          render();
+        }
+        button('Continue').onClick(); render();
+        if (selection) { await selection; render(); }
+        assert.equal(elements('button').filter(item => item.className?.startsWith('choice-card')).length,0);
+        assert.ok(publishButton(),'Restoring an editing draft must show the editor');
+        assert.equal(map.markerProps.icon,originalType === 'lend' ? 'loan-marker' : 'give-marker');
+        input('draft_review').onChange({target:{checked:true}}); render();
+        assert.equal(publishButton().disabled,false);
+        await publishButton().onClick();
+        assert.equal(updates[0]?.type,originalType);
+        assert.equal(updates[0]?.quantity,8,'Other supported draft fields remain restorable');
+        assert.equal(updates[0]?.category_id,originalType === 'lend' ? null : '2');
+      }
+    } finally { globalThis.localStorage = originalStorage; }
+  });
 
   await check('optional weight invalid values block publication with an inline field error', async () => {
     await start();

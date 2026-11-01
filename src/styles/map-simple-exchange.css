@@ -1,0 +1,28 @@
+.map-page .vratime-marker-group {
+  background: var(--color-forest, #23483e);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.vratime-marker-group > span { transform: rotate(45deg); }
+
+.map-overlap-options {
+  max-height: min(60svh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.map-overlap-count { display: block; padding: 12px; }
+.map-overlap-options .listing-card + .listing-card { border-top: 1px solid #dce5df; }
+
+.map-contact-dialog {
+  width: min(100%, 440px);
+  max-height: calc(100svh - 48px);
+  overflow-y: auto;
+  padding: 24px;
+  text-align: center;
+}
+
+.map-private-contact-links { margin: 20px 0; text-align: left; }
+.map-private-contact-links a { overflow-wrap: anywhere; min-height: 44px; display: flex; align-items: center; }

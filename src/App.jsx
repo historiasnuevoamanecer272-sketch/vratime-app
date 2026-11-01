@@ -23,7 +23,7 @@ import './styles/navigation-ux.css';
 const Login = lazy(() => import('./pages/Login'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const MapScreen = lazy(() => import('./pages/MapScreen'));
-const MyDeals = lazy(() => import('./pages/MyDeals'));
+const MyDeals = lazy(() => import('./pages/SimpleDeals'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CreateListing = lazy(() => import('./pages/CreateListing'));
 
@@ -68,6 +68,7 @@ export default function App() {
   const [authNotice, setAuthNotice] = useState(() => authReturn.failed ? 'error' : authReturn.pending ? 'pending' : null);
   const [authError, setAuthError] = useState(false);
   const [authAttempt, setAuthAttempt] = useState(0);
+  const [mapFocusListingId, setMapFocusListingId] = useState(null);
   const profileUserRef = useRef(null);
   const profileRequestRef = useRef(0);
   const creationBusyRef = useRef(false);
@@ -145,6 +146,7 @@ export default function App() {
         creationBusyRef.current = false;
         setIsCreating(false);
         setEditingListing(null);
+        setMapFocusListingId(null);
         setToasts([]);
       }
       setSession(nextSession);
@@ -289,7 +291,7 @@ export default function App() {
       {installBanner}
       <AppScreenBoundary message={t('errors.load')} retryLabel={t('common.retry')}>
         <div key={session.user.id} inert={isCreating || undefined}>
-          {visitedTabs.includes('map') ? <section className="app-tab" hidden={activeTab !== 'map'}><Suspense fallback={loadingView}><MapScreen active={activeTab === 'map' && !isCreating} userId={session.user.id} onCreate={() => openCreation()} /></Suspense></section> : null}
+          {visitedTabs.includes('map') ? <section className="app-tab" hidden={activeTab !== 'map'}><Suspense fallback={loadingView}><MapScreen active={activeTab === 'map' && !isCreating} userId={session.user.id} focusListingId={mapFocusListingId} onFocusHandled={(id) => setMapFocusListingId((current) => current === id ? null : current)} onOpenContacts={() => navigate('deals')} onCreate={() => openCreation()} /></Suspense></section> : null}
           {visitedTabs.includes('deals') ? <section className="app-tab" hidden={activeTab !== 'deals'}><Suspense fallback={loadingView}><MyDeals userId={session.user.id} active={activeTab === 'deals' && !isCreating} /></Suspense></section> : null}
           {visitedTabs.includes('profile') ? <section className="app-tab" hidden={activeTab !== 'profile'}><Suspense fallback={loadingView}><Profile active={activeTab === 'profile' && !isCreating} userId={session.user.id} onEditListing={openCreation} /></Suspense></section> : null}
 
@@ -308,7 +310,7 @@ export default function App() {
           </nav>
         </div>
 
-        {isCreating ? <Suspense fallback={loadingView}><CreationLayer key={`${session.user.id}:${creationGeneration}`} onClose={closeCreation}><CreateListing userId={session.user.id} editingListing={editingListing} onBusyChange={onCreationBusy} onBack={closeCreation} onSuccess={() => { if (creationGenerationRef.current !== creationGeneration) return; creationBusyRef.current = false; markInstallMilestone('listing'); const destination = editingListing ? 'profile' : 'map'; closeCreation(); navigate(destination); }} /></CreationLayer></Suspense> : null}
+        {isCreating ? <Suspense fallback={loadingView}><CreationLayer key={`${session.user.id}:${creationGeneration}`} onClose={closeCreation}><CreateListing userId={session.user.id} editingListing={editingListing} onBusyChange={onCreationBusy} onBack={closeCreation} onSuccess={(id) => { if (creationGenerationRef.current !== creationGeneration) return; creationBusyRef.current = false; markInstallMilestone('listing'); const destination = editingListing ? 'profile' : 'map'; if (!editingListing) setMapFocusListingId(id); closeCreation(); navigate(destination); }} /></CreationLayer></Suspense> : null}
       </AppScreenBoundary>
       {toastStack}
     </div>

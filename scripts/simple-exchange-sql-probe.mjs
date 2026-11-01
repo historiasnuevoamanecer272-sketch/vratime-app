@@ -1,0 +1,93 @@
+// Isolated PostgreSQL integration fixture, not for production: bootstrap tables
+// intentionally have the real names. Every row/role/function is rolled back.
+import { readdirSync, readFileSync } from 'node:fs';
+const directory = new URL('../supabase/migrations/', import.meta.url);
+const name = readdirSync(directory).find((file) => file.endsWith('_simple_contact_exchange_and_owner_stock.sql'));
+const migration = name ? readFileSync(new URL(name, directory), 'utf8').replace(/^\s*(?:--[^\n]*\n\s*)*begin;/i, '').replace(/commit;\s*$/i, '') : '';
+process.stdout.write(`begin;
+set local statement_timeout='30s';
+create schema if not exists auth;
+create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('vratime_test.uid',true),'')::uuid $$;
+do $$ begin
+ if not exists(select 1 from pg_roles where rolname='anon') then create role anon; end if;
+ if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
+ if not exists(select 1 from pg_roles where rolname='service_role') then create role service_role; end if;
+end; $$;
+create type public.listing_status as enum('active','reserved','completed','canceled');
+create table public.profiles(id uuid primary key,full_name text);
+create table public.profile_contacts(user_id uuid,messenger_type text,contact_value text);
+create table public.listings(id uuid primary key,user_id uuid references public.profiles(id),type text,category text,category_path text,image_url text,quantity integer,available_quantity integer,reserved_quantity integer default 0,status public.listing_status default 'active',moderation_status text default 'approved',updated_at timestamptz default now(),created_at timestamptz default now(),location_verified_at timestamptz default now());
+create table public.transactions(id uuid primary key,listing_id uuid,accepted_at timestamptz,completed_at timestamptz,canceled_at timestamptz);
+create table public.user_inbox(id uuid primary key default gen_random_uuid(),user_id uuid,item_type text,title text,body text,payload jsonb,idempotency_key text,read_at timestamptz,created_at timestamptz default now(),unique(user_id,idempotency_key));
+${migration}
+do $$
+declare owner_id uuid := '00000000-0000-0000-0000-000000000001'; requester uuid := '00000000-0000-0000-0000-000000000002'; stranger uuid := '00000000-0000-0000-0000-000000000003'; lid uuid := '00000000-0000-0000-0000-000000000004'; other_lid uuid; record1 jsonb; record2 jsonb; feed jsonb; rejected boolean; count1 integer;
+begin
+ if to_regprocedure('public.request_listing_contacts(uuid)') is null then raise exception 'RED: simple contact exchange API is not installed'; end if;
+ insert into public.profiles values(owner_id,'Owner'),(requester,'Requester'),(stranger,'Stranger');
+ insert into public.profile_contacts values(owner_id,'tg','@owner_test'),(requester,'wa','+38267123456');
+ insert into public.listings(id,user_id,type,category,category_path,quantity,available_quantity) values(lid,owner_id,'give','Jars','glass/jars',10,10);
+ perform set_config('vratime_test.uid',requester::text,true);
+ record1 := public.request_listing_contacts(lid);
+ record2 := public.request_listing_contacts(lid);
+ if record1->>'exchange_id' is distinct from record2->>'exchange_id' then raise exception 'duplicate exchange retry'; end if;
+ if jsonb_array_length(record1->'contacts')<>1 or record1->'contacts'->0->>'contact_value'<>'@owner_test' then raise exception 'requester did not receive owner contact'; end if;
+ if (select available_quantity from public.listings where id=lid)<>10 or (select count(*) from public.transactions)<>0 then raise exception 'contact changed stock or created reservation'; end if;
+ if (select count(*) from public.user_inbox where user_id=owner_id)<>1 then raise exception 'contact notification duplicated'; end if;
+ if (select owner_check_due_at from public.listings where id=lid)>now()+interval '24 hours 1 second' then raise exception 'first contact did not shorten reminder'; end if;
+ perform set_config('vratime_test.uid',owner_id::text,true);
+ feed := public.get_my_listing_contacts();
+ if jsonb_array_length(feed)<>1 or feed->0->'contacts'->0->>'contact_value'<>'+38267123456' then raise exception 'owner did not receive requester contact'; end if;
+ rejected := false;
+ begin perform public.request_listing_contacts(lid); exception when raise_exception then rejected:=true; end;
+ if not rejected then raise exception 'self contact accepted'; end if;
+ perform public.set_my_listing_remaining(lid,4,null);
+ if (select available_quantity from public.listings where id=lid)<>4 or (select status::text from public.listings where id=lid)<>'active' then raise exception 'partial update disappeared'; end if;
+ perform public.confirm_my_listing_current(lid);
+ if (select owner_check_due_at from public.listings where id=lid)<now()+interval '6 days 23 hours' then raise exception 'current confirmation reminder not deferred'; end if;
+ update public.listings set owner_check_due_at=now()-interval '1 minute' where id=lid;
+ perform public.generate_listing_check_reminders();
+ select count(*) into count1 from public.user_inbox where payload->>'kind'='listing_check';
+ perform public.generate_listing_check_reminders();
+ if count1<>1 or (select count(*) from public.user_inbox where payload->>'kind'='listing_check')<>1 then raise exception 'reminder missing or duplicated'; end if;
+ perform set_config('vratime_test.uid',stranger::text,true);
+ if jsonb_array_length(public.get_my_listing_contacts())<>0 then raise exception 'stranger sees private contacts'; end if;
+ rejected := false;
+ begin perform public.set_my_listing_remaining(lid,1,null); exception when raise_exception then rejected:=true; end;
+ if not rejected then raise exception 'non-owner changed stock'; end if;
+ rejected := false;
+ begin perform public.request_listing_contacts(lid); exception when raise_exception then if sqlerrm<>'contact_details_required' then raise; end if; rejected:=true; end;
+ if not rejected then raise exception 'missing contacts accepted'; end if;
+ perform set_config('vratime_test.uid',owner_id::text,true);
+ rejected := false;
+ begin perform public.set_my_listing_remaining(lid,10001,null); exception when raise_exception then rejected:=true; end;
+ if not rejected then raise exception 'invalid stock accepted'; end if;
+ perform public.set_my_listing_remaining(lid,0,'completed');
+ if (select available_quantity from public.listings where id=lid)<>0 or (select status::text from public.listings where id=lid)<>'completed' then raise exception 'complete closure failed'; end if;
+ perform set_config('vratime_test.uid',requester::text,true);
+ record2:=public.request_listing_contacts(lid);
+ if record2->>'exchange_id' is distinct from record1->>'exchange_id' then raise exception 'closed listing lost prior contacts'; end if;
+ update public.listing_contact_exchanges set created_at=now()-interval '30 days' where listing_id=lid;
+ with more as (insert into public.listings(id,user_id,type,category,quantity,available_quantity) select gen_random_uuid(),owner_id,'give','More',1,1 from generate_series(1,201) returning id)
+ insert into public.listing_contact_exchanges(listing_id,owner_id,requester_id) select id,owner_id,requester from more;
+ record2:=public.request_listing_contacts(lid);
+ if record2 is null or record2->>'exchange_id' is distinct from record1->>'exchange_id' then raise exception 'older than 200 exchange retry lost contacts'; end if;
+ for count1 in 1..2 loop
+  other_lid:=gen_random_uuid();
+  insert into public.listings(id,user_id,type,category,quantity,available_quantity,status,moderation_status) values(other_lid,owner_id,'give','Hidden',1,1,case when count1=1 then null else 'active'::public.listing_status end,case when count1=2 then null else 'approved' end);
+  rejected:=false;
+  begin perform public.request_listing_contacts(other_lid); exception when raise_exception then if sqlerrm<>'Listing is no longer available' then raise; end if; rejected:=true; end;
+  if not rejected then raise exception 'NULL status or moderation disclosed contacts'; end if;
+ end loop;
+ perform set_config('vratime_test.uid',owner_id::text,true);
+ insert into public.transactions(id,listing_id,accepted_at) values(gen_random_uuid(),lid,now());
+ rejected:=false;
+ begin perform public.set_my_listing_remaining(lid,4,null); exception when raise_exception then if sqlerrm<>'An accepted booking cannot be edited' then raise; end if; rejected:=true; end;
+ if not rejected then raise exception 'legacy accepted/issued stock changed'; end if;
+ if has_function_privilege('anon','public.request_listing_contacts(uuid)','EXECUTE') or has_function_privilege('authenticated','public.generate_listing_check_reminders()','EXECUTE') then raise exception 'RPC grants too broad'; end if;
+ if has_table_privilege('authenticated','public.listing_contact_exchanges','INSERT') then raise exception 'direct contact insert permitted'; end if;
+ raise notice 'PASS simple exchange SQL: consent contacts, idempotency, no reservation, privacy, owner partial/close/current, reminder dedupe and scoped grants';
+end;
+$$;
+rollback;
+`);

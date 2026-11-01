@@ -1,4 +1,5 @@
 import { staffExperienceTranslations } from './uxStaff.js';
+import { simpleExchangeByLanguage } from './uxSimpleExchange.js';
 import { uxAuditTranslations } from './uxAudit.js';
 import { loanExperienceTranslations } from './uxLoan.js';
 import { pwaExperienceByLanguage } from './uxPwa.js';
@@ -244,6 +245,7 @@ Object.assign(resources.me.translation.discovery, { removeSearch: 'Ukloni pretra
 Object.assign(resources.en.translation.discovery, { removeSearch: 'Remove search “{{query}}”', removeSearchConfirm: 'Remove saved search “{{query}}”?', searchRemoved: 'Search removed.' });
 
 for (const language of supportedLanguages) {
+  resources[language].translation.simpleExchange = simpleExchangeByLanguage[language];
   resources[language].translation.mapExperience = mapExperienceTranslations[language];
   resources[language].translation.createExperience = createExperienceTranslations[language];
   resources[language].translation.loanExperience = loanExperienceTranslations[language];
