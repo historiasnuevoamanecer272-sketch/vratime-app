@@ -1,0 +1,18 @@
+[Unit]
+Description=VratiMe contact email notifications
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/vratime-mailer/config.json
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/bin/python3 /opt/vratime-mailer/vratime-contact-mailer.py
+TimeoutStartSec=240
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+

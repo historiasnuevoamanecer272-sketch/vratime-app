@@ -51,7 +51,7 @@ const profileHooks=registerHooks({
     if(url==='state-profile:api')return moduleValue(`
       export const createFeedback=data=>globalThis.__stateProfileFixture.save(data);
       export const requestFeedbackTelegramDelivery=id=>globalThis.__stateProfileFixture.deliver(id);
-      export const getMyDeals=async()=>[];export const getEcoLeaderboard=async()=>[];export const getMyReliability=async()=>null;export const getImpactTotals=async()=>null;
+      export const getMyListingInterestCounts=async()=>[];export const getMyDeals=async()=>[];export const getEcoLeaderboard=async()=>[];export const getMyReliability=async()=>null;export const getImpactTotals=async()=>null;
       export const deactivateListing=async()=>{};export const saveMyProfile=async()=>{};export const setMyAvatar=async()=>{};export const setRankingParticipation=async()=>{};
     `);
     if(url==='state-profile:supabase')return moduleValue(`
@@ -61,15 +61,16 @@ const profileHooks=registerHooks({
       };
     `);
     if(url===profileUrl){const transformed=transformSync(fileURLToPath(url),readFileSync(new URL(url),'utf8'),{jsx:{runtime:'automatic'}});assert.equal(transformed.errors.length,0);return moduleValue(transformed.code);}
+    if(url.endsWith('.css'))return moduleValue('export default {};');
     return next(url,context);
   }
 });
-const previousWindow=globalThis.window,previousFetch=globalThis.fetch;
+const previousWindow=globalThis.window,previousFetch=globalThis.fetch,previousDocument=globalThis.document;
 const profileEvidence=[];
 try{
   const timers=new Map(), stored=new Map(); let timer=0; const storage={getItem:key=>stored.get(key)||null,setItem:(key,value)=>stored.set(key,value),removeItem:key=>stored.delete(key)};
-  globalThis.window={localStorage:storage,setTimeout(run){timers.set(++timer,run);return timer;},clearTimeout(id){timers.delete(id);},addEventListener(){},removeEventListener(){},confirm(){return true;},dispatchEvent(){}};
-  globalThis.fetch=()=>{throw new Error('Network forbidden in fixture');};
+  globalThis.window={localStorage:storage,setTimeout(run){timers.set(++timer,run);return timer;},clearTimeout(id){timers.delete(id);},setInterval(){return ++timer;},clearInterval(){},addEventListener(){},removeEventListener(){},confirm(){return true;},dispatchEvent(){}};
+  globalThis.document={visibilityState:'visible',addEventListener(){},removeEventListener(){}};globalThis.fetch=()=>{throw new Error('Network forbidden in fixture');};
   const [{default:Profile},hooks,elements]=await Promise.all([import(profileUrl),import('state-profile:hooks'),import('state-profile:elements')]);
   const render=()=>{hooks.begin();elements.elements.length=0;Profile({userId:'account-a',onEditListing(){}});};
   const settle=async()=>{render();for(let i=0;i<20;i++){hooks.flushEffects();const tasks=[...timers.values()];timers.clear();for(const run of tasks)run();await micro();if(!hooks.dirty&&!timers.size)return;render();}throw new Error('Profile fixture did not settle');};
@@ -123,6 +124,6 @@ try{
     assert.ok(!JSON.stringify([...stored]).includes('PRIVATE_SCREENSHOT_BYTES'));hooks.reset();
   });
   hooks.reset();
-}finally{profileHooks.deregister();globalThis.window=previousWindow;globalThis.fetch=previousFetch;delete globalThis.__stateProfileFixture;}
+}finally{profileHooks.deregister();globalThis.window=previousWindow;globalThis.fetch=previousFetch;globalThis.document=previousDocument;delete globalThis.__stateProfileFixture;}
 
 if(failures) process.exitCode=1;

@@ -61,6 +61,8 @@ export const setMyAvatar = (avatarUrl) => rpc('set_my_avatar', { next_avatar_url
 export const getMyDeals = () => rpc('get_my_deals');
 export const requestListingContacts = (listingId) => rpc('request_listing_contacts', { target_listing_id: listingId });
 export const getMyListingContacts = () => rpc('get_my_listing_contacts');
+export const getMyListingInterestCounts = () => rpc('get_my_listing_interest_counts');
+export const submitListingContactOutcome = (exchangeId, { outcome, failureReason = null, details = null, ownerAction = null, remaining = null }) => rpc('submit_listing_contact_outcome', { target_exchange_id: exchangeId, outcome, failure_reason: failureReason, details, owner_action: ownerAction, remaining_quantity: remaining == null ? null : Number(remaining) });
 export const setMyListingRemaining = (listingId, remaining, reason = null) => rpc('set_my_listing_remaining', { target_listing_id: listingId, remaining_quantity: Number(remaining), close_reason: reason });
 export const confirmMyListingCurrent = (listingId) => rpc('confirm_my_listing_current', { target_listing_id: listingId });
 export const getPublicMapListings = () => rpc('get_public_map_listings_v2');

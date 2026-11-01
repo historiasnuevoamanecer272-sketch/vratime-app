@@ -48,7 +48,7 @@ const hooks = registerHooks({
       export const loads=[],mutations=[];
       const load=kind=>new Promise((resolve,reject)=>loads.push({kind,resolve,reject}));
       const mutate=kind=>(...args)=>new Promise((resolve,reject)=>mutations.push({kind,args,resolve,reject}));
-      export const getMyDeals=()=>load('legacy'),getMyListingContacts=()=>load('contacts');
+      export const getMyDeals=()=>load('legacy'),getMyListingContacts=()=>load('contacts');export const submitListingContactOutcome=mutate('outcome');
       export const setMyListingRemaining=mutate('remaining'),confirmMyListingCurrent=mutate('current'),submitReview=mutate('review'),createReport=mutate('report');
     `);
     if (url === 'simple-ui:database') return module(`
@@ -63,9 +63,10 @@ const hooks = registerHooks({
     return next(url,context);
   },
 });
-const originalWindow=globalThis.window, originalFetch=globalThis.fetch;
+const originalWindow=globalThis.window, originalFetch=globalThis.fetch, originalDocument=globalThis.document;
 const timers=new Map(), listeners=new Map(), events=[];let timerId=0;
-globalThis.window={setTimeout:run=>{timers.set(++timerId,run);return timerId;},clearTimeout:id=>timers.delete(id),addEventListener:(key,fn)=>listeners.set(key,fn),removeEventListener:(key,fn)=>{if(listeners.get(key)===fn)listeners.delete(key);},dispatchEvent:event=>{events.push(event.type);listeners.get(event.type)?.();}};
+globalThis.window={setTimeout:run=>{timers.set(++timerId,run);return timerId;},clearTimeout:id=>timers.delete(id),setInterval:()=>++timerId,clearInterval:()=>{},addEventListener:(key,fn)=>listeners.set(key,fn),removeEventListener:(key,fn)=>{if(listeners.get(key)===fn)listeners.delete(key);},dispatchEvent:event=>{events.push(event.type);listeners.get(event.type)?.();}};
+globalThis.document={visibilityState:'visible',addEventListener(){},removeEventListener(){}};
 globalThis.fetch=()=>{throw Error('Offline test must not access network');};
 try {
   const [{default:SimpleDeals},{default:Manager},state,capture,api,db,nav,focus,{subscribeToasts}]=await Promise.all([
@@ -73,7 +74,7 @@ try {
   ]);
   const toasts=[],stop=subscribeToasts(value=>toasts.push(value));
   const tick=()=>new Promise(resolve=>setImmediate(resolve));
-  const runTimers=()=>{const work=[...timers.values()];timers.clear();for(const run of work)run();};
+  const runTimers=async()=>{const work=[...timers.values()];timers.clear();for(const run of work)run();await tick();};
   const reset=()=>{state.reset();timers.clear();listeners.clear();events.length=0;api.loads.length=0;api.mutations.length=0;toasts.length=0;db.changeAccount('a');};
   const render=(Component=SimpleDeals,props={userId:'a'})=>{state.begin();capture.elements.length=0;const result=Component(props);state.flush();return result;};
   const text=node=>Array.isArray(node)?node.map(text).join(''):node?.props?text(node.props.children):typeof node==='string'?node:'';
@@ -90,7 +91,7 @@ try {
   const failures=[];const check=async(name,test)=>{try{await test();console.log(`PASS ${name}`);}catch(error){failures.push(`${name}: ${error.stack}`);}};
 
   await check('contacts and legacy pending requests show working links without booking controls',async()=>{
-    reset();render();runTimers();await settle([contact('person1'),contact('person2'),contact('person1')],[legacy('old-pending')]);
+    reset();render();await runTimers();await settle([contact('person1'),contact('person2'),contact('person1')],[legacy('old-pending')]);
     const links=capture.elements.filter(x=>x.type==='a').map(x=>x.props.href);
     assert.deepEqual(links.sort(),['https://t.me/person1','https://t.me/person2','https://wa.me/38267123456'].sort());
     assert.ok(text(render()).includes('deals.title'));assert.ok(button('workflow.report'));
@@ -98,36 +99,36 @@ try {
     button('workflow.report').onClick();render();const report=capture.elements.find(x=>typeof x.type==='function'&&x.type.name==='ReportDialog');assert.equal(report.props.targetId,'old-pending');assert.equal(report.props.targetKind,'deal');
   });
   await check('new exchanges never invent legacy report or review targets',async()=>{
-    reset();render();runTimers();await settle([contact('only-new')]);assert.equal(button('workflow.report'),undefined);assert.equal(button('deals.rate'),undefined);
+    reset();render();await runTimers();await settle([contact('only-new')]);assert.equal(button('workflow.report'),undefined);assert.equal(button('deals.rate'),undefined);
   });
   await check('retired report close callback cannot write page state',async()=>{
-    reset();render();runTimers();await settle([],[legacy('reportable')]);button('workflow.report').onClick();render();const report=capture.elements.find(x=>typeof x.type==='function'&&x.type.name==='ReportDialog').props;state.unmount();const writes=state.writes;report.onClose();assert.equal(state.writes,writes);
+    reset();render();await runTimers();await settle([],[legacy('reportable')]);button('workflow.report').onClick();render();const report=capture.elements.find(x=>typeof x.type==='function'&&x.type.name==='ReportDialog').props;state.unmount();const writes=state.writes;report.onClose();assert.equal(state.writes,writes);
   });
   await check('all messenger links and distinct legacy IDs remain available',async()=>{
-    reset();render();runTimers();await settle([contact('all',{contacts:[{messenger_type:'tg',contact_value:'@alice'},{messenger_type:'wa',contact_value:'+38267123456'},{messenger_type:'viber',contact_value:'+38267123456'}]})],[legacy('one'),legacy('two'),legacy('one')]);
+    reset();render();await runTimers();await settle([contact('all',{contacts:[{messenger_type:'tg',contact_value:'@alice'},{messenger_type:'wa',contact_value:'+38267123456'},{messenger_type:'viber',contact_value:'+38267123456'}]})],[legacy('one'),legacy('two'),legacy('one')]);
     const links=capture.elements.filter(x=>x.type==='a').map(x=>x.props.href);assert.ok(links.includes('viber://chat?number=+38267123456'));assert.equal(links.length,5);
   });
   await check('completed legacy review remains available and is double-tap safe',async()=>{
-    reset();render();runTimers();await settle([],[legacy('complete',{completed_at:'2026-11-01T10:00:00Z',status:'completed'})]);
+    reset();render();await runTimers();await settle([],[legacy('complete',{completed_at:'2026-11-01T10:00:00Z',status:'completed'})]);
     button('deals.rate').onClick();render();const rate=capture.elements.find(x=>x.type==='button'&&x.props['aria-label']==='5/5').props;
     const one=rate.onClick(),two=rate.onClick();await tick();assert.equal(api.mutations.length,1);assert.deepEqual(api.mutations[0].args,['complete',5]);api.mutations[0].resolve({});await tick();
     for(const load of api.loads.slice(2))load.resolve([]);await Promise.all([one,two]);
   });
   await check('dismissed legacy rating callback cannot submit later',async()=>{
-    reset();render();runTimers();await settle([],[legacy('complete',{status:'completed'})]);button('deals.rate').onClick();render();const old=capture.elements.find(x=>x.type==='button'&&x.props['aria-label']==='5/5').props;nav.overlay.close();render();const pending=old.onClick();await tick();assert.equal(api.mutations.length,0);await pending;
+    reset();render();await runTimers();await settle([],[legacy('complete',{status:'completed'})]);button('deals.rate').onClick();render();const old=capture.elements.find(x=>x.type==='button'&&x.props['aria-label']==='5/5').props;nav.overlay.close();render();const pending=old.onClick();await tick();assert.equal(api.mutations.length,0);await pending;
   });
   for(const retirement of ['unmount','auth'])await check(`${retirement} suppresses late legacy review results`,async()=>{
-    reset();render();runTimers();await settle([],[legacy('complete',{status:'completed'})]);button('deals.rate').onClick();render();const old=capture.elements.find(x=>x.type==='button'&&x.props['aria-label']==='5/5').props;const pending=old.onClick();await tick();if(retirement==='unmount')state.unmount();else db.changeAccount('b');const writes=state.writes;api.mutations[0].resolve({});await pending;assert.equal(state.writes,writes);assert.equal(api.loads.length,2);assert.equal(toasts.length,0);
+    reset();render();await runTimers();await settle([],[legacy('complete',{status:'completed'})]);button('deals.rate').onClick();render();const old=capture.elements.find(x=>x.type==='button'&&x.props['aria-label']==='5/5').props;const pending=old.onClick();await tick();if(retirement==='unmount')state.unmount();else db.changeAccount('b');const writes=state.writes;api.mutations[0].resolve({});await pending;assert.equal(state.writes,writes);assert.equal(api.loads.length,2);assert.equal(toasts.length,0);
   });
   await check('partial load failure preserves contacts and offers retry',async()=>{
-    reset();render();runTimers();api.loads.find(x=>x.kind==='contacts').resolve([contact('kept')]);api.loads.find(x=>x.kind==='legacy').reject(Error('offline'));await tick();render();assert.ok(button('common.retry'));assert.ok(text(render()).includes('kept'));button('common.retry').onClick();assert.equal(api.loads.length,4);
+    reset();render();await runTimers();api.loads.find(x=>x.kind==='contacts').resolve([contact('kept')]);api.loads.find(x=>x.kind==='legacy').reject(Error('offline'));await tick();render();assert.ok(button('common.retry'));assert.ok(text(render()).includes('kept'));button('common.retry').onClick();assert.equal(api.loads.length,4);
   });
   await check('empty page and newest refresh wins',async()=>{
-    reset();render();runTimers();const old=[...api.loads];listeners.get('deals-updated')();await settle([contact('newest')]);old.forEach(x=>x.resolve([x.kind==='contacts'?contact('stale'):legacy('stale')]));await tick();assert.ok(!text(render()).includes('stale'));
+    reset();render();await runTimers();const old=[...api.loads];listeners.get('deals-updated')();await settle([contact('newest')]);old.forEach(x=>x.resolve([x.kind==='contacts'?contact('stale'):legacy('stale')]));await tick();assert.ok(!text(render()).includes('stale'));
     listeners.get('deals-updated')();await settle();assert.ok(text(render()).includes('simpleExchange.empty'));
   });
   for(const retirement of ['unmount','auth','props','inactive'])await check(`${retirement} suppresses late private contacts`,async()=>{
-    reset();render();runTimers();if(retirement==='unmount')state.unmount();else if(retirement==='auth')db.changeAccount('b');else render(SimpleDeals,retirement==='props'?{userId:'b'}:{userId:'a',active:false});
+    reset();render();await runTimers();if(retirement==='unmount')state.unmount();else if(retirement==='auth')db.changeAccount('b');else render(SimpleDeals,retirement==='props'?{userId:'b'}:{userId:'a',active:false});
     const writes=state.writes;api.loads.slice(0,2).forEach(x=>x.resolve([x.kind==='contacts'?contact('private-old'):legacy('private-old')]));await tick();assert.equal(state.writes,writes);
     if(retirement!=='unmount')assert.ok(!text(render(SimpleDeals,retirement==='props'?{userId:'b'}:{userId:'a',active:false})).includes('private-old'));
   });
@@ -167,7 +168,7 @@ try {
     try{startManager();const p={...props(),listing:{...listing,owner_check_due_at:'2026-11-02T00:00:00Z'}};assert.ok(!text(render(Manager,p)).includes('simpleExchange.checkDue'));now=Date.parse('2026-11-02T00:00:00Z');listeners.get('focus')();assert.ok(text(render(Manager,p)).includes('simpleExchange.checkDue'));}finally{Date.now=realNow;}
   });
   await check('hidden and signed-out page never requests contacts',async()=>{
-    for(const p of [{userId:'a',active:false},{userId:null}]){reset();render(SimpleDeals,p);runTimers();assert.equal(api.loads.length,0);}
+    for(const p of [{userId:'a',active:false},{userId:null}]){reset();render(SimpleDeals,p);await runTimers();assert.equal(api.loads.length,0);}
   });
   for(const retirement of ['unmount','auth','props','inactive'])await check(`${retirement} retires owner callbacks and late mutation effects`,async()=>{
     startManager();const old=button('simpleExchange.stillCurrent');const pending=old.onClick();await tick();assert.equal(api.mutations.length,1);
@@ -179,4 +180,4 @@ try {
     startManager();const old=button('simpleExchange.stillCurrent');db.setSession('b');await old.onClick();assert.equal(api.mutations.length,0);
   });
   reset();stop();assert.deepEqual(failures,[],'Simple exchange UI regressions');console.log('Simple exchange UI checks passed; real JSX handlers, persistent hook scheduling; no physical browser claim.');
-} finally {hooks.deregister();globalThis.window=originalWindow;globalThis.fetch=originalFetch;}
+} finally {hooks.deregister();globalThis.window=originalWindow;globalThis.fetch=originalFetch;globalThis.document=originalDocument;}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../supabaseClient';
-import { createFeedback, requestFeedbackTelegramDelivery, getEcoLeaderboard, getImpactTotals, getMyDeals, getMyReliability, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
+import { createFeedback, requestFeedbackTelegramDelivery, getEcoLeaderboard, getImpactTotals, getMyDeals, getMyReliability, getMyListingInterestCounts, saveMyProfile, setMyAvatar, setRankingParticipation } from '../lib/api';
 import { composeFeedback, submitFeedback } from '../lib/feedbackSubmission';
 import { createFeedbackRequestStore } from '../lib/feedbackRequestIdentity';
 import { listingCategoryLabel } from '../lib/categories';
@@ -25,13 +25,15 @@ import ListingPhoto from '../components/ListingPhoto';
 import { createFormTaskScope, prepareScopedPreview } from '../lib/formTaskScope';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import { subscribeMapRefresh } from '../lib/mapRefresh';
+import '../styles/map-simple-exchange.css';
 let profileCache = null;
 
 function ProfileDealSection({ title, deals, language, t }) {
   return <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{title}</h2><span className="count-pill">{deals.length}</span></div>{deals.length ? <div className="mt-4 space-y-3">{deals.map((deal) => <article key={deal.transaction_id} className="profile-deal"><div className="min-w-0 flex-1"><strong>{listingCategoryLabel(deal, language)}</strong><small>{deal.partner_name || t('common.partner')} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</small></div></article>)}</div> : <p className="empty-copy mt-4">{t('workflow.sectionEmpty')}</p>}</section>;
 }
 
-export default function Profile({ userId, onEditListing, active = true }) {
+export default function Profile({ userId, onEditListing, onOpenDeals, active = true }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const cached = profileCache?.userId === userId ? profileCache : null;
@@ -59,6 +61,8 @@ export default function Profile({ userId, onEditListing, active = true }) {
   const screenshotUpload = useRef(null);
   const feedbackRequests = useMemo(() => createFeedbackRequestStore(), []);
   const taskScope = useMemo(() => createFormTaskScope(userId), [userId]);
+  const interestRequest = useRef(0);
+  const interestSnapshot = useRef(null);
   const levelsDialogRef = useRef(null);
   const [avatarCandidate, setAvatarCandidate] = useState(null);
   const [avatarPreparing, setAvatarPreparing] = useState(false);
@@ -77,13 +81,38 @@ export default function Profile({ userId, onEditListing, active = true }) {
     return () => { taskScope.dispose(); screenshotRequest.current += 1; subscription?.unsubscribe(); };
   }, [taskScope, userId]);
 
+  const readInterestCounts = useCallback(async () => {
+    const task = taskScope.capture();
+    if (!userId || !task.isCurrent()) return [];
+    const revision = ++interestRequest.current;
+    const data = await getMyListingInterestCounts();
+    if (task.isCurrent() && revision === interestRequest.current) interestSnapshot.current = { userId, data: data || [] };
+    return data || [];
+  }, [userId, taskScope]);
+
+  useEffect(() => {
+    if (!active || !userId) return undefined;
+    const task = taskScope.capture();
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        await readInterestCounts();
+        if (stopped || !task.isCurrent() || interestSnapshot.current?.userId !== userId) return;
+        const counts = new Map(interestSnapshot.current.data.map(row => [row.listing_id, Number(row.active_interest_count) || 0]));
+        setListings(previous => previous.map(listing => ({ ...listing, active_interest_count: counts.get(listing.id) || 0 })));
+      } catch { /* Keep the last known counts; the full load retains its retry UI. */ }
+    };
+    const stop = subscribeMapRefresh({ host: window, document, refresh, interval: 60000 });
+    return () => { stopped = true; stop(); };
+  }, [active, userId, taskScope, readInterestCounts]);
+
   const load = useCallback(async () => {
     const task = taskScope.capture();
     if (!task.isCurrent()) return;
     if (profileCache?.userId !== userId) setLoading(true);
     setError('');
     if (!userId) return setLoading(false);
-    const [profileResult, contactResult, dealResult, listingResult, reviewResult, leaderboardResult, feedbackResult, reliabilityResult, impactResult] = await Promise.all([
+    const [profileResult, contactResult, dealResult, listingResult, reviewResult, leaderboardResult, feedbackResult, reliabilityResult, impactResult, interestResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).single(),
       supabase.from('profile_contacts').select('messenger_type, contact_value').eq('user_id', userId),
       getMyDeals().then((data) => ({ data })).catch((error) => ({ error })),
@@ -93,15 +122,18 @@ export default function Profile({ userId, onEditListing, active = true }) {
       supabase.from('user_feedback').select('id, feedback_type, message, status, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
       getMyReliability().then((data) => ({ data })).catch(() => ({ data: null })),
       getImpactTotals().then((data) => ({ data })).catch(() => ({ data: null })),
+      readInterestCounts().then(data => ({ data })).catch(error => ({ error })),
     ]);
     if (!task.isCurrent()) return;
-    const firstError = profileResult.error || contactResult.error || dealResult.error || listingResult.error || reviewResult.error || leaderboardResult.error || feedbackResult.error;
+    const firstError = profileResult.error || contactResult.error || dealResult.error || listingResult.error || reviewResult.error || leaderboardResult.error || feedbackResult.error || interestResult.error;
     if (firstError) {
       setError(firstError.message);
       setLoading(false);
       return;
     }
-    const nextData = { userId, profile: profileResult.data || null, contacts: contactsToMap(contactResult.data || []), deals: dealResult.data || [], listings: listingResult.data || [], reviews: reviewResult.data || [], leaderboard: leaderboardResult.data || [], feedbackHistory: feedbackResult.data || [], reliability: reliabilityResult?.data || null, impact: impactResult?.data || null };
+    const latestInterest = interestSnapshot.current?.userId === userId ? interestSnapshot.current.data : interestResult.data || [];
+    const interestCounts = new Map(latestInterest.map(row => [row.listing_id, Number(row.active_interest_count) || 0]));
+    const nextData = { userId, profile: profileResult.data || null, contacts: contactsToMap(contactResult.data || []), deals: dealResult.data || [], listings: (listingResult.data || []).map(listing => ({ ...listing, active_interest_count: interestCounts.get(listing.id) || 0 })), reviews: reviewResult.data || [], leaderboard: leaderboardResult.data || [], feedbackHistory: feedbackResult.data || [], reliability: reliabilityResult?.data || null, impact: impactResult?.data || null };
     if (profileResult.data) profileCache = nextData;
     setProfile(nextData.profile); setDeals(nextData.deals); setListings(nextData.listings); setReviews(nextData.reviews); setLeaderboard(nextData.leaderboard); setFeedbackHistory(nextData.feedbackHistory); setReliability(nextData.reliability); setImpact(nextData.impact);
     if (profileResult.data) {
@@ -109,7 +141,7 @@ export default function Profile({ userId, onEditListing, active = true }) {
       setForm({ full_name: profileResult.data.full_name || '', language: nextLanguage, contacts: nextData.contacts, ranking_opt_in: profileResult.data.ranking_opt_in ?? true });
     }
     setLoading(false);
-  }, [language, userId, taskScope]);
+  }, [language, userId, taskScope, readInterestCounts]);
 
   useEffect(() => {
     const initialLoad = window.setTimeout(load, 0);
@@ -344,7 +376,7 @@ export default function Profile({ userId, onEditListing, active = true }) {
 
         <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('reliability.title')}</h2></div><Icon name="handshake" size={24} /></div><div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="impact-card"><strong>{reliability?.completed_count ?? 0}</strong><small>{t('reliability.completed')}</small></div><div className="impact-card"><strong>{reliability?.accepted_cancellations ?? 0}</strong><small>{t('reliability.cancellations')}</small></div><div className="impact-card"><strong>{reliability?.confirmed_no_shows_90d ?? 0}</strong><small>{t('reliability.noShows')}</small></div></div><p className="mt-3 text-xs font-semibold text-muted">{t('reliability.note')}</p></section>
 
-        <DiscoveryInbox userId={userId} listings={listings} onListingChanged={load} active={active} />
+        <DiscoveryInbox userId={userId} listings={listings} onListingChanged={load} onOpenDeals={onOpenDeals} active={active} />
 
         <SupportFund />
 
@@ -354,7 +386,7 @@ export default function Profile({ userId, onEditListing, active = true }) {
 
         <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.leaderboard')}</h2></div><Icon name="award" size={24} /></div><p className="mt-2 text-sm leading-6 text-muted">{t('profile.leaderboardText')}</p>{leaderboard.length ? <div className="leaderboard mt-4">{leaderboard.map((entry) => <div key={entry.user_id} className={`leaderboard-row ${entry.user_id === userId ? 'is-me' : ''}`}><b>{entry.rank}</b><span>{entry.full_name}</span><strong>{entry.eco_points}</strong></div>)}</div> : <p className="empty-copy mt-4">{t('profile.leaderboardEmpty')}</p>}</section>
 
-        <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{t('profile.listings')}</h2><span className="count-pill">{listings.length}</span></div>{listings.length ? <div className="mt-4 space-y-3">{listings.map((listing) => <div key={listing.id} id={`my-listing-${listing.id}`}><article className="profile-listing">{listing.image_url ? <ListingPhoto src={listing.image_url} alt={listingCategoryLabel(listing,language)} active={active} /> : <span><CategoryIcon category={listing} size={24} /></span>}<div className="min-w-0 flex-1"><strong>{listingCategoryLabel(listing, language)}</strong><small>{t('profile.available')}: {listing.available_quantity ?? listing.quantity} · {t(`status.${listing.status}`)}</small></div><button type="button" className="icon-button" onClick={() => onEditListing?.(listing)} aria-label={t('profile.editListing')}><Icon name="edit" size={17} /></button></article><ListingStatusManager listing={listing} userId={userId} active={active} onChanged={load} /></div>)}</div> : <p className="empty-copy mt-4">{t('profile.noListings')}</p>}</section>
+        <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{t('profile.listings')}</h2><span className="count-pill">{listings.length}</span></div>{listings.length ? <div className="mt-4 space-y-3">{listings.map((listing) => <div key={listing.id} id={`my-listing-${listing.id}`}><article className={`profile-listing ${listing.status === 'active' && listing.active_interest_count > 0 ? 'is-interested' : ''}`}>{listing.image_url ? <ListingPhoto src={listing.image_url} alt={listingCategoryLabel(listing,language)} active={active} /> : <span><CategoryIcon category={listing} size={24} /></span>}<div className="min-w-0 flex-1"><strong>{listingCategoryLabel(listing, language)}</strong><small>{t('profile.available')}: {listing.available_quantity ?? listing.quantity} · {t(`status.${listing.status}`)}</small>{listing.status === 'active' && listing.active_interest_count > 0 ? <span className="interest-badge" data-interest-count={listing.active_interest_count} title={t('simpleExchange.interestCount', { count: listing.active_interest_count })}>{t('simpleExchange.interestStatus')} · {listing.active_interest_count}</span> : null}</div><button type="button" className="icon-button" onClick={() => onEditListing?.(listing)} aria-label={t('profile.editListing')}><Icon name="edit" size={17} /></button></article><ListingStatusManager listing={listing} userId={userId} active={active} onChanged={load} /></div>)}</div> : <p className="empty-copy mt-4">{t('profile.noListings')}</p>}</section>
 
         <ProfileDealSection title={t('simpleExchange.legacyHistory')} deals={dealHistory} language={language} t={t} />
 

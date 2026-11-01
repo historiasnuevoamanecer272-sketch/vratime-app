@@ -28,6 +28,7 @@ import { formatListingDate } from '../lib/listingDate';
 import { subscribeMapRefresh } from '../lib/mapRefresh';
 import { subscribeConnection } from '../lib/connectionState';
 import { normalizeCollectionPoints } from '../lib/collectionPoints';
+import { createFormTaskScope } from '../lib/formTaskScope';
 import '../styles/map-simple-exchange.css';
 const distances = ['all', '1', '5', '10'];
 const listingImages = (listing) => [...new Set([
@@ -76,7 +77,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
   const [contactExchanges, setContactExchanges] = useState([]);
   const [loading, setLoading] = useState(() => globalThis.navigator?.onLine !== false);
   const [loadError, setLoadError] = useState(() => globalThis.navigator?.onLine === false ? t('reliabilityExperience.offline') : '');
-  const [contactId, setContactId] = useState(null);
+  const [contactPending, setContactPending] = useState(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [type, setType] = useState('all');
@@ -107,9 +108,20 @@ export default function MapScreen({ userId, active = true, focusListingId = null
   const cancelLocation = useRef(null);
   const detailRef = useRef(null);
   const contactRef = useRef(null);
+  const taskScope = useMemo(() => {
+    const scope = createFormTaskScope(userId);
+    if (!active) scope.dispose();
+    return scope;
+  }, [userId, active]);
+  const contactId = contactPending?.scope === taskScope ? contactPending.id : null;
+  useEffect(() => {
+    taskScope.activate();
+    const subscription = supabase.auth?.onAuthStateChange?.((_event, session) => { if (session?.user?.id !== userId) taskScope.dispose(); })?.data?.subscription;
+    return () => { taskScope.dispose(); subscription?.unsubscribe(); };
+  }, [taskScope, userId]);
   useAppOverlay(active && Boolean(sheetOpen), () => setSheetOpen(false), 'map-list');
   useAppOverlay(active && Boolean(selectedListing), () => setSelectedListing(null), 'listing');
-  const closeContacts = () => { if (contactInFlight.current) return false; setContactListing(null); return true; };
+  const closeContacts = () => { if (contactInFlight.current?.scope === taskScope) return false; setContactListing(null); return true; };
   useAppOverlay(active && Boolean(contactListing), closeContacts, 'listing-contacts');
   const detailFocus = useDialogFocus({ open: active && Boolean(selectedListing) && !contactListing && !reportListing, onClose: () => setSelectedListing(null), dialogRef: detailRef });
   const contactFocus = useDialogFocus({ open: active && Boolean(contactListing), onClose: closeContacts, dialogRef: contactRef });
@@ -124,6 +136,8 @@ export default function MapScreen({ userId, active = true, focusListingId = null
   useEffect(() => subscribeConnection(window, setOnline), []);
 
   const fetchData = useCallback(async ({ background = false } = {}) => {
+    const task = taskScope.capture();
+    if (!active || !task.isCurrent()) return;
     const request = ++fetchRequest.current;
     if (!background) { setLoading(true); setLoadError(''); }
     const [listingsResult, categoriesResult, contactsResult, pointsResult, discoveryResult] = await Promise.all([
@@ -133,7 +147,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
       getCollectionPoints().then((data) => ({ data })).catch((error) => ({ error })),
       getMyDiscoveryFeed().then((data) => ({ data })).catch((error) => ({ error })),
     ]);
-    if (request !== fetchRequest.current) return;
+    if (!task.isCurrent() || request !== fetchRequest.current) return;
     if (listingsResult.error || categoriesResult.error) setLoadError(listingsResult.error?.message || categoriesResult.error?.message || t('errors.load'));
     else {
       const latest = (listingsResult.data || []).map(normalizePublicListing);
@@ -148,7 +162,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
     if (!pointsResult.error) setCollectionPoints(normalizeCollectionPoints(pointsResult.data));
     if (!discoveryResult.error) setFavouriteIds(new Set((discoveryResult.data?.favourites || []).map((item) => item.listing_id)));
     setLoading(false);
-  }, [t]);
+  }, [t, taskScope, active]);
 
   useEffect(() => {
     if (!active) return;
@@ -228,18 +242,23 @@ export default function MapScreen({ userId, active = true, focusListingId = null
   };
 
   const shareContacts = async (item) => {
-    if (!active || !online || contactInFlight.current || contactId || isOwnMapListing(item, userId) || exchangeFor(item.id) || availableRequestQuantity(item) < 1) return;
-    contactInFlight.current = true;
-    setContactId(item.id); setContactError('');
+    const task = taskScope.capture();
+    if (!task.isCurrent() || !active || !online || contactInFlight.current?.scope === taskScope || contactId || isOwnMapListing(item, userId) || exchangeFor(item.id) || availableRequestQuantity(item) < 1) return;
+    const action = { scope: taskScope, id: item.id };
+    contactInFlight.current = action;
+    setContactPending(action); setContactError('');
     try {
-      const exchange = await requestListingContacts(item.id);
+      const exchange = await task.mutate(() => requestListingContacts(item.id));
+      if (!task.isCurrent()) return;
       if (!Array.isArray(exchange?.contacts) || !exchange.contacts.length) throw new Error('contact_details_required');
       setContactExchanges((current) => [...current.filter((entry) => entry.listing_id !== item.id), exchange]);
+      setListings(current => current.map(listing => listing.id === item.id ? { ...listing, active_interest_count: Number(exchange.active_interest_count) || Math.max(1, Number(listing.active_interest_count) || 0) } : listing));
+      await fetchData({ background: true });
     } catch (error) {
-      setContactError(t(String(error?.message).includes('contact_details_required') ? 'simpleExchange.missingContacts' : 'simpleExchange.contactError'));
+      if (task.isCurrent()) setContactError(t(String(error?.message).includes('contact_details_required') ? 'simpleExchange.missingContacts' : 'simpleExchange.contactError'));
     } finally {
-      contactInFlight.current = false;
-      setContactId(null);
+      if (contactInFlight.current === action) contactInFlight.current = null;
+      if (task.isCurrent()) setContactPending(null);
     }
   };
 
@@ -277,10 +296,11 @@ export default function MapScreen({ userId, active = true, focusListingId = null
     return value === null ? t('map.distanceUnknown') : t('map.distance', { value: value.toFixed(1) });
   };
   const listingCard = (item, compact = false) => (
-    <article key={`${compact ? 'sheet' : 'popup'}-${item.id}`} className={`listing-card ${compact ? 'listing-card-row' : ''} ${isOwnMapListing(item, userId) ? 'is-owned' : ''}`}>
+    <article key={`${compact ? 'sheet' : 'popup'}-${item.id}`} className={`listing-card ${compact ? 'listing-card-row' : ''} ${isOwnMapListing(item, userId) ? 'is-owned' : ''} ${item.active_interest_count > 0 ? 'is-interested' : ''}`}>
       {listingImages(item)[0] ? <ListingPhoto src={listingImages(item)[0]} alt={listingCategoryLabel(item,language)} className="listing-image" active={active} /> : <span className="listing-placeholder"><CategoryIcon category={item} size={32} /></span>}
       <div className="min-w-0 flex-1">
         <div className={`listing-kind ${item.type}`}><Icon name={typeIcon(item)} size={13} />{t(typeLabel(item))}</div>
+        {item.active_interest_count > 0 ? <span className="interest-badge" title={t('simpleExchange.interestCount', { count: item.active_interest_count })}>{t('simpleExchange.interestStatus')} · {item.active_interest_count}</span> : null}
         {isOwnMapListing(item, userId) ? <div className="listing-owner">{t('mapExperience.myListing')}</div> : null}
         <h3 className="mt-2 truncate font-extrabold text-forest">{listingCategoryLabel(item, language)}</h3>
         <p className="mt-1 text-xs font-semibold text-muted">{t('common.pieces', { count: item.quantity })} · {distanceText(item)}</p>
@@ -306,8 +326,9 @@ export default function MapScreen({ userId, active = true, focusListingId = null
         {mapLayer === 'listings' ? markerGroups.map((group) => {
           const item = group.listings[0];
           const grouped = group.listings.length > 1;
-          const label = grouped ? t('map.offers', { count: group.listings.length }) : listingCategoryLabel(item, language);
-          return <Marker key={group.key} position={group.position} icon={grouped ? groupedMapMarkerIcon(group.listings.length) : mapMarkerIcons[item.type] || mapMarkerIcons.give} opacity={1} title={label} alt={label} eventHandlers={{ popupopen: (event) => event.target.closeTooltip(), mouseover: (event) => { if (event.target.isPopupOpen()) event.target.closeTooltip(); } }}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1} interactive={false}>{grouped ? <strong>{label}</strong> : listingPreview(item)}</Tooltip><Popup autoPan={false} keepInView={false}>{grouped ? <div className="map-overlap-options" aria-label={label}><strong className="map-overlap-count">{label}</strong>{group.listings.map((listing) => listingCard(listing))}</div> : listingCard(item)}</Popup></Marker>;
+          const interested = group.listings.some(listing => listing.active_interest_count > 0);
+          const label = `${grouped ? t('map.offers', { count: group.listings.length }) : listingCategoryLabel(item, language)}${interested ? ` · ${t('simpleExchange.interestStatus')}` : ''}`;
+          return <Marker key={group.key} position={group.position} icon={grouped ? groupedMapMarkerIcon(group.listings.length, interested, item.type) : mapMarkerIcons[`${item.type}${interested ? 'Interest' : ''}`] || mapMarkerIcons[item.type] || mapMarkerIcons.give} opacity={1} title={label} alt={label} eventHandlers={{ popupopen: (event) => event.target.closeTooltip(), mouseover: (event) => { if (event.target.isPopupOpen()) event.target.closeTooltip(); } }}><Tooltip className="listing-tooltip" direction="top" offset={[0, -35]} opacity={1} interactive={false}>{grouped ? <strong>{label}</strong> : listingPreview(item)}</Tooltip><Popup autoPan={false} keepInView={false}>{grouped ? <div className="map-overlap-options" aria-label={label}><strong className="map-overlap-count">{label}</strong>{group.listings.map((listing) => listingCard(listing))}</div> : listingCard(item)}</Popup></Marker>;
         }) : <CollectionPointLayer points={collectionPoints} onVote={votePoint} />}
       </MapContainer>
 
@@ -352,6 +373,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
           <div className="listing-dialog-scroll">
           {listingImages(selectedListing).length ? <div className="listing-dialog-gallery">{listingImages(selectedListing).map((imageUrl) => <ListingPhoto key={imageUrl} src={imageUrl} alt={listingCategoryLabel(selectedListing,language)} className="listing-dialog-image" active={active} />)}</div> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
           <div className={`listing-kind mt-4 ${selectedListing.type}`}><Icon name={typeIcon(selectedListing)} size={14} />{t(typeLabel(selectedListing))}</div>
+          {selectedListing.active_interest_count > 0 ? <span className="interest-badge" title={t('simpleExchange.interestCount', { count: selectedListing.active_interest_count })}>{t('simpleExchange.interestStatus')} · {selectedListing.active_interest_count}</span> : null}
           {isOwnMapListing(selectedListing, userId) ? <p className="listing-owner">{t('mapExperience.myListing')}</p> : null}
           <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>
           <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span>{formatListingDate(selectedListing.created_at, language) ? <span><Icon name="calendar" size={13} />{formatListingDate(selectedListing.created_at, language)}</span> : null}</div>
@@ -362,7 +384,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
           {!isOwnMapListing(selectedListing, userId) ? <button type="button" className="btn-link mt-4 text-xs" onClick={() => setReportListing(selectedListing)}><Icon name="flag" size={15} />{t('workflow.reportListing')}</button> : null}
           </div>
           <div className="listing-dialog-actions">
-            <button type="button" className={`listing-request-action w-full ${isOwnMapListing(selectedListing, userId) ? 'btn-secondary is-owned' : 'btn-primary'}`} disabled={isOwnMapListing(selectedListing, userId) || contactId === selectedListing.id || (!exchangeFor(selectedListing.id) && availableRequestQuantity(selectedListing) < 1)} onClick={() => openContacts(selectedListing)}>{isOwnMapListing(selectedListing, userId) ? null : <Icon name="message" size={18} />}{isOwnMapListing(selectedListing, userId) ? t('mapExperience.myListing') : t(exchangeFor(selectedListing.id) ? 'simpleExchange.openContacts' : 'simpleExchange.connect')}</button>
+            <button type="button" className={`listing-request-action w-full ${isOwnMapListing(selectedListing, userId) ? 'btn-secondary is-owned' : 'btn-primary'}`} disabled={isOwnMapListing(selectedListing, userId) || contactId === selectedListing.id || (!exchangeFor(selectedListing.id) && availableRequestQuantity(selectedListing) < 1)} onClick={() => openContacts(selectedListing)}>{isOwnMapListing(selectedListing, userId) ? null : <Icon name="message" size={18} />}{isOwnMapListing(selectedListing, userId) ? t('mapExperience.myListing') : t(exchangeFor(selectedListing.id) ? 'simpleExchange.openContacts' : selectedListing.type === 'give' ? 'simpleExchange.contactGive' : selectedListing.type === 'take' ? 'simpleExchange.contactTake' : 'simpleExchange.connect')}</button>
           </div>
         </section>
       </div> : null}
@@ -370,6 +392,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
       {contactListing ? <div className="listing-dialog-backdrop listing-dialog-backdrop-top" role="presentation" onMouseDown={closeContacts}>
         <section ref={contactRef} {...contactFocus} className="map-contact-dialog card" aria-label={t(exchangeFor(contactListing.id) ? 'simpleExchange.contactsReady' : 'simpleExchange.consentTitle')} onMouseDown={(event) => event.stopPropagation()}>
           <Icon name="message" size={30} /><h2 className="font-display mt-3 text-3xl text-forest">{t(exchangeFor(contactListing.id) ? 'simpleExchange.contactsReady' : 'simpleExchange.consentTitle')}</h2>
+          {exchangeFor(contactListing.id) ? <p className="mt-3 font-semibold">{t('simpleExchange.contactWithin24')}</p> : null}
           {exchangeFor(contactListing.id) ? <><p className="mt-3 font-bold">{exchangeFor(contactListing.id).partner_name}</p><div className="contact-links map-private-contact-links">{exchangeFor(contactListing.id).contacts?.map((contact) => contactHref(contact) ? <a key={`${contact.messenger_type}-${contact.contact_value}`} href={contactHref(contact)} target="_blank" rel="noreferrer">{contact.messenger_type?.toUpperCase()} · {contact.contact_value}</a> : <span key={`${contact.messenger_type}-${contact.contact_value}`}>{contact.contact_value}</span>)}</div>{onOpenContacts ? <button type="button" className="btn-link map-open-contacts" onClick={() => { closeContacts(); onOpenContacts(); }}>{t('simpleExchange.openContacts')}</button> : null}</> : <><p className="mt-3">{t('simpleExchange.consentBody')}</p>{!online ? <p role="status" className="field-error">{t('reliabilityExperience.offline')}</p> : null}{contactError ? <p role="alert" className="field-error">{contactError}</p> : null}<button type="button" className="btn-primary map-contact-confirm mt-5 w-full" disabled={!online || Boolean(contactId) || isOwnMapListing(contactListing, userId) || availableRequestQuantity(contactListing) < 1} onClick={() => shareContacts(contactListing)}>{t(contactId ? 'simpleExchange.connecting' : 'simpleExchange.shareContacts')}</button></>}
           <button type="button" className="btn-secondary mt-3 w-full" disabled={Boolean(contactId)} onClick={closeContacts}>{t('common.close')}</button>
         </section>

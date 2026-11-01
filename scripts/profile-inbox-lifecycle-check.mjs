@@ -48,7 +48,7 @@ const hooks = registerHooks({
     if (url === 'profile-inbox:child') return module('export default function Child(){};export function AvatarCrop(){};');
     if (url === 'profile-inbox:manager') return module('export default function ListingStatusManager(){};');
     if (url === 'profile-inbox:api') return module(`
-      export const requests=[],mutations=[];
+      export const requests=[],mutations=[];export const getMyListingInterestCounts=async()=>[];
       export const getMyDiscoveryFeed=()=>new Promise((resolve,reject)=>requests.push({resolve,reject}));
       const mutate=(...args)=>new Promise((resolve,reject)=>mutations.push({resolve,reject,args}));
       export const markInboxItemRead=mutate,deleteSavedSearch=mutate;
@@ -76,6 +76,7 @@ const hooks = registerHooks({
       const transformed = transformSync(fileURLToPath(url), readFileSync(new URL(url),'utf8'), {jsx:{runtime:'automatic'}});
       assert.equal(transformed.errors.length,0);return module(transformed.code);
     }
+    if (url.endsWith('.css')) return module('export default {};');
     return next(url,context);
   },
 });

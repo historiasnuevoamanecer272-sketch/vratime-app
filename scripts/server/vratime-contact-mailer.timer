@@ -1,0 +1,10 @@
+[Unit]
+Description=Deliver VratiMe contact notifications every minute
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+Unit=vratime-contact-mailer.service
+
+[Install]
+WantedBy=timers.target

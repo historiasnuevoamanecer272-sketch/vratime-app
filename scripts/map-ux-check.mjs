@@ -12,7 +12,7 @@ import i18n from '../src/i18n/index.js';
 const srcUrl = new URL('../src/', import.meta.url).href;
 const reactUrl = import.meta.resolve('react');
 const jsxUrl = import.meta.resolve('react/jsx-runtime');
-const apiExports = ['getCollectionPoints', 'getMyDeals', 'getMyDiscoveryFeed', 'getPublicMapListings', 'refreshExpiredDeals', 'voteCollectionPoint', 'createReport', 'createCollectionPoint'];
+const apiExports = ['getMyDeals', 'refreshExpiredDeals', 'voteCollectionPoint', 'createReport', 'createCollectionPoint'];
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     if (context.parentURL?.endsWith('/components/ListingPhoto.jsx') && specifier === 'react') return {url:'map-test:state',shortCircuit:true};
@@ -84,17 +84,26 @@ const hooks = registerHooks({
         export const toggleListingFavourite = async (...args) => { calls.push({ favourite: args }); return true; };
         export const saveSearch = async (...args) => { calls.push({ saveSearch: args }); };
         let contactFailure = null;
+        let publicRows = [], exchanges = [];
+        export const refreshes = [];
+        export const configureRefresh = rows => { publicRows = structuredClone(rows); exchanges = []; refreshes.length = 0; };
         export const failContacts = value => { contactFailure = value; };
-        export const getMyListingContacts = async () => [];
+        export const getMyListingContacts = async () => exchanges;
+        export const getPublicMapListings = async () => { refreshes.push('public-map'); return publicRows; };
+        export const getMyDiscoveryFeed = async () => ({});
+        export const getCollectionPoints = async () => [];
         export const requestListingContacts = async id => {
           calls.push({ contacts: [id] });
           if (contactFailure) throw new Error(contactFailure);
-          return { exchange_id: 'exchange-a', listing_id: id, partner_name: 'Neighbour', contacts: [{ messenger_type: 'tg', contact_value: '@neighbour' }, { messenger_type: 'wa', contact_value: '+38267123456' }, { messenger_type: 'viber', contact_value: '+38267123456' }] };
+          const exchange = { exchange_id: 'exchange-a', listing_id: id, partner_name: 'Neighbour', active_interest_count: 1, contacts: [{ messenger_type: 'tg', contact_value: '@neighbour' }, { messenger_type: 'wa', contact_value: '+38267123456' }, { messenger_type: 'viber', contact_value: '+38267123456' }] };
+          exchanges = [exchange];
+          publicRows = publicRows.map(row => row.id === id ? { ...row, active_interest_count: 1 } : row);
+          return exchange;
         };
         const forbidden = () => { throw new Error('Offline test must not access API'); };
         export const ${apiExports.map(name => `${name} = forbidden`).join(', ')};
       `,
-      'map-test:supabase': "export const supabase = new Proxy({}, { get() { throw new Error('Offline test must not access Supabase'); } });",
+      'map-test:supabase': "export const supabase = { auth: { onAuthStateChange: () => ({data:{subscription:{unsubscribe(){}}}}) }, from(table) { if (table !== 'categories') throw Error('Offline test must not read private tables'); return {select:()=>({order:async()=>({data:[],error:null})})}; } };",
       'map-test:markers': 'export const mapMarkerIcons = { give: {}, take: {}, lend: {}, collection: {} }; export const groupedMapMarkerIcon = count => ({ count });',
       'map-test:basemap': `export const baseMap = { url: 'offline://tiles', attribution: '&copy; OpenStreetMap contributors &copy; MapTiler', maxZoom: 20 };`,
     };
@@ -114,7 +123,7 @@ try {
   const { values, begin, effects } = await import('map-test:state');
   const { elements } = await import('map-test:elements');
   const { layers, map, mapCalls } = await import('map-test:leaflet');
-  const { calls, failContacts } = await import('map-test:api');
+  const { calls, failContacts, configureRefresh, refreshes } = await import('map-test:api');
   await i18n.changeLanguage('en');
   const fixture = { id: 'other-listing', user_id: 'other', category: 'Glass jars', category_path: 'glass/jars', type: 'give', quantity: 4, public_lat: 42.441, public_lng: 19.263, created_at: '2026-10-01T10:00:00Z', description: 'Keep this E2E description intact.' };
   let screenProps = {};
@@ -123,6 +132,7 @@ try {
     failContacts(null);
     values.clear();
     for (const [key, value] of Object.entries({ 0: [fixture], 3: false, 12: true, ...patch })) values.set(Number(key), value);
+    configureRefresh(values.get(0));
     return rerender();
   };
   const rerender = () => {
@@ -313,7 +323,7 @@ try {
     globalThis.window = { setTimeout: () => 1, clearTimeout() {} };
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition(ok, error) { calls += 1; success = ok; fail = error; } } });
     try {
-      const cleanup = effects.find(item => item.dependencies?.[1] === 'me').effect();
+      const cleanup = effects.find(item => item.dependencies?.[0] === true && item.dependencies?.[1] === 'me').effect();
       elementWithClass('map-recenter').props.onClick(); const before = [...values.entries()];
       cleanup(); success({ coords: { latitude: 42.44, longitude: 19.26 } }); fail({ code: 2 });
       assert.deepEqual([...values.entries()], before); assert.equal(calls, 1);
@@ -445,7 +455,7 @@ try {
   await check('all listing types explain private contact sharing before requesting contacts without quantity or timers', () => {
     for (const type of ['give', 'take', 'lend']) {
       render({ 14: { ...fixture, type } });
-      assert.equal(elementWithClass('listing-request-action').props.children.at(-1), i18n.t('simpleExchange.connect'));
+      assert.equal(elementWithClass('listing-request-action').props.children.at(-1), i18n.t(type === 'give' ? 'simpleExchange.contactGive' : type === 'take' ? 'simpleExchange.contactTake' : 'simpleExchange.connect'));
       assert.equal(elementWithClass('map-contact-dialog'), undefined);
       elementWithClass('listing-request-action').props.onClick();
       const html = rerender();
@@ -461,11 +471,18 @@ try {
     const confirm = elementWithClass('map-contact-confirm'); assert.ok(confirm);
     await confirm.props.onClick();
     assert.deepEqual(calls, [{ contacts: [fixture.id] }], 'No booking or quantity API may be called');
-    assert.deepEqual(values.get(0), [fixture], 'Contact sharing cannot remove or mutate the public listing');
+    const refreshed = values.get(0);
+    assert.equal(refreshed.length, 1, 'Contact sharing cannot remove the listing');
+    const { active_interest_count, lat, lng, ...unchanged } = refreshed[0];
+    assert.deepEqual(unchanged, fixture, 'Contact sharing cannot change stock, type or other listing fields');
+    assert.equal(active_interest_count, 1, 'A safe public refresh updates the permitted interest aggregate');
+    assert.deepEqual([lat, lng], [fixture.public_lat, fixture.public_lng]);
+    assert.deepEqual(refreshes, ['public-map']);
     rerender();
     const links = elements.filter(({ type }) => type === 'a').map(({ props }) => props.href);
     assert.deepEqual(links, ['https://t.me/neighbour', 'https://wa.me/38267123456', 'viber://chat?number=+38267123456']);
     assert.equal(layers.find(layer => layer.name === 'Marker').props.opacity, 1);
+    assert.ok(renderToStaticMarkup(createElement('div', null, elementWithClass('map-contact-dialog').props.children)).includes(i18n.t('simpleExchange.contactWithin24')));
   });
   await check('two immediate contact confirmations submit one idempotent exchange request', async () => {
     render({ 15: fixture });

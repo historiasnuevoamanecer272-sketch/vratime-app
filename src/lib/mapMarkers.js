@@ -8,9 +8,9 @@ const markerSvg = (type) => type === 'give'
       ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-5.4 7-12a7 7 0 0 0-14 0c0 6.6 7 12 7 12z"/><path d="M8 10h8M8 13h8M10 7v6M14 7v6"/></svg>'
       : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
 
-const marker = (type) => L.divIcon({
+const marker = (type, interested = false) => L.divIcon({
   className: 'vratime-marker-wrap',
-  html: `<span class="vratime-marker vratime-marker-${type}">${markerSvg(type)}</span>`,
+  html: `<span class="vratime-marker vratime-marker-${type}${interested ? ' is-interested' : ''}">${markerSvg(type)}</span>`,
   iconSize: [48, 56],
   iconAnchor: [24, 53],
   popupAnchor: [0, -48],
@@ -22,11 +22,14 @@ export const mapMarkerIcons = {
   take: marker('take'),
   lend: marker('lend'),
   collection: marker('collection'),
+  giveInterest: marker('give', true),
+  takeInterest: marker('take', true),
+  lendInterest: marker('lend', true),
 };
 
-export const groupedMapMarkerIcon = (count) => L.divIcon({
+export const groupedMapMarkerIcon = (count, interested = false, type = 'give') => L.divIcon({
   className: 'vratime-marker-wrap',
-  html: `<span class="vratime-marker vratime-marker-group"><span>${Math.max(2, Math.floor(Number(count)) || 2)}</span></span>`,
+  html: `<span class="vratime-marker vratime-marker-group vratime-marker-${['give', 'take', 'lend'].includes(type) ? type : 'give'}${interested ? ' is-interested' : ''}">${markerSvg(type)}<span class="map-group-badge">${Math.max(2, Math.floor(Number(count)) || 2)}</span></span>`,
   iconSize: [48, 56],
   iconAnchor: [24, 53],
   popupAnchor: [0, -48],

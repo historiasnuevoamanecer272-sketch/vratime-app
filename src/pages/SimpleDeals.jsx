@@ -14,6 +14,9 @@ import Icon from '../components/Icon';
 import CategoryIcon from '../components/CategoryIcon';
 import ListingPhoto from '../components/ListingPhoto';
 import ReportDialog from '../components/ReportDialog';
+import ListingContactOutcome from '../components/ListingContactOutcome';
+import { subscribeMapRefresh } from '../lib/mapRefresh';
+import '../styles/map-simple-exchange.css';
 
 const uniqueBy = (rows, key) => {
   const seen = new Set();
@@ -62,7 +65,7 @@ export default function SimpleDeals({ userId, active = true }) {
     return () => { taskScope.dispose(); subscription?.unsubscribe(); };
   }, [taskScope, userId]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ background = false } = {}) => {
     const task = taskScope.capture();
     if (!active || !userId || !task.isCurrent()) return;
     const request = ++loadRequest.current;
@@ -71,7 +74,7 @@ export default function SimpleDeals({ userId, active = true }) {
       scope: taskScope,
       contacts: previous?.scope === taskScope ? previous.contacts : [],
       legacy: previous?.scope === taskScope ? previous.legacy : [],
-      loading: true,
+      loading: background ? Boolean(previous?.loading) : !previous || previous.scope !== taskScope,
       error: '',
     }));
     const [contacts, legacy] = await Promise.allSettled([getMyListingContacts(), getMyDeals()]);
@@ -87,14 +90,20 @@ export default function SimpleDeals({ userId, active = true }) {
 
   useEffect(() => {
     if (!active || !userId) return undefined;
-    const initial = window.setTimeout(load, 0);
+    const stop = subscribeMapRefresh({ host: window, document, refresh: load, interval: 60000 });
     window.addEventListener('deals-updated', load);
     return () => {
       loadRequest.current += 1;
-      window.clearTimeout(initial);
+      stop();
       window.removeEventListener('deals-updated', load);
     };
   }, [active, userId, load]);
+
+  const outcomeChanged = useCallback(async result => {
+    if (!active || !userId || !taskScope.capture().isCurrent()) return;
+    if (result?.exchange_id) setSnapshot(previous => previous?.scope === taskScope ? { ...previous, contacts: previous.contacts.map(row => row.exchange_id === result.exchange_id ? result : row) } : previous);
+    await load({ background: true });
+  }, [active, userId, taskScope, load]);
 
   const rate = async value => {
     const task = taskScope.capture();
@@ -119,16 +128,18 @@ export default function SimpleDeals({ userId, active = true }) {
 
   const renderCard = (deal, legacy = false) => {
     const contacts = Array.isArray(deal.contacts) && deal.contacts.length ? deal.contacts : deal.contact_value ? [{ messenger_type: deal.messenger_type, contact_value: deal.contact_value }] : [];
-    return <article key={`${legacy ? 'legacy' : 'exchange'}-${deal.transaction_id || deal.exchange_id}`} className="deal-card">
+    return <article key={`${legacy ? 'legacy' : 'exchange'}-${deal.transaction_id || deal.exchange_id}`} className={`deal-card ${!legacy && deal.interest_active ? 'is-interested' : ''}`}>
       <div className="flex gap-3">
         {deal.image_url ? <ListingPhoto src={deal.image_url} className="deal-thumb" active={active} /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
         <div className="min-w-0 flex-1"><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div>
       </div>
+      {!legacy ? <><p className="mt-3 text-sm font-semibold">{t('simpleExchange.contactWithin24')}</p>{deal.listing_status === 'completed' ? <span className="status-pill status-completed">{t('simpleExchange.completed')}</span> : deal.listing_status && deal.listing_status !== 'active' ? <span className="status-pill">{t('simpleExchange.inactive')}</span> : deal.interest_active ? <span className="interest-badge" title={t('simpleExchange.interestCount', { count: deal.active_interest_count })}>{t('simpleExchange.interestStatus')} · {deal.active_interest_count}</span> : null}</> : null}
       <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{contacts.length ? <div className="contact-links">{contacts.map((contact, index) => {
         const href = contactHref(contact);
         const label = `${contact.messenger_type?.toUpperCase() || ''} · ${contact.contact_value}`;
         return href ? <a key={`${contact.messenger_type}-${index}`} href={href} target="_blank" rel="noreferrer">{label}</a> : <span key={`${contact.messenger_type}-${index}`}>{label}</span>;
       })}</div> : <p>{t('deals.contactMissing')}</p>}</div></div>
+      {!legacy ? <ListingContactOutcome exchange={deal} userId={userId} active={active} onChanged={outcomeChanged} /> : null}
       {legacy && (deal.completed_at || deal.status === 'completed') && !deal.my_review_rating ? <button type="button" className="btn-secondary mt-4 w-full text-sm" onClick={() => { if (taskScope.capture().isCurrent()) { const session = {}; ratingSession.current = session; setRating({ scope: taskScope, session, deal }); } }}><Icon name="star" size={17} />{t('deals.rate')}</button> : null}
       {legacy && deal.my_review_rating ? <div className="mt-4 flex items-center gap-1 text-amber-500" aria-label={`${deal.my_review_rating}/5`}>{[1, 2, 3, 4, 5].map(value => <Icon key={value} name="star" size={17} filled={value <= deal.my_review_rating} />)}</div> : null}
       {legacy ? <button type="button" className="btn-link mt-4 text-xs" onClick={() => { if (taskScope.capture().isCurrent()) setReport({ scope: taskScope, deal }); }}><Icon name="flag" size={15} />{t('workflow.report')}</button> : null}

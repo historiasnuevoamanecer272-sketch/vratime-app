@@ -25,3 +25,43 @@ export const simpleExchangeByLanguage = {
     stillCurrent: 'Noch aktuell', remaining: 'Wie viel ist übrig?', saveRemaining: 'Restmenge speichern', allDone: 'Alles abgegeben / erhalten', noLongerRelevant: 'Nicht mehr aktuell', close: 'Anzeige schließen', closeTitle: 'Wie möchtest du die Anzeige schließen?', closeBody: 'Sie verschwindet von der Karte und bleibt im Verlauf.', checkDue: 'Ist diese Anzeige noch aktuell? Aktualisiere die Restmenge oder schließe sie.', saved: 'Anzeige aktualisiert.', invalidRemaining: 'Gib eine ganze Zahl von 0 bis 10.000 ein.', ownerActions: 'Anzeige verwalten', completed: 'Abgeschlossen', inactive: 'Geschlossen', legacyHistory: 'Frühere Transaktionen', reminderTitle: 'Ist deine Anzeige noch aktuell?', reminderBody: 'Prüfe die Restmenge unter Meine Anzeigen.', contactNoticeTitle: 'Neuer Kontaktaustausch', contactNoticeBody: 'Die Angaben der Person findest du unter {{section}}.',
   },
 };
+
+const outcomeByLanguage = {
+  ru: {
+    contactGive: 'Заберу', contactTake: 'Отдам', contactWithin24: 'Свяжитесь по указанным контактам в течение 24 ч.', interestStatus: 'Проявлен интерес', interestCount: 'Открытых откликов: {{count}}',
+    outcomeQuestion: 'Как прошла сделка?', outcomeSuccess: 'Успешно', outcomeFailure: 'Не состоялась', outcomeTime: 'Не подошло время', outcomeRecipientDeclined: 'Получатель отказался', outcomeOwnerChangedMind: 'Автор передумал', outcomeOther: 'Другая причина',
+    outcomeComplete: 'Завершить объявление', outcomeRemaining: 'Осталось…', outcomeKeep: 'Оставить объявление', outcomeOwnerChoice: 'Только вы управляете остатком. Что сделать с объявлением?', outcomeReason: 'Причина', outcomeDetails: 'Пояснение (необязательно, до 500 символов)', outcomeSubmit: 'Сохранить ответ',
+    outcomeReasonRequired: 'Выберите причину.', outcomeDetailsLong: 'Сократите пояснение до 500 символов.', outcomeActionRequired: 'Выберите действие с объявлением.', outcomeInvalidRemaining: 'Укажите целое число от 1 до текущего остатка.',
+    myOutcome: 'Ваш ответ', partnerOutcome: 'Ответ участника', outcomeDueTitle: 'Как прошла сделка?', outcomeDueBody: 'Прошло 24 часа. Расскажите о результате в разделе «Сделки». Ответ каждого участника сохраняется отдельно.',
+  },
+  me: {
+    contactGive: 'Preuzeću', contactTake: 'Daću', contactWithin24: 'Javite se putem navedenih kontakata u roku od 24 sata.', interestStatus: 'Iskazano interesovanje', interestCount: 'Otvorena interesovanja: {{count}}',
+    outcomeQuestion: 'Kako je prošla razmjena?', outcomeSuccess: 'Uspješno', outcomeFailure: 'Nije realizovana', outcomeTime: 'Vrijeme nije odgovaralo', outcomeRecipientDeclined: 'Primalac je odustao', outcomeOwnerChangedMind: 'Autor se predomislio', outcomeOther: 'Drugi razlog',
+    outcomeComplete: 'Završi oglas', outcomeRemaining: 'Preostalo…', outcomeKeep: 'Ostavi oglas', outcomeOwnerChoice: 'Samo vi upravljate količinom. Šta uraditi sa oglasom?', outcomeReason: 'Razlog', outcomeDetails: 'Objašnjenje (opciono, do 500 znakova)', outcomeSubmit: 'Sačuvaj odgovor',
+    outcomeReasonRequired: 'Izaberite razlog.', outcomeDetailsLong: 'Skratite objašnjenje na 500 znakova.', outcomeActionRequired: 'Izaberite šta uraditi sa oglasom.', outcomeInvalidRemaining: 'Unesite cijeli broj od 1 do trenutne količine.',
+    myOutcome: 'Vaš odgovor', partnerOutcome: 'Odgovor učesnika', outcomeDueTitle: 'Kako je prošla razmjena?', outcomeDueBody: 'Prošla su 24 sata. Navedite rezultat u odjeljku „Razmjene“. Odgovori učesnika čuvaju se zasebno.',
+  },
+  en: {
+    contactGive: 'I’ll collect', contactTake: 'I’ll give', contactWithin24: 'Get in touch using these contacts within 24 hours.', interestStatus: 'Interest expressed', interestCount: 'Open interests: {{count}}',
+    outcomeQuestion: 'How did the deal go?', outcomeSuccess: 'Successful', outcomeFailure: 'Did not happen', outcomeTime: 'Timing did not work', outcomeRecipientDeclined: 'Recipient declined', outcomeOwnerChangedMind: 'Author changed their mind', outcomeOther: 'Other reason',
+    outcomeComplete: 'Complete listing', outcomeRemaining: 'Remaining…', outcomeKeep: 'Keep listing', outcomeOwnerChoice: 'Only you manage the remaining stock. What should happen to this listing?', outcomeReason: 'Reason', outcomeDetails: 'Explanation (optional, up to 500 characters)', outcomeSubmit: 'Save answer',
+    outcomeReasonRequired: 'Choose a reason.', outcomeDetailsLong: 'Shorten the explanation to 500 characters.', outcomeActionRequired: 'Choose what to do with the listing.', outcomeInvalidRemaining: 'Enter a whole number from 1 to the current remaining quantity.',
+    myOutcome: 'Your answer', partnerOutcome: 'Partner’s answer', outcomeDueTitle: 'How did the deal go?', outcomeDueBody: '24 hours have passed. Share the result in Deals. Each participant’s answer is saved separately.',
+  },
+  fr: {
+    contactGive: 'Je prends', contactTake: 'Je donne', contactWithin24: 'Prenez contact aux coordonnées indiquées sous 24 heures.', interestStatus: 'Intérêt manifesté', interestCount: 'Intérêts ouverts : {{count}}',
+    outcomeQuestion: 'Comment l’échange s’est-il passé ?', outcomeSuccess: 'Réussi', outcomeFailure: 'N’a pas eu lieu', outcomeTime: 'Horaires incompatibles', outcomeRecipientDeclined: 'Le destinataire a refusé', outcomeOwnerChangedMind: 'L’auteur a changé d’avis', outcomeOther: 'Autre raison',
+    outcomeComplete: 'Terminer l’annonce', outcomeRemaining: 'Quantité restante…', outcomeKeep: 'Garder l’annonce', outcomeOwnerChoice: 'Vous seul gérez le stock restant. Que faire de cette annonce ?', outcomeReason: 'Raison', outcomeDetails: 'Explication (facultative, 500 caractères maximum)', outcomeSubmit: 'Enregistrer la réponse',
+    outcomeReasonRequired: 'Choisissez une raison.', outcomeDetailsLong: 'Limitez l’explication à 500 caractères.', outcomeActionRequired: 'Choisissez une action pour l’annonce.', outcomeInvalidRemaining: 'Saisissez un entier entre 1 et la quantité restante.',
+    myOutcome: 'Votre réponse', partnerOutcome: 'Réponse du partenaire', outcomeDueTitle: 'Comment l’échange s’est-il passé ?', outcomeDueBody: '24 heures se sont écoulées. Indiquez le résultat dans Échanges. Chaque réponse est enregistrée séparément.',
+  },
+  de: {
+    contactGive: 'Ich hole es ab', contactTake: 'Ich gebe es ab', contactWithin24: 'Melde dich innerhalb von 24 Stunden über diese Kontakte.', interestStatus: 'Interesse bekundet', interestCount: 'Offene Interessen: {{count}}',
+    outcomeQuestion: 'Wie lief der Austausch?', outcomeSuccess: 'Erfolgreich', outcomeFailure: 'Nicht stattgefunden', outcomeTime: 'Zeitlich nicht gepasst', outcomeRecipientDeclined: 'Empfänger hat abgelehnt', outcomeOwnerChangedMind: 'Autor hat es sich anders überlegt', outcomeOther: 'Anderer Grund',
+    outcomeComplete: 'Anzeige abschließen', outcomeRemaining: 'Restmenge…', outcomeKeep: 'Anzeige behalten', outcomeOwnerChoice: 'Nur du verwaltest die Restmenge. Was soll mit der Anzeige geschehen?', outcomeReason: 'Grund', outcomeDetails: 'Erklärung (optional, bis zu 500 Zeichen)', outcomeSubmit: 'Antwort speichern',
+    outcomeReasonRequired: 'Wähle einen Grund.', outcomeDetailsLong: 'Kürze die Erklärung auf 500 Zeichen.', outcomeActionRequired: 'Wähle eine Aktion für die Anzeige.', outcomeInvalidRemaining: 'Gib eine ganze Zahl zwischen 1 und der aktuellen Restmenge ein.',
+    myOutcome: 'Deine Antwort', partnerOutcome: 'Antwort des Partners', outcomeDueTitle: 'Wie lief der Austausch?', outcomeDueBody: '24 Stunden sind vergangen. Teile das Ergebnis unter Austausche mit. Jede Antwort wird getrennt gespeichert.',
+  },
+};
+
+for (const language of Object.keys(simpleExchangeByLanguage)) Object.assign(simpleExchangeByLanguage[language], outcomeByLanguage[language]);
