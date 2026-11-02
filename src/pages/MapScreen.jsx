@@ -214,7 +214,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
     cancelLocation.current = requestBrowserLocation({
       onSuccess: (coordinates) => {
         locationInFlight.current = false; setLocationPending(false); setLocationIssue(false);
-        setLocation(coordinates); setRecenterRequest((request) => request + 1); setLocationMessage(t('map.located'));
+        setLocation(coordinates); setRecenterRequest((request) => request + 1); setLocationMessage('');
       },
       onError: (reason) => {
         locationInFlight.current = false; setLocationPending(false); setLocationIssue(true);
