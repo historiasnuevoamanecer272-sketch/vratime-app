@@ -1,7 +1,9 @@
 import importlib.util
 import pathlib
+import json
 import smtplib
 import unittest
+from unittest.mock import patch
 
 path = pathlib.Path(__file__).with_name('vratime-contact-mailer.py')
 if not path.exists():
@@ -34,17 +36,68 @@ class EmailTests(unittest.TestCase):
     def rpc(self, name, args):
         self.calls.append((name, args))
         return True
-    def test_private_contacts_and_exact_instruction(self):
+    def test_private_contacts_and_clear_followup(self):
         msg = mailer.message(CONFIG, JOB)
         self.assertEqual(msg['To'], JOB['email'])
-        self.assertIn('Свяжитесь по указанным контактам в течение 24 ч.', msg.get_content())
-        self.assertIn('@example', msg.get_content())
-        self.assertIn('https://vratime.vzdigital.online/', msg.get_content())
+        text = msg.get_body(preferencelist=('plain',)).get_content()
+        rich = msg.get_body(preferencelist=('html',)).get_content()
+        self.assertIn('ответить можно позже', text)
+        self.assertNotIn('Свяжитесь по указанным контактам в течение 24 ч.', text)
+        self.assertIn('@example', text)
+        self.assertIn('https://vratime.vzdigital.online/', text)
+        self.assertIn('href="https://t.me/example"', rich)
+        self.assertIn('Написать в Telegram', rich)
         self.assertNotIn('test-password', msg.as_string())
     def test_all_five_languages(self):
         for lang in ('ru','en','me','fr','de'):
-            msg = mailer.message(CONFIG, {**JOB, 'payload':{**JOB['payload'], 'language':lang}})
-            self.assertIn('24', msg.get_content())
+            for role in ('owner','requester','neutral'):
+                msg = mailer.message(CONFIG, {**JOB, 'recipient_role':role, 'payload':{**JOB['payload'], 'language':lang}})
+                self.assertIn('24', msg.get_body(preferencelist=('plain',)).get_content())
+                self.assertIn(f'lang="{lang}"', msg.get_body(preferencelist=('html',)).get_content())
+                self.assertIn('Банки', msg['Subject'])
+    def test_distinct_roles_and_unknown_role_fallback(self):
+        owner = mailer.message(CONFIG, {**JOB, 'recipient_role':'owner'})
+        requester = mailer.message(CONFIG, {**JOB, 'recipient_role':'requester'})
+        neutral = mailer.message(CONFIG, JOB)
+        self.assertEqual(owner['Subject'], 'Автор — отклик на ваше объявление «Банки»')
+        self.assertEqual(requester['Subject'], 'Контакты автора объявления «Банки»')
+        self.assertEqual(neutral['Subject'], 'Контакты по объявлению «Банки»')
+        self.assertIn('Вы откликнулись', requester.get_body(preferencelist=('plain',)).get_content())
+    def test_html_and_subject_escape_user_content(self):
+        msg = mailer.message(CONFIG, {**JOB, 'recipient_role':'owner', 'payload':{**JOB['payload'], 'category':'<img src=x onerror=alert(1)>', 'partner_name':'<script>\r\nBcc: evil@example.invalid</script>'}})
+        rich = msg.get_body(preferencelist=('html',)).get_content()
+        self.assertNotIn('<script>', rich)
+        self.assertNotIn('<img src=x', rich)
+        self.assertIn('&lt;img', rich)
+        self.assertIsNone(msg['Bcc'])
+        self.assertNotIn('\n', str(msg['Subject']))
+    def test_contact_links_are_allowlisted_and_normalized(self):
+        cases = [('tg','@valid_user','https://t.me/valid_user'), ('tg','https://t.me/valid_user','https://t.me/valid_user'), ('tg','+382 67 123 456','https://t.me/+38267123456'), ('wa','00382 67 123 456','https://wa.me/38267123456'), ('viber','+382 (67) 123-456','viber://chat?number=%2B38267123456')]
+        for channel, value, expected in cases:
+            self.assertEqual(mailer.contact_link(dict(messenger_type=channel, contact_value=value))[1], expected)
+        for channel,value in [('tg','https://evil.invalid/foo'),('tg','@abc" onclick="evil'),('wa','javascript:alert(1)'),('viber','123'),('email','a@example.invalid')]:
+            self.assertIsNone(mailer.contact_link(dict(messenger_type=channel,contact_value=value)))
+    def test_language_fallback_and_blank_labels(self):
+        msg=mailer.message(CONFIG,{**JOB,'payload':{'language':'unknown','category':'','partner_name':'','partner_contacts':[]}})
+        self.assertEqual(msg['Subject'],'Contacts for “Listing”')
+        self.assertIn('Participant',msg.get_body(preferencelist=('plain',)).get_content())
+    def test_role_lookup_uses_only_exact_private_job(self):
+        class Response:
+            def __init__(self, rows): self.raw=json.dumps(rows).encode()
+            def __enter__(self): return self
+            def __exit__(self,*args): pass
+            def read(self,limit): return self.raw[:limit]
+        for recipient, expected in [('owner','owner'),('requester','requester'),('stranger','neutral')]:
+            with patch.object(mailer.urllib.request,'build_opener') as build:
+                build.return_value.open.return_value=Response([{'recipient_id':recipient,'listing_contact_exchanges':{'owner_id':'owner','requester_id':'requester'}}])
+                self.assertEqual(mailer.resolve_recipient_role(CONFIG,JOB),expected)
+                request=build.return_value.open.call_args.args[0]
+                self.assertTrue(request.full_url.startswith(mailer.BASE+'/rest/v1/listing_contact_email_jobs?'))
+                self.assertIn(JOB['id'],request.full_url)
+                self.assertNotIn('test-key',request.full_url)
+        with patch.object(mailer.urllib.request,'build_opener') as build:
+            build.return_value.open.side_effect=TimeoutError('private provider details')
+            self.assertEqual(mailer.resolve_recipient_role(CONFIG,JOB),'neutral')
     def test_header_injection_refused(self):
         with self.assertRaises(ValueError): mailer.message(CONFIG, {**JOB, 'email':'a@b\r\nBcc: evil@example.invalid'})
     def test_success_receipt_only_after_acceptance(self):
