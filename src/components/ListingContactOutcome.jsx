@@ -7,6 +7,7 @@ import { friendlyError } from '../lib/userErrors';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import Icon from './Icon';
+import ContactCountdown from './ContactCountdown';
 
 const reasons = { time: 'outcomeTime', recipient_declined: 'outcomeRecipientDeclined', owner_changed_mind: 'outcomeOwnerChangedMind', other: 'outcomeOther' };
 
@@ -128,6 +129,7 @@ export default function ListingContactOutcome({ exchange, userId, active = true,
   const resultLabel = (outcome, reason) => <><span>{t(`simpleExchange.${outcome === 'success' ? 'outcomeSuccess' : 'outcomeFailure'}`)}</span>{outcome === 'failure' && reasons[reason] ? <small> · {t(`simpleExchange.${reasons[reason]}`)}</small> : null}</>;
   if (!current) return null;
   return <section className="contact-outcomes mt-4">
+    {!ownResult ? <ContactCountdown exchange={exchange} active={active} /> : null}
     {ownResult ? <p><strong>{t('simpleExchange.myOutcome')}: </strong>{resultLabel(ownResult, ownReason)}</p> : null}
     {exchange.partner_outcome ? <p><strong>{t('simpleExchange.partnerOutcome')}: </strong>{resultLabel(exchange.partner_outcome, exchange.partner_reason)}</p> : null}
     {canAnswer ? <button type="button" className="btn-secondary mt-3 w-full" disabled={saving} onClick={open}>{t('simpleExchange.outcomeQuestion')}</button> : null}

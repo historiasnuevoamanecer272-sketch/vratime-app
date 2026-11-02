@@ -8,6 +8,8 @@ import { getAppLanguage } from '../i18n';
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import ListingPhoto from '../components/ListingPhoto';
+import ContactCountdown from '../components/ContactCountdown';
+import { nextContactFollowup } from '../lib/contactFollowup';
 import CategoryIcon from '../components/CategoryIcon';
 import { groupedMapMarkerIcon, mapMarkerIcons } from '../lib/mapMarkers';
 import { groupPublicMapListings } from '../lib/mapListingGroups';
@@ -373,11 +375,12 @@ export default function MapScreen({ userId, active = true, focusListingId = null
           <div className="listing-dialog-scroll">
           {listingImages(selectedListing).length ? <div className="listing-dialog-gallery">{listingImages(selectedListing).map((imageUrl) => <ListingPhoto key={imageUrl} src={imageUrl} alt={listingCategoryLabel(selectedListing,language)} className="listing-dialog-image" active={active} />)}</div> : <span className="listing-dialog-placeholder"><CategoryIcon category={selectedListing} size={42} /></span>}
           <div className={`listing-kind mt-4 ${selectedListing.type}`}><Icon name={typeIcon(selectedListing)} size={14} />{t(typeLabel(selectedListing))}</div>
-          {selectedListing.active_interest_count > 0 ? <span className="interest-badge" title={t('simpleExchange.interestCount', { count: selectedListing.active_interest_count })}>{t('simpleExchange.interestStatus')} · {selectedListing.active_interest_count}</span> : null}
+          {selectedListing.active_interest_count > 0 ? <span className="interest-badge" title={t('simpleExchange.interestCount', { count: selectedListing.active_interest_count })}>{t(isOwnMapListing(selectedListing, userId) ? 'simpleExchange.ownerInterest' : exchangeFor(selectedListing.id) ? 'simpleExchange.yourInterest' : 'simpleExchange.interestStatus')}{!isOwnMapListing(selectedListing, userId) && exchangeFor(selectedListing.id) ? null : ` · ${selectedListing.active_interest_count}`}</span> : null}
           {isOwnMapListing(selectedListing, userId) ? <p className="listing-owner">{t('mapExperience.myListing')}</p> : null}
           <h2 className="font-display mt-3 text-3xl text-forest">{listingCategoryLabel(selectedListing, language)}</h2>
           <div className="listing-dialog-meta"><span><Icon name="box" size={13} />{t('common.pieces', { count: selectedListing.quantity })}</span><span><Icon name="location" size={13} />{distanceText(selectedListing)}</span>{formatListingDate(selectedListing.created_at, language) ? <span><Icon name="calendar" size={13} />{formatListingDate(selectedListing.created_at, language)}</span> : null}</div>
           <p className="listing-dialog-description">{selectedListing.description || t('map.noDescription')}</p>
+          <ContactCountdown exchange={nextContactFollowup(contactExchanges, selectedListing.id)} active={active && !contactListing && !reportListing} onDue={fetchData} onOpenDeals={onOpenContacts ? () => { setSelectedListing(null); onOpenContacts(); } : undefined} />
           {selectedListing.type === 'lend' && selectedListing.loan_duration_days ? <p className="mt-3 text-sm font-semibold text-forest"><Icon name="clock" size={16} /> {t('loanExperience.durationSummary', {days:selectedListing.loan_duration_days})}</p> : null}
           <p className="listing-dialog-note"><Icon name="message" size={16} />{t('simpleExchange.intro')}</p>
           {!isOwnMapListing(selectedListing, userId) ? <button type="button" className="btn-secondary mt-4 w-full" aria-pressed={favouriteIds.has(selectedListing.id)} onClick={() => toggleFavourite(selectedListing)}><Icon name="heart" filled={favouriteIds.has(selectedListing.id)} size={17} /><span>{favouriteIds.has(selectedListing.id) ? t('discovery.favourited') : t('discovery.favourite')}</span></button> : null}
@@ -393,6 +396,7 @@ export default function MapScreen({ userId, active = true, focusListingId = null
         <section ref={contactRef} {...contactFocus} className="map-contact-dialog card" aria-label={t(exchangeFor(contactListing.id) ? 'simpleExchange.contactsReady' : 'simpleExchange.consentTitle')} onMouseDown={(event) => event.stopPropagation()}>
           <Icon name="message" size={30} /><h2 className="font-display mt-3 text-3xl text-forest">{t(exchangeFor(contactListing.id) ? 'simpleExchange.contactsReady' : 'simpleExchange.consentTitle')}</h2>
           {exchangeFor(contactListing.id) ? <p className="mt-3 font-semibold">{t('simpleExchange.contactWithin24')}</p> : null}
+          <ContactCountdown exchange={nextContactFollowup(contactExchanges, contactListing.id)} active={active} onDue={fetchData} />
           {exchangeFor(contactListing.id) ? <><p className="mt-3 font-bold">{exchangeFor(contactListing.id).partner_name}</p><div className="contact-links map-private-contact-links">{exchangeFor(contactListing.id).contacts?.map((contact) => {
             const href = contactHref(contact);
             const channel = contactChannels.find(item => item.id === contact.messenger_type)?.label || contact.messenger_type?.toUpperCase();

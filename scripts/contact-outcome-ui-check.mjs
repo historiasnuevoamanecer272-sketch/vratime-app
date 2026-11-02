@@ -4,9 +4,10 @@ import { registerHooks } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { transformSync } from 'rolldown/utils';
 import { simpleExchangeByLanguage } from '../src/i18n/uxSimpleExchange.js';
+import { formatContactCountdown, nextContactFollowup } from '../src/lib/contactFollowup.js';
 
 const src=new URL('../src/',import.meta.url).href;
-const targets=['components/ListingContactOutcome.jsx','pages/SimpleDeals.jsx','pages/MapScreen.jsx','pages/Profile.jsx','components/DiscoveryInbox.jsx','pages/MyListings.jsx'].map(path=>new URL(path,src).href);
+const targets=['components/ListingContactOutcome.jsx','pages/SimpleDeals.jsx','pages/MapScreen.jsx','pages/Profile.jsx','components/DiscoveryInbox.jsx','pages/MyListings.jsx','components/ContactCountdown.jsx'].map(path=>new URL(path,src).href);
 assert.ok(existsSync(new URL(targets[0])),'Missing ListingContactOutcome component');
 const hook=registerHooks({
   resolve(specifier,context,next){
@@ -72,7 +73,7 @@ const emit=name=>{for(const fn of [...(listeners.get(name)||[])])fn({type:name})
 globalThis.window={navigator:{onLine:true},localStorage:{getItem:()=>null,setItem(){}},setTimeout:(fn,delay=0)=>{timers.set(++serial,{fn,due:now+delay});return serial;},clearTimeout:id=>timers.delete(id),setInterval:(fn,delay)=>{intervals.set(++serial,{fn,delay});return serial;},clearInterval:id=>intervals.delete(id),addEventListener:(key,fn)=>add(listeners,key,fn),removeEventListener:(key,fn)=>remove(listeners,key,fn),dispatchEvent:event=>{events.push(event.type);emit(event.type);},confirm:()=>true};
 globalThis.document={visibilityState:'visible',addEventListener:(key,fn)=>add(docListeners,key,fn),removeEventListener:(key,fn)=>remove(docListeners,key,fn)};globalThis.fetch=()=>{throw Error('Offline only');};
 try{
-  const [{default:Outcome},{default:Deals},{default:Map},{default:Profile},{default:Inbox},{default:MyListings},state,jsx,api,db,overlay,focus,markers]=await Promise.all([...targets.map(url=>import(url)),import('outcome-ui:hooks'),import('outcome-ui:jsx'),import('outcome-ui:api'),import('outcome-ui:db'),import('outcome-ui:overlay'),import('outcome-ui:focus'),import('../src/lib/mapMarkers.js')]);
+  const [{default:Outcome},{default:Deals},{default:Map},{default:Profile},{default:Inbox},{default:MyListings},{default:Countdown},state,jsx,api,db,overlay,focus,markers]=await Promise.all([...targets.map(url=>import(url)),import('outcome-ui:hooks'),import('outcome-ui:jsx'),import('outcome-ui:api'),import('outcome-ui:db'),import('outcome-ui:overlay'),import('outcome-ui:focus'),import('../src/lib/mapMarkers.js')]);
   const tick=()=>new Promise(resolve=>setImmediate(resolve));
   const runTimers=()=>{for(const [id,timer] of [...timers])if(timer.due<=now){timers.delete(id);timer.fn();}};
   const reset=()=>{state.reset();timers.clear();intervals.clear();listeners.clear();docListeners.clear();api.loads.length=0;api.mutations.length=0;api.interestReads.length=0;api.setCounts([]);db.rows.length=0;db.changeAccount('a');events.length=0;now=Date.parse('2026-11-01T00:00:00Z');};
@@ -89,6 +90,29 @@ try{
   await check('Russian exact messages and five-language outcome fields exist',async()=>{
     assert.equal(simpleExchangeByLanguage.ru.contactWithin24,'Свяжитесь по указанным контактам в течение 24 ч.');assert.equal(simpleExchangeByLanguage.ru.interestStatus,'Проявлен интерес');assert.equal(simpleExchangeByLanguage.ru.contactGive,'Заберу');assert.equal(simpleExchangeByLanguage.ru.contactTake,'Отдам');
     for(const lang of ['ru','me','en','fr','de'])for(const key of ['outcomeQuestion','outcomeSuccess','outcomeFailure','outcomeTime','outcomeRecipientDeclined','outcomeOwnerChangedMind','outcomeOther','outcomeComplete','outcomeRemaining','outcomeKeep','outcomeDueTitle','outcomeDueBody','myOutcome','partnerOutcome'])assert.ok(simpleExchangeByLanguage[lang][key],`${lang}:${key}`);
+  });
+  await check('Countdown rounds safely and selects the next unanswered exchange without mutating input',async()=>{
+    assert.equal(formatContactCountdown(86400000,0),'24:00:00');assert.equal(formatContactCountdown(1,0),'00:00:01');assert.equal(formatContactCountdown(0,1000),'00:00:00');assert.equal(formatContactCountdown(NaN,0),null);
+    const answered=exchange({exchange_id:'answered',my_outcome:'success'}),later=exchange({exchange_id:'later',feedback_due_at:'2026-11-03T00:00:00Z',feedback_available:false}),sooner=exchange({exchange_id:'sooner',feedback_due_at:'2026-11-02T00:00:00Z',feedback_available:false});
+    const rows=[answered,later,sooner];assert.equal(nextContactFollowup(rows,'listing-a'),sooner);assert.equal(nextContactFollowup(rows,'other'),null);assert.deepEqual(rows,[answered,later,sooner]);
+    assert.equal(nextContactFollowup([sooner,exchange({exchange_id:'ready',feedback_available:true})],'listing-a').exchange_id,'ready');
+  });
+  await check('Countdown ticks by elapsed time and refreshes once without inventing eligibility',async()=>{
+    reset();let refreshed=0;const props={exchange:exchange({feedback_due_at:new Date(now+86400000).toISOString(),feedback_available:false}),onDue:()=>{refreshed++;}};
+    assert.ok(text(render(Countdown,props)).includes('24:00:00'));now+=61000;for(const timer of intervals.values())timer.fn();assert.ok(text(render(Countdown,props)).includes('23:58:59'));
+    now+=86400000;for(const timer of intervals.values())timer.fn();await tick();render(Countdown,props);assert.equal(refreshed,1);assert.equal(button('simpleExchange.outcomeQuestion'),undefined);assert.ok(!jsx.elements.some(node=>node.type==='output'));
+    for(const timer of intervals.values())timer.fn();await tick();assert.equal(refreshed,1);
+  });
+  await check('Server eligibility wins over device clock and opens Deals only on user action',async()=>{
+    reset();let opened=0;const props={exchange:exchange({feedback_due_at:new Date(now+86400000).toISOString(),feedback_available:true}),onOpenDeals:()=>{opened++;}};
+    assert.ok(text(render(Countdown,props)).includes('simpleExchange.followupReady'));assert.equal(intervals.size,0);assert.equal(opened,0);button('simpleExchange.outcomeQuestion').onClick();assert.equal(opened,1);
+  });
+  await check('Hidden inactive answered and unmounted countdowns stop changing UI',async()=>{
+    reset();const props={exchange:exchange({feedback_due_at:new Date(now+86400000).toISOString(),feedback_available:false})};render(Countdown,props);const callback=[...intervals.values()][0].fn;
+    document.visibilityState='hidden';const before=state.writes;callback();assert.equal(state.writes,before);document.visibilityState='visible';callback();assert.ok(state.writes>before);
+    assert.equal(render(Countdown,{...props,active:false}),null);assert.equal(intervals.size,0);const retiredWrites=state.writes;callback();assert.equal(state.writes,retiredWrites);
+    assert.equal(render(Countdown,{exchange:{...props.exchange,my_outcome:'success'}}),null);assert.equal(intervals.size,0);
+    render(Countdown,props);const last=[...intervals.values()][0].fn;state.unmount();const unmountedWrites=state.writes;last();assert.equal(state.writes,unmountedWrites);assert.equal(intervals.size,0);
   });
   await check('authoritative due availability unlocks despite a slow device clock',async()=>{start({feedback_due_at:'2026-11-02T00:00:00Z',feedback_available:true});assert.ok(button('simpleExchange.outcomeQuestion'));});
   await check('fast device cannot unlock before server eligibility',async()=>{start({feedback_due_at:'2026-10-30T00:00:00Z',feedback_available:false});assert.equal(button('simpleExchange.outcomeQuestion'),undefined);});
