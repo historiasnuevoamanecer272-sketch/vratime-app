@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { getMyDeals, getMyListingContacts, submitReview } from '../lib/api';
 import { supabase } from '../supabaseClient';
 import { getAppLanguage } from '../i18n';
-import { contactHref } from '../lib/contacts';
+import { contactChannels, contactHref } from '../lib/contacts';
 import { listingCategoryLabel } from '../lib/categories';
 import { createFormTaskScope } from '../lib/formTaskScope';
 import { friendlyError } from '../lib/userErrors';
@@ -133,12 +133,12 @@ export default function SimpleDeals({ userId, active = true }) {
         {deal.image_url ? <ListingPhoto src={deal.image_url} className="deal-thumb" active={active} /> : <span className="deal-thumb deal-thumb-empty"><CategoryIcon category={deal} size={30} /></span>}
         <div className="min-w-0 flex-1"><p className="text-xs font-extrabold uppercase tracking-wider text-sea">{deal.partner_name || t('common.partner')}</p><h2 className="mt-1 text-lg font-extrabold text-forest">{listingCategoryLabel(deal, language)}</h2></div>
       </div>
-      {!legacy ? <><p className="mt-3 text-sm font-semibold">{t('simpleExchange.contactWithin24')}</p>{deal.listing_status === 'completed' ? <span className="status-pill status-completed">{t('simpleExchange.completed')}</span> : deal.listing_status && deal.listing_status !== 'active' ? <span className="status-pill">{t('simpleExchange.inactive')}</span> : deal.interest_active ? <span className="interest-badge" title={t('simpleExchange.interestCount', { count: deal.active_interest_count })}>{t('simpleExchange.interestStatus')} · {deal.active_interest_count}</span> : null}</> : null}
-      <div className="contact-card mt-4"><span className="icon-tile"><Icon name="message" size={19} /></span><div className="min-w-0"><small>{t('deals.contact')}</small>{contacts.length ? <div className="contact-links">{contacts.map((contact, index) => {
+      {!legacy ? <><p className="mt-3 text-sm font-semibold">{t('simpleExchange.contactWithin24')}</p>{deal.listing_status === 'completed' ? <span className="status-pill status-completed">{t('simpleExchange.completed')}</span> : deal.listing_status && deal.listing_status !== 'active' ? <span className="status-pill">{t('simpleExchange.inactive')}</span> : deal.interest_active ? <span className="interest-badge" title={deal.is_listing_owner ? t('simpleExchange.interestCount', { count: deal.active_interest_count }) : undefined}>{t(deal.is_listing_owner ? 'simpleExchange.ownerInterest' : 'simpleExchange.yourInterest')}{deal.is_listing_owner ? ` · ${deal.active_interest_count}` : null}</span> : null}</> : null}
+      <div className="contact-card contact-card-actions mt-4"><small>{t('deals.contact')}</small>{contacts.length ? <div className="contact-links">{contacts.map((contact, index) => {
         const href = contactHref(contact);
-        const label = `${contact.messenger_type?.toUpperCase() || ''} · ${contact.contact_value}`;
-        return href ? <a key={`${contact.messenger_type}-${index}`} href={href} target="_blank" rel="noreferrer">{label}</a> : <span key={`${contact.messenger_type}-${index}`}>{label}</span>;
-      })}</div> : <p>{t('deals.contactMissing')}</p>}</div></div>
+        const channel = contactChannels.find(item => item.id === contact.messenger_type)?.label || contact.messenger_type?.toUpperCase();
+        return href ? <a className="btn-primary contact-action" key={`${contact.messenger_type}-${index}`} href={href} target="_blank" rel="noreferrer"><Icon name="message" size={22} /><span className="contact-action-text"><strong>{t('simpleExchange.writeVia', { channel })}</strong><small>{contact.contact_value}</small></span><Icon name="arrowRight" size={20} /></a> : <span key={`${contact.messenger_type}-${index}`}>{contact.contact_value}</span>;
+      })}</div> : <p>{t('deals.contactMissing')}</p>}</div>
       {!legacy ? <ListingContactOutcome exchange={deal} userId={userId} active={active} onChanged={outcomeChanged} /> : null}
       {legacy && (deal.completed_at || deal.status === 'completed') && !deal.my_review_rating ? <button type="button" className="btn-secondary mt-4 w-full text-sm" onClick={() => { if (taskScope.capture().isCurrent()) { const session = {}; ratingSession.current = session; setRating({ scope: taskScope, session, deal }); } }}><Icon name="star" size={17} />{t('deals.rate')}</button> : null}
       {legacy && deal.my_review_rating ? <div className="mt-4 flex items-center gap-1 text-amber-500" aria-label={`${deal.my_review_rating}/5`}>{[1, 2, 3, 4, 5].map(value => <Icon key={value} name="star" size={17} filled={value <= deal.my_review_rating} />)}</div> : null}

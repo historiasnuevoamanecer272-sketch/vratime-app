@@ -1,4 +1,4 @@
-const tabs = new Set(['map', 'deals', 'profile']);
+const tabs = new Set(['map', 'deals', 'listings', 'profile']);
 const stateKey = 'vratimeNavigation';
 const readState = (state) => ({
   tab: tabs.has(state?.[stateKey]?.tab) ? state[stateKey].tab : 'map',

@@ -10,18 +10,15 @@ import { contactsToMap, emptyContactMap, validateContacts } from '../lib/contact
 import { showToast } from '../lib/toast';
 import Icon from '../components/Icon';
 import LanguageMenu from '../components/LanguageMenu';
-import CategoryIcon from '../components/CategoryIcon';
 import ContactChannelsFields from '../components/ContactChannelsFields';
 import SupportFund from '../components/SupportFund';
 import logo from '../assets/images/app-logo.png';
 import { LEVELS, getLevelProgress } from '../lib/levels';
-import ListingStatusManager from '../components/ListingStatusManager';
 import StaffPanel from '../components/StaffPanel';
 import DiscoveryInbox from '../components/DiscoveryInbox';
 import { prepareImage, imageErrorKey } from '../lib/imagePreparation';
 import { uploadUserMedia } from '../lib/mediaUploads';
 import MediaPreview, { AvatarCrop } from '../components/MediaPreview';
-import ListingPhoto from '../components/ListingPhoto';
 import { createFormTaskScope, prepareScopedPreview } from '../lib/formTaskScope';
 import { useAppOverlay } from '../hooks/useAppNavigation';
 import { useDialogFocus } from '../hooks/useDialogFocus';
@@ -33,7 +30,7 @@ function ProfileDealSection({ title, deals, language, t }) {
   return <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{title}</h2><span className="count-pill">{deals.length}</span></div>{deals.length ? <div className="mt-4 space-y-3">{deals.map((deal) => <article key={deal.transaction_id} className="profile-deal"><div className="min-w-0 flex-1"><strong>{listingCategoryLabel(deal, language)}</strong><small>{deal.partner_name || t('common.partner')} · {new Date(deal.created_at).toLocaleDateString(language === 'me' ? 'sr-ME' : language)}</small></div></article>)}</div> : <p className="empty-copy mt-4">{t('workflow.sectionEmpty')}</p>}</section>;
 }
 
-export default function Profile({ userId, onEditListing, onOpenDeals, active = true }) {
+export default function Profile({ userId, onOpenDeals, active = true }) {
   const { t } = useTranslation();
   const language = getAppLanguage();
   const cached = profileCache?.userId === userId ? profileCache : null;
@@ -386,7 +383,6 @@ export default function Profile({ userId, onEditListing, onOpenDeals, active = t
 
         <section className="card mt-4 p-5"><div className="section-head"><div><p className="eyebrow text-sea">VratiMe</p><h2 className="font-display mt-1 text-2xl text-forest">{t('profile.leaderboard')}</h2></div><Icon name="award" size={24} /></div><p className="mt-2 text-sm leading-6 text-muted">{t('profile.leaderboardText')}</p>{leaderboard.length ? <div className="leaderboard mt-4">{leaderboard.map((entry) => <div key={entry.user_id} className={`leaderboard-row ${entry.user_id === userId ? 'is-me' : ''}`}><b>{entry.rank}</b><span>{entry.full_name}</span><strong>{entry.eco_points}</strong></div>)}</div> : <p className="empty-copy mt-4">{t('profile.leaderboardEmpty')}</p>}</section>
 
-        <section className="card mt-4 p-5"><div className="section-head"><h2 className="font-display text-2xl text-forest">{t('profile.listings')}</h2><span className="count-pill">{listings.length}</span></div>{listings.length ? <div className="mt-4 space-y-3">{listings.map((listing) => <div key={listing.id} id={`my-listing-${listing.id}`}><article className={`profile-listing ${listing.status === 'active' && listing.active_interest_count > 0 ? 'is-interested' : ''}`}>{listing.image_url ? <ListingPhoto src={listing.image_url} alt={listingCategoryLabel(listing,language)} active={active} /> : <span><CategoryIcon category={listing} size={24} /></span>}<div className="min-w-0 flex-1"><strong>{listingCategoryLabel(listing, language)}</strong><small>{t('profile.available')}: {listing.available_quantity ?? listing.quantity} · {t(`status.${listing.status}`)}</small>{listing.status === 'active' && listing.active_interest_count > 0 ? <span className="interest-badge" data-interest-count={listing.active_interest_count} title={t('simpleExchange.interestCount', { count: listing.active_interest_count })}>{t('simpleExchange.interestStatus')} · {listing.active_interest_count}</span> : null}</div><button type="button" className="icon-button" onClick={() => onEditListing?.(listing)} aria-label={t('profile.editListing')}><Icon name="edit" size={17} /></button></article><ListingStatusManager listing={listing} userId={userId} active={active} onChanged={load} /></div>)}</div> : <p className="empty-copy mt-4">{t('profile.noListings')}</p>}</section>
 
         <ProfileDealSection title={t('simpleExchange.legacyHistory')} deals={dealHistory} language={language} t={t} />
 

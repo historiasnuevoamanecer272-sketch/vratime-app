@@ -6,7 +6,7 @@ import { transformSync } from 'rolldown/utils';
 import { simpleExchangeByLanguage } from '../src/i18n/uxSimpleExchange.js';
 
 const src=new URL('../src/',import.meta.url).href;
-const targets=['components/ListingContactOutcome.jsx','pages/SimpleDeals.jsx','pages/MapScreen.jsx','pages/Profile.jsx','components/DiscoveryInbox.jsx'].map(path=>new URL(path,src).href);
+const targets=['components/ListingContactOutcome.jsx','pages/SimpleDeals.jsx','pages/MapScreen.jsx','pages/Profile.jsx','components/DiscoveryInbox.jsx','pages/MyListings.jsx'].map(path=>new URL(path,src).href);
 assert.ok(existsSync(new URL(targets[0])),'Missing ListingContactOutcome component');
 const hook=registerHooks({
   resolve(specifier,context,next){
@@ -72,7 +72,7 @@ const emit=name=>{for(const fn of [...(listeners.get(name)||[])])fn({type:name})
 globalThis.window={navigator:{onLine:true},localStorage:{getItem:()=>null,setItem(){}},setTimeout:(fn,delay=0)=>{timers.set(++serial,{fn,due:now+delay});return serial;},clearTimeout:id=>timers.delete(id),setInterval:(fn,delay)=>{intervals.set(++serial,{fn,delay});return serial;},clearInterval:id=>intervals.delete(id),addEventListener:(key,fn)=>add(listeners,key,fn),removeEventListener:(key,fn)=>remove(listeners,key,fn),dispatchEvent:event=>{events.push(event.type);emit(event.type);},confirm:()=>true};
 globalThis.document={visibilityState:'visible',addEventListener:(key,fn)=>add(docListeners,key,fn),removeEventListener:(key,fn)=>remove(docListeners,key,fn)};globalThis.fetch=()=>{throw Error('Offline only');};
 try{
-  const [{default:Outcome},{default:Deals},{default:Map},{default:Profile},{default:Inbox},state,jsx,api,db,overlay,focus,markers]=await Promise.all([...targets.map(url=>import(url)),import('outcome-ui:hooks'),import('outcome-ui:jsx'),import('outcome-ui:api'),import('outcome-ui:db'),import('outcome-ui:overlay'),import('outcome-ui:focus'),import('../src/lib/mapMarkers.js')]);
+  const [{default:Outcome},{default:Deals},{default:Map},{default:Profile},{default:Inbox},{default:MyListings},state,jsx,api,db,overlay,focus,markers]=await Promise.all([...targets.map(url=>import(url)),import('outcome-ui:hooks'),import('outcome-ui:jsx'),import('outcome-ui:api'),import('outcome-ui:db'),import('outcome-ui:overlay'),import('outcome-ui:focus'),import('../src/lib/mapMarkers.js')]);
   const tick=()=>new Promise(resolve=>setImmediate(resolve));
   const runTimers=()=>{for(const [id,timer] of [...timers])if(timer.due<=now){timers.delete(id);timer.fn();}};
   const reset=()=>{state.reset();timers.clear();intervals.clear();listeners.clear();docListeners.clear();api.loads.length=0;api.mutations.length=0;api.interestReads.length=0;api.setCounts([]);db.rows.length=0;db.changeAccount('a');events.length=0;now=Date.parse('2026-11-01T00:00:00Z');};
@@ -120,7 +120,38 @@ try{
     await next.onClick();assert.equal(api.mutations.length,2,'old completion cannot remove current submit lock');
     api.mutations[1].reject(Error('offline'));await newPending;render(Map,{userId:'a'});assert.equal(button('simpleExchange.shareContacts').disabled,false);
   });
-  await check('own profile interest counts come from dedicated aggregate not limited contacts',async()=>{reset();db.rows.push(publicListing({id:'own',user_id:'a'}));api.setCounts([{listing_id:'own',active_interest_count:347}]);render(Profile,{userId:'a'});runTimers();await tick();render(Profile,{userId:'a'});assert.ok(api.interestReads.length>=1);const badge=jsx.elements.find(node=>node.props['data-interest-count']===347);assert.ok(badge);assert.ok(text(badge).includes('simpleExchange.interestStatus'));api.setCounts([{listing_id:'own',active_interest_count:348}]);emit('focus');await tick();render(Profile,{userId:'a'});assert.ok(jsx.elements.some(node=>node.props['data-interest-count']===348),'Retained owner card must refresh its authoritative count');});
+  await check('My listings owns the listing management and authoritative interest counts',async()=>{
+    reset(); const own=publicListing({id:'own',user_id:'a'}); db.rows.push(own,publicListing({id:'foreign',user_id:'b'})); api.setCounts([{listing_id:'own',active_interest_count:347}]);
+    let edited; const props={userId:'a',onEditListing:listing=>{edited=listing;}};
+    render(MyListings,props);runTimers();await tick();let tree=render(MyListings,props);
+    assert.ok(jsx.elements.some(node=>node.props.id==='my-listing-own'));
+    assert.ok(!jsx.elements.some(node=>node.props.id==='my-listing-foreign'));
+    const badge=jsx.elements.find(node=>node.props['data-interest-count']===347);assert.ok(badge);assert.ok(text(badge).includes('simpleExchange.ownerInterest'));
+    jsx.elements.find(node=>node.type==='button'&&node.props['aria-label']==='profile.editListing').props.onClick();assert.equal(edited.id,'own');
+    assert.ok(jsx.elements.some(node=>node.props.listing?.id==='own'&&typeof node.props.onChanged==='function'));
+    assert.ok(!text(tree).includes('workflow.ideaTitle'));
+    api.setCounts([{listing_id:'own',active_interest_count:348}]);emit('listings-updated');await tick();tree=render(MyListings,props);
+    assert.ok(jsx.elements.some(node=>node.props['data-interest-count']===348));
+    db.changeAccount('b');render(MyListings,props);assert.ok(!jsx.elements.some(node=>node.props.id==='my-listing-own'));
+  });
+  for(const retirement of ['account','inactive','unmount'])await check(`My listings drops a late private result after ${retirement}`,async()=>{
+    reset();db.rows.push(publicListing({id:'private',user_id:'a'}));let resolveCounts;api.setCounts(new Promise(resolve=>{resolveCounts=resolve;}));
+    render(MyListings,{userId:'a'});runTimers();await tick();
+    if(retirement==='account')db.changeAccount('b');else if(retirement==='inactive')render(MyListings,{userId:'a',active:false});else state.unmount();
+    const writes=state.writes;resolveCounts([]);await tick();assert.equal(state.writes,writes);
+  });
+  await check('Profile no longer contains the listings management block',async()=>{
+    reset();db.rows.push(publicListing({id:'own',user_id:'a'}));render(Profile,{userId:'a'});runTimers();await tick();render(Profile,{userId:'a'});
+    assert.ok(!jsx.elements.some(node=>String(node.props.id||'').startsWith('my-listing-')));
+  });
+  await check('Interest wording reflects author and requester roles',async()=>{
+    for(const is_listing_owner of [true,false]){
+      reset();render(Deals,{userId:'a'});runTimers();await tick();api.loads.find(x=>x.kind==='contacts').resolve([exchange({is_listing_owner})]);await tick();render(Deals,{userId:'a'});
+      const badge=jsx.elements.find(node=>node.props.className==='interest-badge');assert.ok(badge);
+      assert.equal(text(badge),is_listing_owner?'simpleExchange.ownerInterest · 3':'simpleExchange.yourInterest');
+      const link=jsx.elements.find(node=>node.type==='a'&&node.props.href==='https://t.me/other');assert.ok(link.props.className.includes('contact-action'));assert.ok(text(link).includes('simpleExchange.writeVia'));
+    }
+  });
   await check('private inbox notices render valid partner links and navigate to Deals',async()=>{reset();let opened=0;const p={userId:'a',onOpenDeals:()=>{opened++;}};render(Inbox,p);runTimers();await tick();api.loads.find(x=>x.kind==='feed').resolve({inbox:[{id:'contact',payload:{kind:'listing_contact',partner_contacts:[{messenger_type:'tg',contact_value:'@partner'},{messenger_type:'wa'}]}},{id:'due',payload:{kind:'listing_contact_outcome_due'}}]});await tick();const tree=render(Inbox,p);assert.ok(text(tree).includes('simpleExchange.contactWithin24'));assert.ok(text(tree).includes('simpleExchange.outcomeDueTitle'));assert.ok(!text(tree).includes('undefined'));assert.ok(jsx.elements.some(node=>node.type==='a'&&node.props.href==='https://t.me/partner'));button('simpleExchange.openContacts').onClick();assert.equal(opened,1);});
   reset();assert.deepEqual(failures,[],'Contact outcome UI regressions');console.log('Contact outcome UI checks passed: real JSX/handlers with controlled hooks/network; no browser claim.');
 }finally{hook.deregister();Object.assign(globalThis,{window:originals.window,document:originals.document,fetch:originals.fetch});Date.now=originals.now;}

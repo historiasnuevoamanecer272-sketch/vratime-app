@@ -61,6 +61,19 @@ await check('tab history ignores repeated taps and Back restores the preceding t
   navigation.dispose();
 });
 
+await check('My listings is a separate restorable tab with native Back and Forward', () => {
+  const host = historyHost(); const seen = [];
+  const navigation = historyModule.createAppHistory(host, state => seen.push(state));
+  assert.equal(navigation.navigate('listings'), true);
+  assert.equal(seen.at(-1).activeTab, 'listings');
+  navigation.navigate('profile');
+  host.history.back(); host.flush();
+  assert.equal(seen.at(-1).activeTab, 'listings');
+  host.history.forward(); host.flush();
+  assert.equal(seen.at(-1).activeTab, 'profile');
+  navigation.dispose();
+});
+
 await check('Back closes nested overlays once before leaving the tab', () => {
   assert.equal(typeof historyModule.createAppHistory, 'function', 'overlay history is missing');
   const host = historyHost(); const closed = [];

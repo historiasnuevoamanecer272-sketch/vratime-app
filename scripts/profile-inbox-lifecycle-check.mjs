@@ -8,14 +8,15 @@ import { transformSync } from 'rolldown/utils';
 // Network, React scheduling and nested children are the only controlled seams.
 const src = new URL('../src/', import.meta.url).href;
 const profileUrl = new URL('pages/Profile.jsx', src).href;
+const listingsUrl = new URL('pages/MyListings.jsx', src).href;
 const inboxUrl = new URL('components/DiscoveryInbox.jsx', src).href;
 const hooks = registerHooks({
   resolve(specifier, context, next) {
-    if ([profileUrl, inboxUrl].includes(context.parentURL)) {
+    if ([profileUrl, inboxUrl, listingsUrl].includes(context.parentURL)) {
       const seams = { react:'hooks', 'react/jsx-runtime':'jsx', 'react-i18next':'translation', '../i18n':'translation', '../supabaseClient':'database', '../lib/api':'api', '../lib/toast':'toast', '../hooks/useAppNavigation':'navigation', '../hooks/useDialogFocus':'navigation' };
       if (seams[specifier]) return {url:`profile-inbox:${seams[specifier]}`,shortCircuit:true};
       if (/ListingStatusManager$/.test(specifier)) return {url:'profile-inbox:manager',shortCircuit:true};
-      if ((context.parentURL === profileUrl && specifier.startsWith('../components/')) || (context.parentURL === inboxUrl && specifier.startsWith('./')) || specifier.endsWith('.png')) return {url:'profile-inbox:child',shortCircuit:true};
+      if (([profileUrl, listingsUrl].includes(context.parentURL) && specifier.startsWith('../components/')) || (context.parentURL === inboxUrl && specifier.startsWith('./')) || specifier.endsWith('.png')) return {url:'profile-inbox:child',shortCircuit:true};
     }
     if (context.parentURL?.startsWith(src) && specifier.startsWith('.')) {
       if (/supabaseClient(?:\.js)?$/.test(specifier)) return {url:'profile-inbox:database',shortCircuit:true};
@@ -72,7 +73,7 @@ const hooks = registerHooks({
         }});return chain;
       }};
     `);
-    if ([profileUrl, inboxUrl].includes(url)) {
+    if ([profileUrl, inboxUrl, listingsUrl].includes(url)) {
       const transformed = transformSync(fileURLToPath(url), readFileSync(new URL(url),'utf8'), {jsx:{runtime:'automatic'}});
       assert.equal(transformed.errors.length,0);return module(transformed.code);
     }
@@ -90,7 +91,7 @@ globalThis.window={navigator:{onLine:true},localStorage:{getItem:key=>stored.get
 globalThis.document={visibilityState:'visible',addEventListener:(key,fn)=>add(docListeners,key,fn),removeEventListener:(key,fn)=>remove(docListeners,key,fn)};
 globalThis.fetch=()=>{throw Error('Offline lifecycle fixture forbids network');};
 try {
-  const [{default:Profile},{default:Inbox},state,capture,api,db,toasts]=await Promise.all([import(profileUrl),import(inboxUrl),import('profile-inbox:hooks'),import('profile-inbox:jsx'),import('profile-inbox:api'),import('profile-inbox:database'),import('profile-inbox:toast')]);
+  const [{default:Profile},{default:Inbox},{default:MyListings},state,capture,api,db,toasts]=await Promise.all([import(profileUrl),import(inboxUrl),import(listingsUrl),import('profile-inbox:hooks'),import('profile-inbox:jsx'),import('profile-inbox:api'),import('profile-inbox:database'),import('profile-inbox:toast')]);
   const tick=()=>new Promise(resolve=>setImmediate(resolve));
   const runInitial=()=>{for(const [id,{fn,delay}] of [...timeouts])if(delay===0){timeouts.delete(id);fn();}};
   const poll=()=>{for(const {fn} of [...intervals.values()])fn();};
@@ -103,12 +104,13 @@ try {
   const resolve=async(name,index=api.requests.length-1)=>{assert.ok(api.requests[index],`missing request ${index}`);api.requests[index].resolve(feed(name));await tick();return render();};
   const failures=[];const check=async(name,test)=>{try{await test();console.log(`PASS ${name}`);}catch(error){failures.push(`${name}: ${error.stack}`);console.error(`FAIL ${name}: ${error.message}`);}};
 
-  await check('real Profile owner load retains canceled and completed listings after close refresh',async()=>{
+  await check('My listings retains closed history while Profile retains rewards and reviews',async()=>{
     reset();db.changeAccount('history-owner');db.rows.push(...['active','completed','canceled'].map((status,index)=>({id:`listing-${status}`,user_id:'history-owner',status,type:'give',category:'box',quantity:index+1,available_quantity:index+1,created_at:'2026-11-01T00:00:00Z'})));
-    const p={userId:'history-owner',active:true};render(Profile,p);runInitial();await tick();const tree=render(Profile,p);
+    const p={userId:'history-owner',active:true};render(MyListings,p);runInitial();await tick();render(MyListings,p);
     const managers=()=>capture.elements.filter(node=>typeof node.type==='function'&&node.type.name==='ListingStatusManager');
     assert.deepEqual(managers().map(node=>node.props.listing.status).sort(),['active','canceled','completed']);
-    const refresh=managers().find(node=>node.props.listing.id==='listing-active').props.onChanged;db.rows[0]={...db.rows[0],status:'canceled',available_quantity:0};await refresh();render(Profile,p);assert.equal(managers().length,3);assert.equal(managers().find(node=>node.props.listing.id==='listing-active').props.listing.status,'canceled');
+    const refresh=managers().find(node=>node.props.listing.id==='listing-active').props.onChanged;db.rows[0]={...db.rows[0],status:'canceled',available_quantity:0};await refresh();render(MyListings,p);assert.equal(managers().length,3);assert.equal(managers().find(node=>node.props.listing.id==='listing-active').props.listing.status,'canceled');
+    state.reset();render(Profile,p);runInitial();await tick();const tree=render(Profile,p);assert.equal(managers().length,0);
     for(const key of ['profile.allLevels','profile.achievements','profile.leaderboard','profile.reviews','reliability.title'])assert.ok(text(tree).includes(key),`Preserve ${key}`);
     assert.ok(text(tree).includes('ranked-fixture'));assert.ok(text(tree).includes('review-fixture'));assert.ok(db.queries.some(query=>query.table==='listings'&&query.filters.some(filter=>filter.op==='eq'&&filter.field==='user_id'&&filter.value==='history-owner')));
   });

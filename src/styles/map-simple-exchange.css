@@ -11,6 +11,7 @@
 .listing-card.is-interested, .deal-card.is-interested, .profile-listing.is-interested { border-color: #c48518; box-shadow: inset 3px 0 0 #c48518; }
 .interest-badge { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 5px 9px; border-radius: 8px; background: #fff1ce; color: #74500e; font-size: 12px; font-weight: 800; }
 .contact-outcomes p { margin-top: 8px; font-size: 14px; overflow-wrap: anywhere; }
+.profile-listing .interest-badge, .deal-card .interest-badge { max-width: 100%; overflow-wrap: anywhere; }
 
 .map-overlap-options {
   max-height: min(60svh, 520px);
@@ -30,4 +31,26 @@
 }
 
 .map-private-contact-links { margin: 20px 0; text-align: left; }
-.map-private-contact-links a { overflow-wrap: anywhere; min-height: 44px; display: flex; align-items: center; }
+.contact-card.contact-card-actions { display: block; }
+.contact-card-actions > small { margin-bottom: 10px; }
+.contact-card-actions .contact-links, .map-private-contact-links { gap: 10px; }
+.contact-links .contact-action {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  gap: 12px;
+  color: #fff;
+  background: var(--forest);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.contact-action-text { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.contact-action-text strong { font-size: .95rem; line-height: 1.35; }
+.contact-action .contact-action-text small { display: block; color: #fff; font-size: .8rem; font-weight: 500; text-transform: none; }
+.contact-links .contact-action:focus-visible { outline: 3px solid var(--forest); outline-offset: 3px; }
+.contact-links .contact-action:active { transform: translateY(1px); box-shadow: 0 3px 8px rgba(5, 108, 121, .2); }
+@media (prefers-reduced-motion: reduce) { .contact-links .contact-action { transition: none; transform: none; } }

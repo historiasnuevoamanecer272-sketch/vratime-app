@@ -126,7 +126,7 @@ const hooks = registerHooks({
       };
     `);
     if (url === 'account-test:navigation') return module(`
-      export const useAppNavigationState = () => ({ activeTab: 'profile', visitedTabs: ['map', 'profile'], overlayCount: 0, navigate() {}, context: {} });
+      export const useAppNavigationState = () => ({ activeTab: 'listings', visitedTabs: ['map', 'listings', 'profile'], overlayCount: 0, navigate() {}, context: {} });
     `);
     if (url === 'account-test:viewport') return module('export const observeVisualViewport = () => () => {};');
     if (url === 'account-test:child') return module('export default function OfflineChild() {}');

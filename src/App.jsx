@@ -24,6 +24,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const MapScreen = lazy(() => import('./pages/MapScreen'));
 const MyDeals = lazy(() => import('./pages/SimpleDeals'));
+const MyListings = lazy(() => import('./pages/MyListings'));
 const Profile = lazy(() => import('./pages/Profile'));
 const CreateListing = lazy(() => import('./pages/CreateListing'));
 
@@ -282,6 +283,7 @@ export default function App() {
     { id: 'map', label: t('nav.map'), icon: 'map' },
     { id: 'deals', label: t('nav.deals'), icon: 'handshake' },
     { id: 'create', label: t('nav.create'), icon: 'plus', action: true },
+    { id: 'listings', label: t('profile.listings'), icon: 'file' },
     { id: 'profile', label: t('nav.profile'), icon: 'user' },
   ];
 
@@ -293,7 +295,8 @@ export default function App() {
         <div key={session.user.id} inert={isCreating || undefined}>
           {visitedTabs.includes('map') ? <section className="app-tab" hidden={activeTab !== 'map'}><Suspense fallback={loadingView}><MapScreen active={activeTab === 'map' && !isCreating} userId={session.user.id} focusListingId={mapFocusListingId} onFocusHandled={(id) => setMapFocusListingId((current) => current === id ? null : current)} onOpenContacts={() => navigate('deals')} onCreate={() => openCreation()} /></Suspense></section> : null}
           {visitedTabs.includes('deals') ? <section className="app-tab" hidden={activeTab !== 'deals'}><Suspense fallback={loadingView}><MyDeals userId={session.user.id} active={activeTab === 'deals' && !isCreating} /></Suspense></section> : null}
-          {visitedTabs.includes('profile') ? <section className="app-tab" hidden={activeTab !== 'profile'}><Suspense fallback={loadingView}><Profile active={activeTab === 'profile' && !isCreating} userId={session.user.id} onEditListing={openCreation} onOpenDeals={() => navigate('deals')} /></Suspense></section> : null}
+          {visitedTabs.includes('listings') ? <section className="app-tab" hidden={activeTab !== 'listings'}><Suspense fallback={loadingView}><MyListings userId={session.user.id} active={activeTab === 'listings' && !isCreating} onEditListing={openCreation} /></Suspense></section> : null}
+          {visitedTabs.includes('profile') ? <section className="app-tab" hidden={activeTab !== 'profile'}><Suspense fallback={loadingView}><Profile active={activeTab === 'profile' && !isCreating} userId={session.user.id} onOpenDeals={() => navigate('deals')} /></Suspense></section> : null}
 
           <nav className="bottom-nav" aria-label={t('nav.label')}>
             <div className="bottom-nav-inner">
@@ -310,7 +313,7 @@ export default function App() {
           </nav>
         </div>
 
-        {isCreating ? <Suspense fallback={loadingView}><CreationLayer key={`${session.user.id}:${creationGeneration}`} onClose={closeCreation}><CreateListing userId={session.user.id} editingListing={editingListing} onBusyChange={onCreationBusy} onBack={closeCreation} onSuccess={(id) => { if (creationGenerationRef.current !== creationGeneration) return; creationBusyRef.current = false; markInstallMilestone('listing'); const destination = editingListing ? 'profile' : 'map'; if (!editingListing) setMapFocusListingId(id); closeCreation(); navigate(destination); }} /></CreationLayer></Suspense> : null}
+        {isCreating ? <Suspense fallback={loadingView}><CreationLayer key={`${session.user.id}:${creationGeneration}`} onClose={closeCreation}><CreateListing userId={session.user.id} editingListing={editingListing} onBusyChange={onCreationBusy} onBack={closeCreation} onSuccess={(id) => { if (creationGenerationRef.current !== creationGeneration) return; creationBusyRef.current = false; markInstallMilestone('listing'); const destination = editingListing ? 'listings' : 'map'; if (!editingListing) setMapFocusListingId(id); closeCreation(); navigate(destination); }} /></CreationLayer></Suspense> : null}
       </AppScreenBoundary>
       {toastStack}
     </div>
